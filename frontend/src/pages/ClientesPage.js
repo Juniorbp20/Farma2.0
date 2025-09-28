@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from "react";
 import ClienteForm from "../components/ClienteForm";
 import ClientesList from "../components/ClientesList";
+import CustomButton from "../components/recursos/CustomButton";
+import Toast from "../components/recursos/Toast";
+
 import {
   getClientes,
   getTiposDocumentos,
@@ -25,15 +28,12 @@ function ClientesPage({ user }) {
   // Vistas: 'inicio', 'agregar', 'ver'
   const [vistaActual, setVistaActual] = useState("inicio");
 
-  useEffect(() => { cargarDatos(); }, []);
+  // Para la notificacion
+  const [toastKey, setToastKey] = useState(Date.now());
 
-  // Ocultar el mensaje después de 5s
   useEffect(() => {
-    if (mensaje) {
-      const timer = setTimeout(() => setMensaje(""), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [mensaje]);
+    cargarDatos();
+  }, []);
 
   const cargarDatos = async () => {
     setClientes(await getClientes());
@@ -53,15 +53,30 @@ function ClientesPage({ user }) {
       }
       setTipoMensaje("success");
       await cargarDatos();
+      setToastKey(Date.now());
+      return true;
     } catch (err) {
-      setMensaje("Ocurrió un error: " + err.message);
+      const mensajeDeError = err.response?.data?.message || err.message;
+      setMensaje("Ocurrió un error: " + mensajeDeError);
       setTipoMensaje("error");
+      setToastKey(Date.now());
+      return false;
     }
   };
 
-  const handleEdit = (cliente) => { setClienteEditando(cliente); setShowModalEditar(true); };
-  const handleVolver = () => { setVistaActual("inicio"); setMensaje(""); setClienteEditando(null); };
-  const abrirModalEliminar = (cliente) => { setClienteSeleccionado(cliente); setShowModalEliminar(true); };
+  const handleEdit = (cliente) => {
+    setClienteEditando(cliente);
+    setShowModalEditar(true);
+  };
+  const handleVolver = () => {
+    setVistaActual("inicio");
+    setMensaje("");
+    setClienteEditando(null);
+  };
+  const abrirModalEliminar = (cliente) => {
+    setClienteSeleccionado(cliente);
+    setShowModalEliminar(true);
+  };
 
   const confirmarEliminar = async () => {
     if (!clienteSeleccionado) return;
@@ -71,28 +86,47 @@ function ClientesPage({ user }) {
       setTipoMensaje("success");
       await cargarDatos();
     } catch (err) {
-      setMensaje("Ocurrió un error: " + err.message);
+      const mensajeDeError = err.response?.data?.message || err.message;
+      setMensaje("Ocurrió un error: " + mensajeDeError);
       setTipoMensaje("error");
     } finally {
+      setToastKey(Date.now());
       setShowModalEliminar(false);
       setClienteSeleccionado(null);
     }
   };
 
-  const cancelarEliminar = () => { setShowModalEliminar(false); setClienteSeleccionado(null); };
-  const cancelarEdicion = () => { setShowModalEditar(false); setClienteEditando(null); };
+  const cancelarEliminar = () => {
+    setShowModalEliminar(false);
+    setClienteSeleccionado(null);
+  };
+  const cancelarEdicion = () => {
+    setShowModalEditar(false);
+    setClienteEditando(null);
+  };
 
   return (
     <div className="clientes-page-container container py-3">
       <div className="mb-3">
-        <h1 className="page-title">Gestión de Clientes</h1>
+        {vistaActual === "inicio" && (
+          <h1 className="page-title display-5 fw-bold text-uppercase text-center opacity-75">
+            Gestión de Clientes
+          </h1>
+        )}
+        {vistaActual === "agregar" && (
+          <h1 className="page-title display-5 fw-bold text-center opacity-75">
+            Agregar cliente:
+          </h1>
+        )}
+        {vistaActual === "ver" && (
+          <h1 className="page-title display-5 fw-bold text-center opacity-75">
+            Lista de clientes:
+          </h1>
+        )}
       </div>
 
-      {mensaje && (
-        <div className="mensaje-container">
-          <div className={`mensaje mensaje-${tipoMensaje}`}>{mensaje}</div>
-        </div>
-      )}
+      {/*Notificaciones de errores o cambios*/}
+      <Toast key={toastKey} message={mensaje} type={tipoMensaje} />
 
       {vistaActual === "inicio" && (
         <div className="tarjetas-container">
@@ -113,21 +147,23 @@ function ClientesPage({ user }) {
 
       {vistaActual === "agregar" && (
         <>
-          <button className="btn-volver" onClick={handleVolver}>
-            <i className="bi bi-arrow-left-square"></i> Volver
-          </button>
+          <CustomButton onClick={handleVolver} />
           <div className="clientes-form-wrapper">
-            <h2 className="form-title">{clienteEditando ? "Editar cliente:" : "Agregar cliente:"}</h2>
-            <ClienteForm onSubmit={handleSubmit} clienteEditando={clienteEditando} tiposDocumentos={tiposDocumentos} />
+            <h2 className="form-title">
+              {clienteEditando ? "Editar cliente:" : ""}
+            </h2>
+            <ClienteForm
+              onSubmit={handleSubmit}
+              clienteEditando={clienteEditando}
+              tiposDocumentos={tiposDocumentos}
+            />
           </div>
         </>
       )}
 
       {vistaActual === "ver" && (
         <>
-          <button className="btn-volver" onClick={handleVolver}>
-            <i className="bi bi-arrow-left-square"></i> Volver
-          </button>
+          <CustomButton onClick={handleVolver} />
           <div className="clientes-list-wrapper">
             <ClientesList
               clientes={clientes}
@@ -146,14 +182,23 @@ function ClientesPage({ user }) {
           <div className="modal-content modal-delete-content">
             <h3>Confirmar Borrado</h3>
             <p>
-              ¿Desea borrar al cliente <strong>{clienteSeleccionado.Nombres} {clienteSeleccionado.Apellidos}</strong>?
+              ¿Desea borrar al cliente{" "}
+              <strong>
+                {clienteSeleccionado.Nombres} {clienteSeleccionado.Apellidos}
+              </strong>
+              ?
             </p>
             <p>
-              Documento: <b>[{clienteSeleccionado.TipoDocumento}]</b> {clienteSeleccionado.Documento}
+              Documento: <b>[{clienteSeleccionado.TipoDocumento}]</b>{" "}
+              {clienteSeleccionado.Documento}
             </p>
             <div className="modal-buttons">
-              <button className="btn btn-confirm" onClick={confirmarEliminar}>Confirmar</button>
-              <button className="btn btn-cancel" onClick={cancelarEliminar}>Cancelar</button>
+              <button className="btn btn-confirm" onClick={confirmarEliminar}>
+                Confirmar
+              </button>
+              <button className="btn btn-cancel" onClick={cancelarEliminar}>
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
@@ -163,11 +208,16 @@ function ClientesPage({ user }) {
       {showModalEditar && clienteEditando && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <div className="d-flex justify-content-between align-items-center">
-              <h3>Editar Cliente</h3>
-              <button className="btn btn-outline-secondary btn-sm" onClick={cancelarEdicion}>Cerrar</button>
+            <div className="d-flex">
+              <button className="btn-modal" onClick={cancelarEdicion}>
+                <i className="bi bi-x-lg"></i>
+              </button>
             </div>
-            <ClienteForm onSubmit={handleSubmit} clienteEditando={clienteEditando} tiposDocumentos={tiposDocumentos} />
+            <ClienteForm
+              onSubmit={handleSubmit}
+              clienteEditando={clienteEditando}
+              tiposDocumentos={tiposDocumentos}
+            />
           </div>
         </div>
       )}
@@ -176,4 +226,3 @@ function ClientesPage({ user }) {
 }
 
 export default ClientesPage;
-

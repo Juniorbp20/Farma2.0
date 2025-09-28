@@ -3,17 +3,21 @@ import React from 'react';
 
 function Card({ icon, title, desc, action, disabled }) {
   return (
-    <div className={`col-12 col-sm-6 col-lg-4 mb-3`}>
-      <div className={`card h-100 shadow-sm ${disabled ? 'opacity-75' : ''}`}>
+    <div className={`col-12 col-sm-6 col-lg-3 mb-3`}>
+      <div className={`card card-menu-home h-100 shadow-sm ${disabled ? 'opacity-25' : ''}`} onClick={disabled ? null : action} style={{ cursor: disabled ? 'default' : 'pointer' }}>
         <div className="card-body d-flex flex-column">
-          <div className="d-flex align-items-center mb-2">
-            <i className={`bi ${icon} me-2`} style={{ fontSize: 28, color: '#0d6efd' }}></i>
-            <h5 className="card-title mb-0">{title}</h5>
+          
+          {/* INICIO: Nueva estructura para Icono (Arriba) y Título (Abajo) */}
+          <div className="d-flex flex-column align-items-center mb-3">
+            <i className={`bi ${icon}`} style={{ fontSize: 48, color: '#0d6efd' }}></i>
+            <h5 className="card-title mt-2 mb-0 text-center">{title}</h5>
           </div>
-          <p className="card-text flex-grow-1 text-muted">{desc}</p>
-          <button className="btn btn-primary mt-2" onClick={action} disabled={disabled}>
+          {/* FIN: Nueva estructura */}
+          
+          <p className="card-text flex-grow-1 text-muted text-center">{desc}</p>
+          {/* <button className="btn btn-primary mt-auto" onClick={action} disabled={disabled}>
             Abrir
-          </button>
+          </button> */}
         </div>
       </div>
     </div>
@@ -23,17 +27,37 @@ function Card({ icon, title, desc, action, disabled }) {
 function HomePage({ user, onNavigate }) {
   const isAdmin = user?.rol === 'admin';
 
+  // Utiliza el nombre completo si existe, de lo contrario, usa el nombre de usuario
+  const displayName = [user?.nombres, user?.apellidos].filter(Boolean).join(' ') || user?.username;
+
   return (
     <div className="container py-4">
-      <div className="mb-4">
-        <h1 className="display-6">Bienvenido{user?.username ? `, ${user.username}` : ''}</h1>
-        <p className="text-muted mb-1">Panel principal del sistema farmacéutico.</p>
-        <span className="badge bg-secondary text-uppercase">{user?.rol}</span>
+      <div className="mb-4 text-center user-select-none">
+        <div className="status-block">
+            <div className="status-indicator">
+              <div className="status-dot-container">
+                <span className="status-dot"></span>
+              </div>
+              <span>En Línea</span>
+            </div>
+        </div>
+        <h1 className="display-4 fw-bold text-uppercase opacity-75">Bienvenido a FManager</h1>
+        <div className="d-flex justify-content-center gap-2">
+          <div className="info-block bg-primary text-white p-2 px-3 rounded-2 shadow-sm text-uppercase fw-bold">
+            {displayName}
+          </div>
+
+          <div className="info-block bg-primary text-white p-2 px-3 rounded-2 shadow-sm text-uppercase fw-bold">
+            {user?.rol} - {user?.username}
+          </div>
+        </div>
+        <p className="text-muted mt-2 opacity-75">Panel principal del sistema farmacéutico.</p>
       </div>
 
       <div className="row">
+        
         <Card
-          icon="bi-cash-register"
+          icon="bi-cart"
           title="Punto de Venta"
           desc="Registrar ventas, aplicar descuentos y emitir comprobantes."
           action={() => onNavigate('pos')}

@@ -21,7 +21,7 @@ async function login(req, res) {
     const baseRequest = pool.request().input('Username', sql.NVarChar(50), username);
     const queryWithRole = `
       SELECT TOP 1 
-        u.UsuarioID, u.Username, u.PasswordUser, u.RolID, u.Activo,
+        u.UsuarioID, u.Username, u.PasswordUser, u.RolID, u.Activo, u.Nombres, u.Apellidos,
         r.NombreRol AS RolNombre
       FROM dbo.Usuarios u
       LEFT JOIN dbo.Roles r ON r.RolID = u.RolID
@@ -34,7 +34,7 @@ async function login(req, res) {
       // Si la tabla Roles no existe, hacer consulta sin join
       if ((e && e.message || '').includes('Invalid object name') && (e.message || '').includes('Roles')) {
         result = await baseRequest.query(`
-          SELECT TOP 1 u.UsuarioID, u.Username, u.PasswordUser, u.RolID, u.Activo
+          SELECT TOP 1 u.UsuarioID, u.Username, u.PasswordUser, u.RolID, u.Activo, u.Nombres, u.Apellidos
           FROM dbo.Usuarios u
           WHERE LOWER(LTRIM(RTRIM(u.Username))) = LOWER(LTRIM(RTRIM(@Username)))
         `);
@@ -47,6 +47,7 @@ async function login(req, res) {
     const user = result.recordset[0];
     if (!user.Activo) return res.status(403).json({ message: 'Usuario inactivo' });
 
+    // La lógica de comparación de contraseñas es necesaria aquí
     const ok = await bcrypt.compare(password, user.PasswordUser || '');
     if (!ok) return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
 
@@ -61,7 +62,7 @@ async function login(req, res) {
       console.log('login ok:', { username: user.Username, rol, rolId: user.RolID });
     }
 
-    res.json({ token, user: { id: user.UsuarioID, username: user.Username, rol, rolId: user.RolID } });
+    res.json({ token, user: { id: user.UsuarioID, username: user.Username, nombres: user.Nombres, apellidos: user.Apellidos, rol, rolId: user.RolID } });
   } catch (err) {
     console.error('Error en login:', err);
     res.status(500).json({ message: 'Error en el servidor' });

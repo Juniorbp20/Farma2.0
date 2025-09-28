@@ -1,64 +1,173 @@
 // src/components/ClientesList.js
-import React from "react";
+import React, { useState } from "react";
+import DataTable from "react-data-table-component";
 
-function ClientesList({ clientes, onEdit, onDelete, canEdit = true, canDelete = true }) {
+function ClientesList({
+  clientes,
+  onEdit,
+  onDelete,
+  canEdit = true,
+  canDelete = true,
+}) {
+  const [busqueda, setBusqueda] = useState("");
+
+  const columns = [
+    {
+      name: "ID",
+      selector: (row) => row.ClienteID,
+      sortable: true,
+      width: "80px",
+      wrap: true,
+    },
+    {
+      name: "Nombres",
+      selector: (row) => row.Nombres,
+      sortable: true,
+      width: "150px",
+      wrap: true,
+    },
+    {
+      name: "Apellidos",
+      selector: (row) => row.Apellidos,
+      sortable: true,
+      width: "150px",
+      wrap: true,
+    },
+    {
+      name: "Tipo Documento",
+      selector: (row) => row.TipoDocumento,
+      sortable: true,
+      width: "150px",
+      wrap: true,
+    },
+    {
+      name: "Documento",
+      selector: (row) => row.Documento,
+      sortable: true,
+      width: "120px",
+      wrap: true,
+    },
+    {
+      name: "Teléfono",
+      selector: (row) => row.Telefono || "-",
+      sortable: true,
+      width: "120px",
+      wrap: true,
+    },
+    {
+      name: "Dirección",
+      selector: (row) => row.Direccion || "-",
+      sortable: true,
+      width: "150px",
+      wrap: true,
+    },
+    {
+      name: "Fecha Creación",
+      selector: (row) => new Date(row.FechaCreacion).toLocaleDateString(),
+      sortable: true,
+      width: "120px",
+      wrap: true,
+    },
+    {
+      name: "Fecha Modificación",
+      selector: (row) =>
+        row.FechaModificacion
+          ? new Date(row.FechaModificacion).toLocaleDateString()
+          : "-",
+      sortable: true,
+      width: "120px",
+      wrap: true,
+    },
+    {
+      name: "Acciones",
+      cell: (row) => (
+        <div className="btn-accion-contenedor">
+          {canEdit && (
+            <button
+              className="btn btn-edit btn-sm me-1"
+              onClick={() => onEdit && onEdit(row)}
+            >
+              <i className="bi bi-pencil-fill"></i>
+            </button>
+          )}
+          {canDelete && (
+            <button
+              className="btn btn-delete btn-sm"
+              onClick={() => onDelete && onDelete(row)}
+            >
+              <i className="bi bi-trash-fill"></i>
+            </button>
+          )}
+        </div>
+      ),
+      width: "100px",
+    },
+  ];
+
+  const paginacionOpciones = {
+    rowsPerPageText: "Filas:",
+    rangeSeparatorText: "de",
+    selectAllRowsItem: true,
+    selectAllRowsItemText: "Todo",
+  };
+
+  // Filtrar clientes según búsqueda
+  const clientesFiltrados = clientes.filter((cliente) =>
+    Object.values(cliente).some((valor) =>
+      String(valor).toLowerCase().includes(busqueda.toLowerCase())
+    )
+  );
+
   return (
-    <div className="clientes-list-container table-responsive mt-4">
-      <table className="table table-striped table-bordered table-hover">
-        <thead className="table-dark">
-          <tr>
-            <th>ID</th>
-            <th>Nombres</th>
-            <th>Apellidos</th>
-            <th>Tipo Documento</th>
-            <th>Documento</th>
-            <th>Teléfono</th>
-            <th>Dirección</th>
-            <th>Fecha Creación</th>
-            <th>Fecha Modificación</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {clientes.map((c) => (
-            <tr key={c.ClienteID}>
-              <td>{c.ClienteID}</td>
-              <td>{c.Nombres}</td>
-              <td>{c.Apellidos}</td>
-              <td>{c.TipoDocumento}</td>
-              <td>{c.Documento}</td>
-              <td>{c.Telefono || "-"}</td>
-              <td>{c.Direccion || "-"}</td>
-              <td>{new Date(c.FechaCreacion).toLocaleDateString()}</td>
-              <td>{c.FechaModificacion ? new Date(c.FechaModificacion).toLocaleDateString() : "-"}</td>
+    <div className="clientes-list-container">
+      {/* Input de búsqueda */}
+      <div style={{ display: "flex", backgroundColor: "#FFFFFF", justifyContent: "flex-end"}}>
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Buscar en toda la tabla..."
+          value={busqueda}
+          style={{
+            width: "400px",
+            outline: "none",
+            boxShadow: "none",
+          }}
+          onFocus={(e) => (e.target.style.boxShadow = "none")}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+      </div>
 
-              <td>
-                {canEdit && (
-                  <button
-                    className="btn btn-edit btn-sm me-2"
-                    onClick={() => onEdit && onEdit(c)}
-                    title="Editar"
-                  >
-                    <i className="bi bi-pencil-fill"></i>
-                  </button>
-                )}
-                {canDelete && (
-                  <button
-                    className="btn btn-delete btn-sm"
-                    onClick={() => onDelete && onDelete(c)}
-                    title="Eliminar"
-                  >
-                    <i className="bi bi-trash-fill"></i>
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        columns={columns}
+        data={clientesFiltrados}
+        pagination
+        highlightOnHover
+        responsive
+        striped
+        className="table table-striped table-bordered table-hover"
+        noWrap={false}
+        paginationComponentOptions={paginacionOpciones}
+        paginationPerPage={10}
+        paginationRowsPerPageOptions={[5, 10, 20, 50, 100]}
+        noDataComponent="No se encontraron datos que coincidan con la búsqueda"
+        customStyles={{
+          cells: {
+            style: {
+              whiteSpace: "normal !important",
+              overflow: "visible !important",
+              wordWrap: "break-word !important",
+              textOverflow: "initial !important",
+            },
+          },
+          headCells: {
+            style: {
+              whiteSpace: "normal !important",
+            },
+          },
+        }}
+      />
     </div>
   );
 }
 
 export default ClientesList;
-

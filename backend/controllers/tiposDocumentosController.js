@@ -14,7 +14,10 @@ const getTiposDocumentos = async (req, res) => {
         res.json(result.recordset);
     } catch (err) {
         console.error("Error obteniendo tipos de documentos:", err);
-        res.status(500).send("Error en la base de datos");
+        res.status(500).json({ 
+            message: "Error en la base de datos",
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
     }
 };
 

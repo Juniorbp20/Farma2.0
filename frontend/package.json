@@ -9,7 +9,9 @@
     "@testing-library/user-event": "^13.5.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
+    "gsap": "^3.13.0",
     "react": "^19.1.1",
+    "react-data-table-component": "^7.7.0",
     "react-dom": "^19.1.1",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
