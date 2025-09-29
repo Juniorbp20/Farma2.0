@@ -63,6 +63,12 @@ function HomePage({ user, onNavigate }) {
           action={() => onNavigate('pos')}
         />
         <Card
+          icon="bi-graph-up"
+          title="Dashboard"
+          desc="Estadísticas y resumen general del sistema."
+          action={() => onNavigate('dashboard')}
+        />
+        <Card
           icon="bi-people"
           title="Clientes"
           desc="Gestione clientes: crear, actualizar y desactivar."

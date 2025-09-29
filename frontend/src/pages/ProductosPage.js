@@ -1,6 +1,9 @@
 // src/pages/ProductosPage.js
 import React, { useEffect, useMemo, useState } from 'react';
 import { getProductos, createProducto, updateProducto, deleteProducto } from '../services/productsService';
+import { formatCurrency } from '../utils/formatters';
+import ConfirmModal from '../components/ConfirmModal';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 function ProductoForm({ initial, onSubmit, onCancel }) {
   const [form, setForm] = useState(() => initial || { Nombre: '', Presentacion: '', Precio: '', StockMinimo: 10 });
@@ -40,6 +43,8 @@ export default function ProductosPage() {
   const [ok, setOk] = useState('');
   const [filter, setFilter] = useState('');
   const [editing, setEditing] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
 
   const load = async () => {
     setLoading(true); setError(''); setOk('');
@@ -77,23 +82,32 @@ export default function ProductosPage() {
   };
 
   const onDelete = async (p) => {
-    if (!window.confirm(`¿Eliminar ${p.Nombre}?`)) return;
     try {
       setError(''); setOk('');
-      await deleteProducto(p.ProductoID);
+      await deleteProducto(productToDelete.ProductoID);
       setOk('Producto eliminado');
+      setShowDeleteModal(false);
+      setProductToDelete(null);
       await load();
     } catch (e) {
       setError(typeof e?.message === 'string' ? e.message : 'No se pudo eliminar (verifique lotes existentes)');
+      setShowDeleteModal(false);
+      setProductToDelete(null);
     }
   };
+
+  const handleDeleteClick = (producto) => {
+    setProductToDelete(producto);
+    setShowDeleteModal(true);
+  };
+
+  if (loading) return <LoadingSpinner message="Cargando productos..." />;
 
   return (
     <div className="container py-3">
       <h3 className="mb-3"><i className="bi bi-capsule me-2"></i>Productos</h3>
       {error && (<div className="alert alert-danger py-2">{error}</div>)}
       {ok && (<div className="alert alert-success py-2">{ok}</div>)}
-      {loading && (<div className="alert alert-info py-2">Cargando...</div>)}
 
       <div className="row g-3">
         <div className="col-12 col-lg-5">
@@ -127,13 +141,13 @@ export default function ProductosPage() {
                       <tr key={p.ProductoID}>
                         <td>{p.Nombre}</td>
                         <td>{p.Presentacion || '-'}</td>
-                        <td className="text-end">{Number(p.Precio||0).toFixed(2)}</td>
+                        <td className="text-end">{formatCurrency(p.Precio || 0)}</td>
                         <td className="text-end">{p.Stock ?? 0}</td>
                         <td className="text-end">{p.StockMinimo ?? 10}</td>
                         <td>
                           <div className="btn-group btn-group-sm">
                             <button className="btn btn-primary" onClick={()=>setEditing(p)} title="Editar"><i className="bi bi-pencil"></i></button>
-                            <button className="btn btn-danger" onClick={()=>onDelete(p)} title="Eliminar"><i className="bi bi-trash"></i></button>
+                            <button className="btn btn-danger" onClick={()=>handleDeleteClick(p)} title="Eliminar"><i className="bi bi-trash"></i></button>
                           </div>
                         </td>
                       </tr>
@@ -145,6 +159,19 @@ export default function ProductosPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        show={showDeleteModal}
+        title="Eliminar Producto"
+        message={`¿Está seguro de eliminar el producto "${productToDelete?.Nombre}"? Esta acción no se puede deshacer.`}
+        onConfirm={onDelete}
+        onCancel={() => {
+          setShowDeleteModal(false);
+          setProductToDelete(null);
+        }}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 }
