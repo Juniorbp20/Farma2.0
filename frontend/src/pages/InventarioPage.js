@@ -94,8 +94,14 @@ export default function InventarioPage() {
       </div>
 
       {error && (<div className="alert alert-danger py-2">{error}</div>)}
+      )
+      }
       {ok && (<div className="alert alert-success py-2">{ok}</div>)}
+      )
+      }
       {loading && (<div className="alert alert-info py-2">Cargando...</div>)}
+      )
+      }
 
       {tab === 'resumen' && (
         <div className="card shadow-sm">
@@ -227,6 +233,7 @@ export default function InventarioPage() {
                   </div>
                   <div className="col-12 col-md-3">
                     <label className="form-label">Cantidad (+/-)</label>
+                    )
                     <input type="number" step="1" className="form-control" value={ajuste.Cantidad} onChange={e=>setAjuste({...ajuste, Cantidad:e.target.value})} required />
                   </div>
                   <div className="col-12 col-md-3">

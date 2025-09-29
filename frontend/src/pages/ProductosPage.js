@@ -31,6 +31,7 @@ function ProductoForm({ initial, onSubmit, onCancel }) {
       <div className="col-12 d-flex gap-2">
         <button className="btn btn-primary" type="submit">{initial?.ProductoID ? 'Actualizar' : 'Crear'}</button>
         {initial?.ProductoID && <button className="btn btn-secondary" type="button" onClick={onCancel}>Cancelar</button>}
+        }
       </div>
     </form>
   );
@@ -107,7 +108,11 @@ export default function ProductosPage() {
     <div className="container py-3">
       <h3 className="mb-3"><i className="bi bi-capsule me-2"></i>Productos</h3>
       {error && (<div className="alert alert-danger py-2">{error}</div>)}
+      )
+      }
       {ok && (<div className="alert alert-success py-2">{ok}</div>)}
+      )
+      }
 
       <div className="row g-3">
         <div className="col-12 col-lg-5">

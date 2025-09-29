@@ -143,6 +143,8 @@ export default function PuntoVentaPage({ user }) {
       <h3 className="mb-3"><i className="bi bi-cash-register me-2"></i>Punto de Venta</h3>
 
       {error && (<div className="alert alert-danger py-2" role="alert">{error}</div>)}
+      )
+      }
       {okVenta && (
         <div className="alert alert-success py-2" role="alert">
           Venta registrada: <strong>{okVenta.numero}</strong> — Total: <strong>{formatCurrency(okVenta.total)}</strong>
