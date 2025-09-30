@@ -1,0 +1,68 @@
+.cliente-form-container {
+    width: 100%;
+    margin: 20px auto;
+    padding: 25px;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.form-container {
+    width: 100%;
+}
+
+.cliente-form-container input,
+.cliente-form-container select {
+    width: 100%;
+    margin-bottom: 5px;
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+.cliente-form-container input::placeholder {
+    opacity: 0.4;
+}
+
+.cliente-form-container textarea {
+    resize: none;
+}
+
+.cliente-form-container textarea::placeholder {
+    opacity: 0.4;
+}
+
+button.btn-submit {
+    display: block;
+    margin: 0 auto;
+    padding: 8px 60px;
+    border-radius: 5px;
+    border: none;
+    color: white;
+    background-color: #0D6EFD;
+    cursor: var(--cursor-seleccionables) !important;
+}
+
+button.btn-submit:hover {
+    color: white;
+    background-color: #0766f4;
+}
+
+.cliente-form-container label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+.error-text {
+    color: red;
+    font-weight: 600;
+    font-size: 14px;
+    margin: -8px 0 0 0;
+}
+
+.obligatorio {
+    color: red;
+    font-weight: 700;
+}

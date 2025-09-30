@@ -15,25 +15,25 @@ export async function login(username, password) {
 }
 
 export function setToken(token) {
-  localStorage.setItem('token', token);
+  sessionStorage.setItem('token', token);
 }
 
 export function getToken() {
-  return localStorage.getItem('token');
+  return sessionStorage.getItem('token');
 }
 
 export function setUser(user) {
-  localStorage.setItem('user', JSON.stringify(user));
+  sessionStorage.setItem('user', JSON.stringify(user));
 }
 
 export function getUser() {
-  const raw = localStorage.getItem('user');
+  const raw = sessionStorage.getItem('user');
   try { return raw ? JSON.parse(raw) : null; } catch { return null; }
 }
 
 export function logout() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('user');
 }
 
 export function authHeader() {

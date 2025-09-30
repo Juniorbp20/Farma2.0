@@ -1,5 +1,6 @@
 // src/components/ClientesList.js
 import React, { useState } from "react";
+import "./ClientesList.css";
 import DataTable from "react-data-table-component";
 
 function ClientesList({
@@ -107,8 +108,8 @@ function ClientesList({
   const paginacionOpciones = {
     rowsPerPageText: "Filas:",
     rangeSeparatorText: "de",
-    selectAllRowsItem: true,
-    selectAllRowsItemText: "Todo",
+    // selectAllRowsItem: true,
+    // selectAllRowsItemText: "Todo",
   };
 
   // Filtrar clientes según búsqueda
@@ -147,8 +148,8 @@ function ClientesList({
         className="table table-striped table-bordered table-hover"
         noWrap={false}
         paginationComponentOptions={paginacionOpciones}
-        paginationPerPage={10}
-        paginationRowsPerPageOptions={[5, 10, 20, 50, 100]}
+        paginationPerPage={5}
+        paginationRowsPerPageOptions={[5, 10, 20, 50]}
         noDataComponent="No se encontraron datos que coincidan con la búsqueda"
         customStyles={{
           cells: {

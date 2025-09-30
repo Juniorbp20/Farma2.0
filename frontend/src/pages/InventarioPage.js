@@ -1,9 +1,8 @@
 // src/pages/InventarioPage.js
 import React, { useEffect, useMemo, useState } from 'react';
+import './InventarioPage.css'; 
 import { getProductos } from '../services/productsService';
 import { getLotes, addLote, ajustarStock, getResumenInventario } from '../services/inventoryService';
-import { formatCurrency, formatDate } from '../utils/formatters';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function InventarioPage() {
   const [tab, setTab] = useState('resumen'); // resumen | lotes | ajustes
@@ -83,7 +82,7 @@ export default function InventarioPage() {
   };
 
   return (
-    <div className="container py-3">
+    <div className="container inventario-page-container py-3">
       <div className="d-flex align-items-center mb-3">
         <h3 className="mb-0"><i className="bi bi-box-seam me-2"></i>Inventario / Lotes</h3>
         <div className="ms-auto btn-group">
@@ -94,14 +93,8 @@ export default function InventarioPage() {
       </div>
 
       {error && (<div className="alert alert-danger py-2">{error}</div>)}
-      )
-      }
       {ok && (<div className="alert alert-success py-2">{ok}</div>)}
-      )
-      }
       {loading && (<div className="alert alert-info py-2">Cargando...</div>)}
-      )
-      }
 
       {tab === 'resumen' && (
         <div className="card shadow-sm">
@@ -144,17 +137,11 @@ export default function InventarioPage() {
                   <table className="table table-sm table-striped align-middle">
                     <thead className="table-light">
                       <tr>
-                        <td>{r.ProductoID}</td>
+                        <th>Producto</th>
                         <th>ProductoID</th>
                         <th>Lote</th>
                         <th>Vencimiento</th>
-                        <td className="text-end">
-                          {r.VencimientosProximos > 0 ? (
-                            <span className="badge bg-warning">{r.VencimientosProximos}</span>
-                          ) : (
-                            <span className="text-muted">0</span>
-                          )}
-                        </td>
+                        <th className="text-end">Cantidad</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -163,7 +150,7 @@ export default function InventarioPage() {
                           <td>{l.Producto || '-'}</td>
                           <td>{l.ProductoID}</td>
                           <td>{l.Lote}</td>
-                          <td>{formatDate(l.Vencimiento)}</td>
+                          <td>{l.Vencimiento || '-'}</td>
                           <td className="text-end">{l.Cantidad}</td>
                         </tr>
                       ))}
@@ -210,48 +197,31 @@ export default function InventarioPage() {
       )}
 
       {tab === 'ajustes' && (
-        <div className="row g-3">
-          <div className="col-12">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <h6 className="mb-3">Ajustes de stock</h6>
-                <div className="alert alert-info">
-                  <i className="bi bi-info-circle me-2"></i>
-                  Use números positivos para aumentar stock y negativos para disminuir.
-                </div>
-                <form onSubmit={onAjustar} className="row g-2">
-                  <div className="col-12 col-md-5">
-                    <label className="form-label">Producto</label>
-                    <select className="form-select" value={ajuste.ProductoID} onChange={e=>setAjuste({...ajuste, ProductoID:e.target.value})} required>
-                      <option value="">Seleccione...</option>
-                      {productos.map(p => (
-                        <option key={p.ProductoID} value={p.ProductoID}>
-                          {p.Nombre}{p.Presentacion ? ` — ${p.Presentacion}` : ''} (Stock: {p.Stock || 0})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-3">
-                    <label className="form-label">Cantidad (+/-)</label>
-                    )
-                    <input type="number" step="1" className="form-control" value={ajuste.Cantidad} onChange={e=>setAjuste({...ajuste, Cantidad:e.target.value})} required />
-                  </div>
-                  <div className="col-12 col-md-3">
-                    <label className="form-label">Motivo</label>
-                    <select className="form-select" value={ajuste.Motivo} onChange={e=>setAjuste({...ajuste, Motivo:e.target.value})}>
-                      <option value="Ajuste">Ajuste general</option>
-                      <option value="Merma">Merma</option>
-                      <option value="Vencimiento">Vencimiento</option>
-                      <option value="Daño">Producto dañado</option>
-                      <option value="Inventario">Conteo de inventario</option>
-                    </select>
-                  </div>
-                  <div className="col-12 col-md-1 d-flex align-items-end">
-                    <button className="btn btn-warning w-100" type="submit">Aplicar</button>
-                  </div>
-                </form>
+        <div className="card shadow-sm">
+          <div className="card-body">
+            <h6 className="mb-3">Ajustes de stock</h6>
+            <form onSubmit={onAjustar} className="row g-2">
+              <div className="col-12 col-md-5">
+                <label className="form-label">Producto</label>
+                <select className="form-select" value={ajuste.ProductoID} onChange={e=>setAjuste({...ajuste, ProductoID:e.target.value})} required>
+                  <option value="">Seleccione...</option>
+                  {productos.map(p => (
+                    <option key={p.ProductoID} value={p.ProductoID}>{p.Nombre}{p.Presentacion ? ` — ${p.Presentacion}` : ''}</option>
+                  ))}
+                </select>
               </div>
-            </div>
+              <div className="col-12 col-md-3">
+                <label className="form-label">Cantidad (+/-)</label>
+                <input type="number" step="1" className="form-control" value={ajuste.Cantidad} onChange={e=>setAjuste({...ajuste, Cantidad:e.target.value})} required />
+              </div>
+              <div className="col-12 col-md-3">
+                <label className="form-label">Motivo</label>
+                <input className="form-control" value={ajuste.Motivo} onChange={e=>setAjuste({...ajuste, Motivo:e.target.value})} />
+              </div>
+              <div className="col-12 col-md-2 d-flex align-items-end">
+                <button className="btn btn-warning w-100" type="submit">Aplicar</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,5 +1,7 @@
+/* eslint-disable default-case */
 // src/components/ClienteForm.js
 import React, { useState, useEffect } from "react";
+import "./ClienteForm.css";
 
 function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
   const [form, setForm] = useState({
@@ -12,7 +14,6 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
     Activo: true,
   });
 
-  // Nuevo estado para los errores de validación
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -23,7 +24,6 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
   const { name, value } = e.target;
   setForm({ ...form, [name]: value });
 
-  // Validar el campo individual
   const fieldError = validateField(name, value);
   
   setErrors(prev => {
@@ -32,14 +32,13 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
     if (fieldError[name]) {
       newErrors[name] = fieldError[name];
     } else {
-      delete newErrors[name]; // Eliminar error si ya es válido
+      delete newErrors[name];
     }
     
     return newErrors;
   });
 };
 
-  // Nueva función para onBlur (validación al salir del campo)
   const handleBlur = (e) => {
     const { name, value } = e.target;
     const fieldError = validateField(name, value);
@@ -69,7 +68,6 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
     return newErrors;
   };
 
-  // Nueva función para validar campo individual
   const validateField = (name, value) => {
     const newError = {};
 
@@ -103,11 +101,9 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
     return newError;
   };
 
-  // FUNCIÓN handleSubmit CORREGIDA - ESTABA DUPLICADA Y MAL ANIDADA
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validar todo el formulario
     const newErrors = validateForm();
     setErrors(newErrors);
     
@@ -131,7 +127,6 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
   return (
     <div className="cliente-form-container">
     <form onSubmit={handleSubmit} className="form-container">
-      {/* Nombres y Apellidos en fila */}
       <div className="row mb-2">
         <div className="col-md-6">
           <label className="form-label">
@@ -139,7 +134,7 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
           </label>
           <input
             name="Nombres"
-            placeholder="Nombres"
+            placeholder="Juan"
             value={form.Nombres}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -154,7 +149,7 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
           </label>
           <input
             name="Apellidos"
-            placeholder="Apellidos"
+            placeholder="Pérez"
             value={form.Apellidos}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -164,7 +159,6 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
         </div>
       </div>
 
-      {/* Tipo Documento, Documento y Teléfono en fila */}
       <div className="row mb-2">
         <div className="col-md-3">
           <label className="form-label">
@@ -195,7 +189,7 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
           </label>
           <input
             name="Documento"
-            placeholder="Documento"
+            placeholder="XXX-XXXXXXX-X"
             value={form.Documento}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -208,7 +202,7 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
           <label className="form-label">Teléfono</label>
           <input
             name="Telefono"
-            placeholder="Teléfono"
+            placeholder="+1849000000"
             value={form.Telefono}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -218,7 +212,6 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
         </div>
       </div>
 
-      {/* Dirección en fila completa */}
       <div className="mb-3">
         <label className="form-label">Dirección</label>
         <textarea

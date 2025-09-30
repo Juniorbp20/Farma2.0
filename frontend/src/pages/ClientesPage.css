@@ -1,0 +1,212 @@
+.clientes-page-container {
+    margin: 0 auto !important;
+}
+
+.cliente-form-container textarea {
+    resize: none;
+}
+
+.cliente-form-container textarea::placeholder {
+    opacity: 0.4;
+}
+
+.clientes-form-wrapper {
+    max-width: 100%;
+    margin: 0 auto;
+    margin-top: 20px;
+    padding: 20px 20%;
+    background: #f9f9f9;
+    border-radius: 15px;
+}
+
+.clientes-form-wrapper .form-title {
+    text-align: center;
+    font-size: 30px;
+    font-weight: 700;
+    color: #003f17;
+}
+
+.clientes-list-wrapper {
+    max-width: 100%;
+    margin: 0 auto;
+    margin-bottom: 40px;
+    padding: 0;
+    background: #f9f9f9;
+    border-radius: 15px;
+}
+
+.tarjetas-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    margin: 40px 0;
+}
+
+.tarjeta {
+    background-color: #F0F8FF;
+    border: 1px solid #cce5ff;
+    border-radius: 15px;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: var(--cursor-seleccionables);
+    max-width: 300px;
+    max-height: 300px;
+    width: 300px;
+    height: 300px;
+}
+
+.tarjeta:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.tarjeta h2 {
+    font-size: 26px;
+    color: #0d6efd;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.tarjeta p {
+    color: #5f6c7b;
+    font-size: 16px;
+    margin: 0;
+}
+
+.tarjeta i {
+    font-size: 64px;
+    color: #0d6efd;
+    margin-bottom: 12px;
+}
+
+/*? INICIO CSS DEL MODAL */
+.modal-overlay {
+    width: 100%;
+    padding: 0 25%;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 9, 50, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal-content {
+    display: flex;
+    justify-content: end;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 500px;
+}
+
+.modal-content>.d-flex {
+    justify-content: end;
+}
+
+.modal-delete-content {
+    background-color: white !important;
+    border-radius: 10px !important;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.162);
+    padding: 30px 70px;
+    -webkit-border-radius: 10px !important;
+    -moz-border-radius: 10px !important;
+    -ms-border-radius: 10px !important;
+    -o-border-radius: 10px !important;
+}
+
+.modal-content h3 {
+    font-size: 1.6rem;
+    opacity: 0.8;
+    margin: 7px;
+}
+
+.modal-content p {
+    font-size: 1rem;
+    opacity: 0.8;
+    margin-bottom: 7px;
+}
+
+.modal-buttons {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.btn-confirm {
+    background-color: #0d6efd !important;
+    border: none !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    cursor: var(--cursor-seleccionables) !important;
+}
+
+.btn-confirm:hover {
+    background-color: #0b5ed7 !important;
+    color: white !important;
+}
+
+.btn-cancel {
+    background-color: #dc3545 !important;
+    border: none !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    cursor: var(--cursor-seleccionables) !important;
+}
+
+.btn-cancel:hover {
+    background-color: #c82333 !important;
+    color: white !important;
+}
+
+.btn-modal {
+    padding: 4px;
+    color: #0b5ed7;
+    background-color: rgb(255, 255, 255);
+    border: none;
+    border-radius: 7px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 25px;
+    min-height: 25px;
+    cursor: var(--cursor-seleccionables) !important;
+}
+
+.btn-modal>i {
+    font-size: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: auto;
+    height: auto;
+}
+
+.btn-modal:hover {
+    background-color: rgb(184, 0, 0);
+    color: white;
+}
+
+.btn-modal:focus {
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+}
+
+.btn-salir {
+    cursor: var(--cursor-seleccionables) !important;
+}
+/*? FIN CSS DEL MODAL */

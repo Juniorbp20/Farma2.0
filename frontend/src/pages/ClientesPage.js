@@ -1,9 +1,11 @@
 // src/pages/ClientesPage.js
 import React, { useState, useEffect } from "react";
+import "./ClientesPage.css";
 import ClienteForm from "../components/ClienteForm";
 import ClientesList from "../components/ClientesList";
 import CustomButton from "../components/recursos/CustomButton";
 import Toast from "../components/recursos/Toast";
+import { extractErrorMessage } from '../utils/Utils'; 
 
 import {
   getClientes,
@@ -56,7 +58,8 @@ function ClientesPage({ user }) {
       setToastKey(Date.now());
       return true;
     } catch (err) {
-      const mensajeDeError = err.response?.data?.message || err.message;
+      const mensajeDeError = extractErrorMessage(err);
+      // const mensajeDeError = err.response?.data?.message || err.message;
       setMensaje("Ocurrió un error: " + mensajeDeError);
       setTipoMensaje("error");
       setToastKey(Date.now());
@@ -86,7 +89,8 @@ function ClientesPage({ user }) {
       setTipoMensaje("success");
       await cargarDatos();
     } catch (err) {
-      const mensajeDeError = err.response?.data?.message || err.message;
+      const mensajeDeError = extractErrorMessage(err);
+      // const mensajeDeError = err.response?.data?.message || err.message;
       setMensaje("Ocurrió un error: " + mensajeDeError);
       setTipoMensaje("error");
     } finally {

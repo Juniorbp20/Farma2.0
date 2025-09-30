@@ -1,19 +1,19 @@
 // src/pages/PuntoVentaPage.js
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import "./PuntoVentaPage.css"; // Importación del CSS global
 import { getClientes } from '../services/clientesService';
-import ProductSelector from '../components/ProductSelector';
+import { buscarProductos } from '../services/productsService';
 import { crearVenta } from '../services/salesService';
-import { formatCurrency } from '../utils/formatters';
-import ConfirmModal from '../components/ConfirmModal';
 
+// Componente hijo modificado para usar clases CSS en lugar de estilos inline
 function LineaCarrito({ item, onQty, onRemove }) {
-  const total = formatCurrency(item.Precio * item.Cantidad);
+  const total = (item.Precio * item.Cantidad).toFixed(2);
   return (
     <tr>
-      <td>{item.ProductoID}</td>
+      <td className="col-id">{item.ProductoID}</td> {/* Clase aplicada */}
       <td>{item.Nombre}</td>
-      <td className="text-end">{formatCurrency(item.Precio)}</td>
-      <td style={{ width: 140 }}>
+      <td className="text-end col-precio">{item.Precio.toFixed(2)}</td> {/* Clase aplicada */}
+      <td className="col-cantidad"> {/* Clase aplicada */}
         <div className="input-group input-group-sm">
           <button className="btn btn-outline-secondary" onClick={() => onQty(item, Math.max(1, item.Cantidad - 1))} title="-1"><i className="bi bi-dash"></i></button>
           <input type="number" min={1} className="form-control text-center" value={item.Cantidad}
@@ -21,8 +21,8 @@ function LineaCarrito({ item, onQty, onRemove }) {
           <button className="btn btn-outline-secondary" onClick={() => onQty(item, item.Cantidad + 1)} title="+1"><i className="bi bi-plus"></i></button>
         </div>
       </td>
-      <td className="text-end fw-semibold">{total}</td>
-      <td className="text-center" style={{ width: 48 }}>
+      <td className="text-end fw-semibold col-importe">{total}</td> {/* Clase aplicada */}
+      <td className="text-center col-acciones"> {/* Clase aplicada */}
         <button className="btn btn-sm btn-danger" onClick={() => onRemove(item)} title="Quitar"><i className="bi bi-trash"></i></button>
       </td>
     </tr>
@@ -33,17 +33,24 @@ export default function PuntoVentaPage({ user }) {
   const [clientes, setClientes] = useState([]);
   const [filtroCliente, setFiltroCliente] = useState('');
   const [clienteSel, setClienteSel] = useState(null);
-  
+
+  const [busqueda, setBusqueda] = useState('');
+  const [sugerencias, setSugerencias] = useState([]);
+  const [loadingSug, setLoadingSug] = useState(false);
+
   const [barcode, setBarcode] = useState('');
+
   const [carrito, setCarrito] = useState([]); // items: {ProductoID, Nombre, Precio, Cantidad}
   const [descuento, setDescuento] = useState(0);
+
   const [metodo, setMetodo] = useState('efectivo');
   const [montoRecibido, setMontoRecibido] = useState('');
+
   const [guardando, setGuardando] = useState(false);
   const [okVenta, setOkVenta] = useState(null);
   const [error, setError] = useState('');
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+  const inputBusquedaRef = useRef(null);
   const inputBarcodeRef = useRef(null);
 
   useEffect(() => {
@@ -51,6 +58,25 @@ export default function PuntoVentaPage({ user }) {
       try { setClientes(await getClientes()); } catch {}
     })();
   }, []);
+
+  useEffect(() => {
+    let cancel = false;
+    const run = async () => {
+      const q = busqueda.trim();
+      if (!q) { setSugerencias([]); return; }
+      setLoadingSug(true);
+      try {
+        const data = await buscarProductos(q);
+        if (!cancel) setSugerencias(data);
+      } catch {
+        if (!cancel) setSugerencias([]);
+      } finally {
+        if (!cancel) setLoadingSug(false);
+      }
+    };
+    const t = setTimeout(run, 200);
+    return () => { cancel = true; clearTimeout(t); };
+  }, [busqueda]);
 
   const subtotal = useMemo(() => carrito.reduce((acc, it) => acc + it.Precio * it.Cantidad, 0), [carrito]);
   const total = useMemo(() => Math.max(0, subtotal - Number(descuento || 0)), [subtotal, descuento]);
@@ -68,6 +94,9 @@ export default function PuntoVentaPage({ user }) {
       }
       return [...prev, { ...prod, Cantidad: 1 }];
     });
+    setBusqueda('');
+    setSugerencias([]);
+    inputBusquedaRef.current?.focus();
   };
 
   const agregarPorBarcode = async (e) => {
@@ -75,8 +104,8 @@ export default function PuntoVentaPage({ user }) {
     const code = barcode.trim();
     if (!code) return;
     const id = Number(code);
-    if (!Number.isNaN(id) && id > 0) {
-      const found = await buscarProductos(id.toString()).then(results => results.find(s => s.ProductoID === id));
+    if (!Number.isNaN(id)) {
+      const found = sugerencias.find(s => s.ProductoID === id);
       if (found) agregarAlCarrito(found); else setError('Código no disponible');
     } else {
       setError('Código no disponible');
@@ -107,7 +136,6 @@ export default function PuntoVentaPage({ user }) {
       setGuardando(true);
       setError('');
       setOkVenta(null);
-      setShowConfirmModal(false);
 
       if (carrito.length === 0) { setError('Agregue productos al carrito.'); return; }
       if (metodo === 'efectivo' && Number(montoRecibido || 0) < total) { setError('Monto recibido insuficiente.'); return; }
@@ -139,15 +167,14 @@ export default function PuntoVentaPage({ user }) {
   }, [clientes, filtroCliente]);
 
   return (
-    <div className="container py-3">
+    // Clase de layout aplicada al contenedor principal
+    <div className="container py-3 punto-venta-layout"> 
       <h3 className="mb-3"><i className="bi bi-cash-register me-2"></i>Punto de Venta</h3>
 
       {error && (<div className="alert alert-danger py-2" role="alert">{error}</div>)}
-      )
-      }
       {okVenta && (
         <div className="alert alert-success py-2" role="alert">
-          Venta registrada: <strong>{okVenta.numero}</strong> — Total: <strong>{formatCurrency(okVenta.total)}</strong>
+          Venta registrada: <strong>{okVenta.numero}</strong> — Total: <strong>{okVenta.total.toFixed(2)}</strong>
         </div>
       )}
 
@@ -158,7 +185,24 @@ export default function PuntoVentaPage({ user }) {
               <div className="row g-2 align-items-center">
                 <div className="col-12 col-md-6">
                   <label className="form-label">Buscar producto</label>
-                  <ProductSelector onSelect={agregarAlCarrito} />
+                  <input ref={inputBusquedaRef} className="form-control" placeholder="Nombre" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+                  {busqueda && (
+                    <div className="list-group position-absolute w-100" style={{ zIndex: 10 }}>
+                      {loadingSug && <div className="list-group-item text-muted">Buscando...</div>}
+                      {!loadingSug && sugerencias.map(p => (
+                        <button key={p.ProductoID} type="button" className="list-group-item list-group-item-action" onClick={() => agregarAlCarrito(p)}>
+                          <div className="d-flex justify-content-between">
+                            <span>{p.Nombre}{p.Presentacion ? ` — ${p.Presentacion}` : ''}</span>
+                            <span className="text-muted">{p.Precio.toFixed(2)}</span>
+                          </div>
+                          <small className="text-muted">ID: {p.ProductoID}</small>
+                        </button>
+                      ))}
+                      {!loadingSug && sugerencias.length === 0 && (
+                        <div className="list-group-item text-muted">Sin resultados</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="col-12 col-md-6">
                   <label className="form-label">Escanear ID de producto</label>
@@ -173,12 +217,12 @@ export default function PuntoVentaPage({ user }) {
                 <table className="table table-sm align-middle">
                   <thead className="table-light">
                     <tr>
-                      <th style={{width:130}}>ID</th>
+                      <th className="col-id">ID</th> {/* Clase aplicada */}
                       <th>Producto</th>
-                      <th className="text-end" style={{width:100}}>Precio</th>
-                      <th style={{width:140}}>Cantidad</th>
-                      <th className="text-end" style={{width:110}}>Importe</th>
-                      <th style={{width:48}}></th>
+                      <th className="text-end col-precio">Precio</th> {/* Clase aplicada */}
+                      <th className="col-cantidad">Cantidad</th> {/* Clase aplicada */}
+                      <th className="text-end col-importe">Importe</th> {/* Clase aplicada */}
+                      <th className="col-acciones"></th> {/* Clase aplicada */}
                     </tr>
                   </thead>
                   <tbody>
@@ -195,12 +239,13 @@ export default function PuntoVentaPage({ user }) {
               <div className="d-flex justify-content-between align-items-center mt-2">
                 <button className="btn btn-outline-secondary" onClick={limpiarVenta}><i className="bi bi-trash me-1"></i>Limpiar</button>
                 <div className="text-end">
-                  <div>Subtotal: <strong>{formatCurrency(subtotal)}</strong></div>
+                  <div>Subtotal: <strong>{subtotal.toFixed(2)}</strong></div>
                   <div className="d-flex align-items-center justify-content-end gap-2 mt-1">
                     <label className="form-label m-0">Descuento</label>
+                    {/* Estilo inline conservado para el ancho de input */}
                     <input type="number" min={0} step="0.01" className="form-control form-control-sm" style={{width:120}} value={descuento} onChange={(e) => setDescuento(e.target.value)} />
                   </div>
-                  <div className="fs-5 mt-1">Total: <strong>{formatCurrency(total)}</strong></div>
+                  <div className="fs-5 mt-1">Total: <strong>{total.toFixed(2)}</strong></div>
                 </div>
               </div>
             </div>
@@ -237,26 +282,16 @@ export default function PuntoVentaPage({ user }) {
                 <div className="mb-2">
                   <label className="form-label">Monto recibido</label>
                   <input className="form-control" type="number" min={0} step="0.01" value={montoRecibido} onChange={(e) => setMontoRecibido(e.target.value)} />
-                  <div className="mt-1">Cambio: <strong>{formatCurrency(cambio)}</strong></div>
+                  <div className="mt-1">Cambio: <strong>{cambio.toFixed(2)}</strong></div>
                 </div>
               )}
-              <button className="btn btn-success w-100 mt-2" onClick={() => setShowConfirmModal(true)} disabled={guardando || carrito.length===0}>
+              <button className="btn btn-success w-100 mt-2" onClick={finalizarVenta} disabled={guardando || carrito.length===0}>
                 {guardando ? 'Procesando...' : 'Finalizar Venta'}
               </button>
             </div>
           </div>
         </div>
       </div>
-
-      <ConfirmModal
-        show={showConfirmModal}
-        title="Confirmar Venta"
-        message={`¿Confirmar venta por ${formatCurrency(total)}?`}
-        onConfirm={finalizarVenta}
-        onCancel={() => setShowConfirmModal(false)}
-        confirmText="Confirmar Venta"
-      />
     </div>
   );
 }
-

@@ -1,5 +1,5 @@
-// src/pages/HomePage.js
 import React from 'react';
+import './HomePage.css'; 
 
 function Card({ icon, title, desc, action, disabled }) {
   return (
@@ -27,7 +27,6 @@ function Card({ icon, title, desc, action, disabled }) {
 function HomePage({ user, onNavigate }) {
   const isAdmin = user?.rol === 'admin';
 
-  // Utiliza el nombre completo si existe, de lo contrario, usa el nombre de usuario
   const displayName = [user?.nombres, user?.apellidos].filter(Boolean).join(' ') || user?.username;
 
   return (
@@ -61,12 +60,6 @@ function HomePage({ user, onNavigate }) {
           title="Punto de Venta"
           desc="Registrar ventas, aplicar descuentos y emitir comprobantes."
           action={() => onNavigate('pos')}
-        />
-        <Card
-          icon="bi-graph-up"
-          title="Dashboard"
-          desc="Estadísticas y resumen general del sistema."
-          action={() => onNavigate('dashboard')}
         />
         <Card
           icon="bi-people"

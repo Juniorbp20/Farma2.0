@@ -13,7 +13,6 @@ function StatsCard({ title, value, icon, color = "primary", subtitle, trend }) {
             <h6 className="card-title text-muted mb-1">{title}</h6>
             <h3 className="mb-0">{value}</h3>
             {subtitle && <small className="text-muted">{subtitle}</small>}
-            }
             {trend && (
               <div className={`small ${trend.positive ? 'text-success' : 'text-danger'}`}>
                 <i className={`bi ${trend.positive ? 'bi-arrow-up' : 'bi-arrow-down'}`}></i>

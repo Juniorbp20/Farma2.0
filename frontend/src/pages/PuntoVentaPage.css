@@ -1,0 +1,57 @@
+.punto-venta-layout {
+    height: calc(100vh - 75px);
+    /* overflow: hidden; */
+}
+
+.pos-product-search {
+    padding-right: 15px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.pos-product-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-top: 10px;
+}
+
+.pos-cart-summary {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding-left: 15px;
+    border-left: 1px solid #ccc;
+}
+
+.cart-item-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed #eee;
+}
+
+.pos-totals-footer {
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+    margin-top: auto;
+}
+
+.pos-total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.btn-clear-cart {
+    color: #dc3545;
+    background-color: transparent;
+    border: 1px solid #dc3545;
+}
+
+.btn-clear-cart:hover {
+    background-color: #dc3545;
+    color: white;
+}

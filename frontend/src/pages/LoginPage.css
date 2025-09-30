@@ -1,0 +1,66 @@
+.card-form-login {
+    font-family: 'Roboto';
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    transform: translateY(0) !important;
+}
+
+.card-form-login h3{
+    font-weight: 700 !important;
+    opacity: 0.8;
+}
+
+.card-form-login label{
+    font-weight: 500 !important;
+    opacity: 0.8;
+}
+
+.btn-form-login,
+.btn-form-verlogin {
+    cursor: var(--cursor-seleccionables) !important;
+}
+
+.btn-form-verlogin{
+    color: #0B5ED7 !important;
+    border-color: #0B5ED7 !important;
+}
+
+.btn-form-verlogin:hover{
+    color: #ffffff !important;
+    background-color: #0B5ED7 !important;
+}
+
+.card-form-login:hover {
+    transform: translateY(-3px) scale(1) !important;
+    box-shadow: 0 8px 18px rgba(44, 44, 44, 0.15) !important;
+}
+
+.character-svg {
+    height: 200px;
+    width: 200px;
+}
+
+.login-character-container {
+    background-color: #e2ecff;
+    border: 4px solid #2c2c2c;
+    position: relative;
+    text-align: center;
+    width: 250px;
+    height: 250px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    cursor: var(--cursor-seleccionables);
+    overflow: hidden;
+}
+
+.texto-aviso{
+    max-width: 70%;
+    font-family: 'Roboto';
+    font-size: 0.8rem;
+    line-height: 1;
+    letter-spacing: 0.1px;
+    user-select: none;
+    margin: 10px auto;
+    text-align: center;
+    opacity: 0.6;
+}

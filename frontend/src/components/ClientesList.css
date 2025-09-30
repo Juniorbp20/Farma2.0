@@ -1,0 +1,34 @@
+.btn-accion-contenedor {
+    display: flex;
+    margin: 0 auto;
+}
+
+.btn-delete {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: white !important;
+    border-radius: 0 7px 7px 0 !important;
+    margin-left: 1px;
+    cursor: var(--cursor-seleccionables) !important;
+}
+
+.btn-delete:hover {
+    background-color: #c82333 !important;
+    border-color: #bd2130 !important;
+    color: white !important;
+}
+
+.btn-edit {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    color: white !important;
+    border-radius: 7px 0 0 7px !important;
+    margin-right: 1px;
+    cursor: var(--cursor-seleccionables) !important;
+}
+
+.btn-edit:hover {
+    background-color: #0b5ed7 !important;
+    border-color: #0a58ca !important;
+    color: white !important;
+}
