@@ -11,8 +11,7 @@ import {
 } from "../services/usersService";
 import DataTable from "react-data-table-component";
 import Toast from "../components/recursos/Toast";
-import { extractErrorMessage } from '../utils/Utils';
-
+import { extractErrorMessage } from "../utils/Utils";
 
 function UsersPage() {
   const [usuarios, setUsuarios] = useState([]);
@@ -500,7 +499,6 @@ function UsersPage() {
                       <span className="toggle-label">Activo</span>
                     </div>
                   </div>
-
                 </div>
 
                 <div className="grupo-botones">
@@ -548,35 +546,37 @@ function UsersPage() {
           </div>
 
           {/* Tabla de usuarios */}
-          <DataTable
-            columns={columns}
-            data={usuariosFiltrados}
-            pagination
-            highlightOnHover
-            responsive
-            striped
-            className="table table-striped table-bordered table-hover"
-            noWrap={false}
-            paginationComponentOptions={paginacionOpciones}
-            paginationPerPage={5}
-            paginationRowsPerPageOptions={[5, 10, 20, 50]}
-            noDataComponent="No se encontraron usuarios que coincidan con la búsqueda"
-            customStyles={{
-              cells: {
-                style: {
-                  whiteSpace: "normal !important",
-                  overflow: "visible !important",
-                  wordWrap: "break-word !important",
-                  textOverflow: "initial !important",
+          <div className="tabla-usuarios-contenedor">
+            <DataTable
+              columns={columns}
+              data={usuariosFiltrados}
+              pagination
+              highlightOnHover
+              responsive
+              striped
+              className="table table-striped table-bordered table-hover"
+              noWrap={false}
+              paginationComponentOptions={paginacionOpciones}
+              paginationPerPage={5}
+              paginationRowsPerPageOptions={[5, 10, 20, 50]}
+              noDataComponent="No se encontraron usuarios que coincidan con la búsqueda"
+              customStyles={{
+                cells: {
+                  style: {
+                    whiteSpace: "normal !important",
+                    overflow: "visible !important",
+                    wordWrap: "break-word !important",
+                    textOverflow: "initial !important",
+                  },
                 },
-              },
-              headCells: {
-                style: {
-                  whiteSpace: "normal !important",
+                headCells: {
+                  style: {
+                    whiteSpace: "normal !important",
+                  },
                 },
-              },
-            }}
-          />
+              }}
+            />
+          </div>
         </div>
       </div>
 

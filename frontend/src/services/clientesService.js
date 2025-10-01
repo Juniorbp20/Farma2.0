@@ -17,7 +17,12 @@ export const createCliente = async (cliente) => {
     headers: { "Content-Type": "application/json", ...authHeader() },
     body: JSON.stringify(cliente),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    // Obtener el cuerpo como JSON para extraer el mensaje
+    const errorBody = await res.json();
+    // Lanzar un nuevo Error con solo el string del mensaje
+    throw new Error(errorBody.message || "Error desconocido al crear cliente");
+  }
   return res.json();
 };
 
@@ -27,7 +32,12 @@ export const updateCliente = async (id, cliente) => {
     headers: { "Content-Type": "application/json", ...authHeader() },
     body: JSON.stringify(cliente),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    // Obtener el cuerpo como JSON para extraer el mensaje
+    const errorBody = await res.json();
+    // Lanzar un nuevo Error con solo el string del mensaje
+    throw new Error(errorBody.message || "Error desconocido al actualizar cliente");
+  }
   return res.json();
 };
 
@@ -36,7 +46,12 @@ export const deleteCliente = async (id) => {
     method: "DELETE",
     headers: { ...authHeader() },
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    // Obtener el cuerpo como JSON para extraer el mensaje
+    const errorBody = await res.json();
+    // Lanzar un nuevo Error con solo el string del mensaje
+    throw new Error(errorBody.message || "Error desconocido al eliminar cliente");
+  }
   return res.json();
 };
 

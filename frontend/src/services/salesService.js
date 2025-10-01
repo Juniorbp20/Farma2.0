@@ -9,7 +9,9 @@ export async function crearVenta(venta) {
     headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(venta),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const errorBody = await res.json();
+    throw new Error(errorBody.message || "Error al crear la venta");
+  }
   return res.json();
 }
-

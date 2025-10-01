@@ -7,7 +7,10 @@ export async function login(username, password) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const errorBody = await res.json();
+    throw new Error(errorBody.message || "Error de autenticación desconocido");
+  }
   const data = await res.json();
   setToken(data.token);
   setUser(data.user);
@@ -40,4 +43,3 @@ export function authHeader() {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
-

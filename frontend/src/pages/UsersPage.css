@@ -3,11 +3,18 @@
     max-width: 1200px;
 }
 
-form input::placeholder {
-    opacity: 0.3 !important; 
+.tabla-usuarios-contenedor {
+    max-height: 55vh;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 5px;
 }
 
-.grupo-botones{
+form input::placeholder {
+    opacity: 0.3 !important;
+}
+
+.grupo-botones {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -48,7 +55,7 @@ button.btn-cancelar {
     background-color: #c82333;
 }
 
-.users-form-container{
+.users-form-container {
     font-weight: 500;
     color: #4f4f4f !important;
 }
