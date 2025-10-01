@@ -138,6 +138,7 @@ function ClientesList({
         />
       </div>
 
+      <div className="table-container">
       <DataTable
         columns={columns}
         data={clientesFiltrados}
@@ -167,6 +168,8 @@ function ClientesList({
           },
         }}
       />
+      </div>
+
     </div>
   );
 }
