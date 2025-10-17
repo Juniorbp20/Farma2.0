@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg id="Capa_1" data-name="Capa 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15 15" width="20" height="20">
-  <rect x="1.933" y="1.884" width="11.233" height="11.233" rx="5.616" ry="5.616" fill="#fff"/>
-  <path d="M7.55,3.05c2.454,0,4.45,1.996,4.45,4.45s-1.996,4.45-4.45,4.45-4.45-1.996-4.45-4.45,1.996-4.45,4.45-4.45M7.55.05h0C3.435.05.099,3.385.099,7.5H.099c0,4.115,3.336,7.45,7.45,7.45h0c4.115,0,7.45-3.336,7.45-7.45h0C15,3.385,11.664.05,7.55.05h0Z" fill="#0d6efd"/>
+<svg id="Capa_1" data-name="Capa 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+  <path d="M2.4.936h9.815v6.146c0,2.708-2.199,4.907-4.907,4.907h0c-2.708,0-4.907-2.199-4.907-4.907V.936h0Z" transform="translate(17.048 7.005) rotate(141.697)" fill="#fff"/>
+  <path d="M7.853,7.839h9.815v6.146c0,2.708-2.199,4.907-4.907,4.907h0c-2.708,0-4.907-2.199-4.907-4.907v-6.146h0Z" transform="translate(-5.538 10.786) rotate(-38.303)" fill="#0d6efd"/>
+  <ellipse cx="9.334" cy="9.029" rx="5.271" ry="2.09" transform="translate(-3.587 7.729) rotate(-38.303)" fill="#fff"/>
+  <rect x="5.093" y="-.108" width="9.815" height="19.96" rx="4.907" ry="4.907" transform="translate(-3.966 8.323) rotate(-38.303)" fill="none" stroke="#0d6efd" stroke-miterlimit="10"/>
 </svg>

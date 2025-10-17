@@ -57,15 +57,9 @@ function HomePage({ user, onNavigate }) {
         
         <Card
           icon="bi-cart"
-          title="Punto de Venta"
+          title="Facturación"
           desc="Registrar ventas, aplicar descuentos y emitir comprobantes."
           action={() => onNavigate('pos')}
-        />
-        <Card
-          icon="bi-people"
-          title="Clientes"
-          desc="Gestione clientes: crear, actualizar y desactivar."
-          action={() => onNavigate('clientes')}
         />
         <Card
           icon="bi-capsule"
@@ -78,13 +72,6 @@ function HomePage({ user, onNavigate }) {
           title="Inventario / Lotes"
           desc="Control de lotes, vencimientos y existencias."
           action={() => onNavigate('inventario')}
-        />
-        <Card
-          icon="bi-truck"
-          title="Proveedores"
-          desc="Alta de proveedores y condiciones comerciales."
-          action={() => alert('Módulo de proveedores próximamente')}
-          disabled
         />
         <Card
           icon="bi-bag-check"
@@ -100,8 +87,21 @@ function HomePage({ user, onNavigate }) {
           action={() => alert('Módulo de reportes próximamente')}
           disabled
         />
+        <Card
+          icon="bi-truck"
+          title="Proveedores"
+          desc="Alta de proveedores y condiciones comerciales."
+          action={() => alert('Módulo de proveedores próximamente')}
+          disabled
+        />
+        <Card
+          icon="bi-people"
+          title="Clientes"
+          desc="Gestione clientes: crear, actualizar y desactivar."
+          action={() => onNavigate('clientes')}
+        />
         {isAdmin && (
-          <Card
+        <Card
             icon="bi-person-gear"
             title="Usuarios y Roles"
             desc="Gestione cuentas, roles y accesos al sistema."

@@ -7,9 +7,9 @@
     font-size: 1rem;
     font-weight: 600;
     display: flex;
+    width: fit-content;
     align-items: center;
     justify-content: center;
-    width: fit-content;
 }
 
 .status-indicator {

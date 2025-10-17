@@ -252,6 +252,7 @@ function LoginPage({ onLogin }) {
   };
 
   return (
+    <div className="login-page-wrapper">
     <div className="container d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
       <div className="row w-100">
         <div className="col-12 col-sm-8 col-md-6 col-lg-4 mx-auto">
@@ -402,7 +403,7 @@ function LoginPage({ onLogin }) {
                     </button>
                   </div>
                     {validationErrors.password && (
-                      <span className="text-danger" style={{ fontSize: '0.9rem' }}>
+                      <span className="text-danger" style={{ fontSize: '0.9rem'}}>
                         {validationErrors.password}
                       </span>
                     )}
@@ -420,6 +421,7 @@ function LoginPage({ onLogin }) {
         </div>
       </div>
     </div>
+  </div>
   );
 }
 

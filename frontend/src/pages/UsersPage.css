@@ -86,7 +86,7 @@ button.btn-cancelar {
 
 .toggle-slider {
     position: absolute;
-    cursor: pointer;
+    cursor: var(--cursor-seleccionables) !important;
     top: 0;
     left: 0;
     right: 0;
