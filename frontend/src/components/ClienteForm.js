@@ -62,8 +62,8 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
       newErrors.Documento = "El documento no puede exceder los 20 caracteres.";
     if ((form.Telefono || "").length > 20)
       newErrors.Telefono = "El teléfono no puede exceder los 20 caracteres.";
-    if ((form.Direccion || "").length > 200)
-      newErrors.Direccion = "La dirección no puede exceder los 200 caracteres.";
+    if ((form.Direccion || "").length > 400)
+      newErrors.Direccion = "No puede exceder los 400 caracteres.";
 
     return newErrors;
   };
@@ -93,8 +93,8 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
         break;
 
       case "Direccion":
-        if (value && value.length > 200)
-          newError[name] = "Máximo 200 caracteres.";
+        if (value && value.length > 400)
+          newError[name] = "Máximo 400 caracteres.";
         break;
     }
 
@@ -213,7 +213,7 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
       </div>
 
       <div className="mb-3">
-        <label className="form-label">Dirección</label>
+        <label className="form-label">Datos del cliente</label>
         <textarea
           name="Direccion"
           placeholder="Está ubicado en..."

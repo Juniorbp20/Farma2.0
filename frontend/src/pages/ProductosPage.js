@@ -49,7 +49,7 @@ function ProductoForm({ initial, onSubmit, onCancel }) {
         />
       </div>
       <div className="col-6 col-sm-3">
-        <label className="form-label">Precio</label>
+        <label className="form-label">Precio compra ($RD)</label>
         <input
           name="Precio"
           type="number"
