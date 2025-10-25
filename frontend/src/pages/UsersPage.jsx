@@ -1,4 +1,4 @@
-/* eslint-disable default-case */
+﻿/* eslint-disable default-case */
 // src/pages/UsersPage.js
 import React, { useEffect, useState } from "react";
 import "./UsersPage.css";
@@ -11,6 +11,7 @@ import {
 } from "../services/usersService";
 import DataTable from "react-data-table-component";
 import Toast from "../components/recursos/Toast";
+import { getUser } from "../services/authService";
 import { extractErrorMessage } from "../utils/Utils";
 
 function UsersPage() {
@@ -32,10 +33,14 @@ function UsersPage() {
   const [errors, setErrors] = useState({});
   const [busqueda, setBusqueda] = useState("");
   const [toastKey, setToastKey] = useState(Date.now());
+  const [currentUser] = useState(() => getUser());
 
   // Estados para el modal de eliminar
   const [showModalEliminar, setShowModalEliminar] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
+  // Estados para el modal de activar
+  const [showModalActivar, setShowModalActivar] = useState(false);
+  const [usuarioPorActivar, setUsuarioPorActivar] = useState(null);
 
   useEffect(() => {
     cargar();
@@ -52,7 +57,17 @@ function UsersPage() {
     setRoles(r);
   }
 
+  function isSelf(u) {
+    if (!u) return false;
+    const cu = currentUser || {};
+    const sameId = cu.id != null && u.UsuarioID === cu.id;
+    const sameUsername =
+      (u.Username || "").toLowerCase() === (cu.username || "").toLowerCase();
+    return !!(sameId || sameUsername);
+  }
+
   function onEdit(u) {
+    if (isSelf(u)) return; // No permitir editar al usuario logueado
     setEditando(u);
     setForm({
       Nombres: u.Nombres || "",
@@ -231,6 +246,7 @@ function UsersPage() {
   }
 
   const abrirModalEliminar = (u) => {
+    if (isSelf(u)) return; // No permitir eliminar al usuario logueado
     setUsuarioSeleccionado(u);
     setShowModalEliminar(true);
   };
@@ -259,6 +275,51 @@ function UsersPage() {
     setUsuarioSeleccionado(null);
   };
 
+  // Activar usuario inactivo
+  const activarUsuario = async (u) => {
+    try {
+      await updateUsuario(u.UsuarioID, { Activo: true });
+      setMensaje("Usuario activado");
+      setTipoMensaje("success");
+    } catch (err) {
+      const mensajeDeError = extractErrorMessage(err);
+      setMensaje("Ocurri un error: " + mensajeDeError);
+      setTipoMensaje("error");
+    } finally {
+      setToastKey(Date.now());
+      await cargar();
+    }
+  };
+
+  const abrirModalActivar = (u) => {
+    if (isSelf(u)) return;
+    setUsuarioPorActivar(u);
+    setShowModalActivar(true);
+  };
+
+  const confirmarActivar = async () => {
+    if (!usuarioPorActivar) return;
+    try {
+      await updateUsuario(usuarioPorActivar.UsuarioID, { Activo: true });
+      setMensaje("Usuario activado");
+      setTipoMensaje("success");
+    } catch (err) {
+      const mensajeDeError = extractErrorMessage(err);
+      setMensaje("Ocurrió un error: " + mensajeDeError);
+      setTipoMensaje("error");
+    } finally {
+      setToastKey(Date.now());
+      setShowModalActivar(false);
+      setUsuarioPorActivar(null);
+      await cargar();
+    }
+  };
+
+  const cancelarActivar = () => {
+    setShowModalActivar(false);
+    setUsuarioPorActivar(null);
+  };
+
   const columns = [
     {
       name: "ID",
@@ -271,21 +332,35 @@ function UsersPage() {
       name: "Usuario",
       selector: (row) => row.Username,
       sortable: true,
-      width: "120px",
+      width: "100px",
       wrap: true,
     },
     {
       name: "Nombre",
       selector: (row) => `${row.Nombres || ""} ${row.Apellidos || ""}`,
       sortable: true,
-      width: "170px",
+      width: "100px",
+      wrap: true,
+    },
+    {
+      name: "Correo",
+      selector: (row) => row.Email || "",
+      sortable: true,
+      width: "100px",
+      wrap: true,
+    },
+    {
+      name: "Teléfono",
+      selector: (row) => row.Telefono || "",
+      sortable: true,
+      width: "100px",
       wrap: true,
     },
     {
       name: "Rol",
       selector: (row) => row.NombreRol || row.RolID,
       sortable: true,
-      width: "120px",
+      width: "100px",
       wrap: true,
     },
     {
@@ -297,25 +372,38 @@ function UsersPage() {
     },
     {
       name: "Acciones",
-      cell: (row) => (
-        <div className="btn-accion-contenedor">
-          <button
-            className="btn btn-edit btn-sm me-1"
-            onClick={() => onEdit(row)}
-            title="Editar"
-          >
-            <i className="bi bi-pencil-fill"></i>
-          </button>
-          <button
-            className="btn btn-delete btn-sm"
-            onClick={() => abrirModalEliminar(row)}
-            title="Desactivar"
-          >
-            <i className="bi bi-person-dash-fill"></i>
-          </button>
-        </div>
-      ),
-      width: "100px",
+      cell: (row) => {
+        if (isSelf(row)) return <></>;
+        return (
+          <div className="btn-accion-contenedor">
+            <button
+              className="btn btn-edit btn-sm me-1"
+              onClick={() => onEdit(row)}
+              title="Editar"
+            >
+              <i className="bi bi-pencil-fill"></i>
+            </button>
+            {row.Activo ? (
+              <button
+                className="btn btn-delete btn-sm"
+                onClick={() => abrirModalEliminar(row)}
+                title="Desactivar"
+              >
+                <i className="bi bi-person-dash-fill"></i>
+              </button>
+            ) : (
+              <button
+                className="btn btn-sm btn-success"
+                onClick={() => abrirModalActivar(row)}
+                title="Activar"
+              >
+                <i className="bi bi-check-circle-fill"></i>
+              </button>
+            )}
+          </div>
+        );
+      },
+      width: "120px",
     },
   ];
 
@@ -436,7 +524,7 @@ function UsersPage() {
                       value={form.Email}
                       onChange={handleChange}
                       onBlur={handleBlur}
-                      placeholder="Correo"
+                      placeholder="juan.perez@gmail.com"
                     />
                     {errors.Email && (
                       <div className="invalid-feedback">{errors.Email}</div>
@@ -453,7 +541,7 @@ function UsersPage() {
                       value={form.Telefono}
                       onChange={handleChange}
                       onBlur={handleBlur}
-                      placeholder="Teléfono"
+                      placeholder="849-555-5555"
                     />
                     {errors.Telefono && (
                       <div className="invalid-feedback">{errors.Telefono}</div>
@@ -465,7 +553,7 @@ function UsersPage() {
                       Rol <span className="obligatorio">*</span>
                     </label>
                     <select
-                      className={`form-select ${
+                      className={`form-select roles-select ${
                         errors.RolID ? "is-invalid" : ""
                       }`}
                       name="RolID"
@@ -499,6 +587,8 @@ function UsersPage() {
                       <span className="toggle-label">Activo</span>
                     </div>
                   </div>
+
+                  
                 </div>
 
                 <div className="grupo-botones">
@@ -521,32 +611,26 @@ function UsersPage() {
         </div>
 
         <div className="col-12 col-lg-7">
-          {/* Input de búsqueda */}
-          <div
-            style={{
-              display: "flex",
-              backgroundColor: "#FFFFFF",
-              justifyContent: "flex-end",
-              marginBottom: "10px",
-            }}
-          >
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Buscar en toda la tabla..."
-              value={busqueda}
-              style={{
-                width: "300px",
-                outline: "none",
-                boxShadow: "none",
-              }}
-              onFocus={(e) => (e.target.style.boxShadow = "none")}
-              onChange={(e) => setBusqueda(e.target.value)}
-            />
-          </div>
+          <div className="card shadow-sm tabla-usuarios-contenedor">
+            <div className="card-body">
+            <div className="d-flex align-items-center mb-2">
+              
+              
+              <div className="input-group">
+                <span className="input-group-text">
+                  <i className="bi bi-search"></i>
+                </span>
+                <input
+                  placeholder="Buscar..."
+                  className="form-control"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                />
+              </div>
 
-          {/* Tabla de usuarios */}
-          <div className="tabla-usuarios-contenedor">
+
+            </div>
+
             <DataTable
               columns={columns}
               data={usuariosFiltrados}
@@ -559,6 +643,17 @@ function UsersPage() {
               paginationComponentOptions={paginacionOpciones}
               paginationPerPage={5}
               paginationRowsPerPageOptions={[5, 10, 20, 50]}
+              conditionalRowStyles={[
+                { when: (row) => !row.Activo, style: { opacity: 0.5 } },
+                {
+                  when: (row) =>
+                    !!currentUser &&
+                    (row.UsuarioID === currentUser.id ||
+                      (row.Username || "").toLowerCase() ===
+                        (currentUser.username || "").toLowerCase()),
+                  style: { opacity: 0.5 },
+                },
+              ]}
               noDataComponent="No se encontraron usuarios que coincidan con la búsqueda"
               customStyles={{
                 cells: {
@@ -576,6 +671,7 @@ function UsersPage() {
                 },
               }}
             />
+            </div>
           </div>
         </div>
       </div>
@@ -594,6 +690,26 @@ function UsersPage() {
                 Confirmar
               </button>
               <button className="btn btn-cancel" onClick={cancelarEliminar}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal activar */}
+      {showModalActivar && usuarioPorActivar && (
+        <div className="modal-overlay modal-delete">
+          <div className="modal-content modal-delete-content">
+            <h3>Confirmar Activación</h3>
+            <p>
+              ¿Desea activar al usuario <strong>{usuarioPorActivar.Username}</strong>?
+            </p>
+            <div className="modal-buttons">
+              <button className="btn btn-confirm" onClick={confirmarActivar}>
+                Confirmar
+              </button>
+              <button className="btn btn-cancel" onClick={cancelarActivar}>
                 Cancelar
               </button>
             </div>

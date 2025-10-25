@@ -56,3 +56,20 @@ export async function deleteProducto(id) {
   await handleErrors(res, "Error al eliminar producto.");
   return res.json();
 }
+
+export async function getCategoriasProductos() {
+  const res = await fetch(`${API_URL}/categoriasproductos`, {
+    headers: { ...authHeader() },
+  });
+  await handleErrors(res, "Error al obtener categorías de productos.");
+  return res.json();
+}
+
+export async function getUnidadesMedida(tipo) {
+  const url = new URL(`${API_URL}/unidadesmedida`);
+  if (tipo) url.searchParams.set('tipo', tipo);
+  const res = await fetch(url, { headers: { ...authHeader() } });
+  await handleErrors(res, 'Error al obtener unidades de medida.');
+  return res.json();
+}
+

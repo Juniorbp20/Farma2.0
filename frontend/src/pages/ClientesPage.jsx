@@ -26,6 +26,7 @@ function ClientesPage({ user }) {
   const [showModalEliminar, setShowModalEliminar] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [showModalEditar, setShowModalEditar] = useState(false);
+  const [showModalActivar, setShowModalActivar] = useState(false);
 
   // Vistas: 'inicio', 'agregar', 'ver'
   const [vistaActual, setVistaActual] = useState("inicio");
@@ -108,6 +109,7 @@ function ClientesPage({ user }) {
     setShowModalEditar(false);
     setClienteEditando(null);
   };
+  const abrirModalActivar = (cliente) => { setClienteSeleccionado(cliente); setShowModalActivar(true); };
 
   return (
     <div className="clientes-page-container container py-3">
@@ -173,6 +175,7 @@ function ClientesPage({ user }) {
               clientes={clientes}
               onEdit={user?.rol === "admin" ? handleEdit : undefined}
               onDelete={user?.rol === "admin" ? abrirModalEliminar : undefined}
+              onActivate={user?.rol === "admin" ? abrirModalActivar : undefined}
               canEdit={user?.rol === "admin"}
               canDelete={user?.rol === "admin"}
             />
@@ -225,8 +228,37 @@ function ClientesPage({ user }) {
           </div>
         </div>
       )}
+    
+      {showModalActivar && clienteSeleccionado && (
+        <div className="modal-overlay modal-delete">
+          <div className="modal-content modal-delete-content">
+            <h3>Confirmar Activación</h3>
+            <p>
+              ¿Desea activar al cliente <strong> {clienteSeleccionado.Nombres} {clienteSeleccionado.Apellidos}c</strong>?
+            </p>
+            <div className="modal-buttons">
+              <button className="btn btn-confirm" onClick={async ()=>{ try { await updateCliente(clienteSeleccionado.ClienteID, { Activo: true }); setMensaje("Cliente activado"); setTipoMensaje("success"); await cargarDatos(); } catch(e){ setMensaje("Error al activar: " + (e?.message||'')); setTipoMensaje("error"); } finally { setToastKey(Date.now()); setShowModalActivar(false); setClienteSeleccionado(null);} }}>
+                Confirmar
+              </button>
+              <button className="btn btn-cancel" onClick={()=>{ setShowModalActivar(false); setClienteSeleccionado(null); }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default ClientesPage;
+
+
+
+
+
+
+
+
+
+

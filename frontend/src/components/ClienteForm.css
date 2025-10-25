@@ -21,7 +21,7 @@
 }
 
 .cliente-form-container input::placeholder {
-    opacity: 0.4;
+    opacity: 0.3 !important;
 }
 
 .cliente-form-container textarea {
@@ -29,7 +29,7 @@
 }
 
 .cliente-form-container textarea::placeholder {
-    opacity: 0.4;
+    opacity: 0.3 !important;
 }
 
 button.btn-submit {

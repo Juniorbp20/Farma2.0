@@ -7,6 +7,7 @@ function ClientesList({
   clientes,
   onEdit,
   onDelete,
+  onActivate,
   canEdit = true,
   canDelete = true,
 }) {
@@ -87,21 +88,33 @@ function ClientesList({
             <button
               className="btn btn-edit btn-sm me-1"
               onClick={() => onEdit && onEdit(row)}
+              title="Editar"
             >
               <i className="bi bi-pencil-fill"></i>
             </button>
           )}
-          {canDelete && (
+          {row.Activo ? (
+            canDelete && (
+              <button
+                className="btn btn-delete btn-sm"
+                onClick={() => onDelete && onDelete(row)}
+                title="Desactivar"
+              >
+                <i className="bi bi-person-dash-fill"></i>
+              </button>
+            )
+          ) : (
             <button
-              className="btn btn-delete btn-sm"
-              onClick={() => onDelete && onDelete(row)}
+              className="btn btn-sm btn-success"
+              onClick={() => onActivate && onActivate(row)}
+              title="Activar"
             >
-              <i className="bi bi-trash-fill"></i>
+              <i className="bi bi-check-circle-fill"></i>
             </button>
           )}
         </div>
       ),
-      width: "100px",
+      width: "120px",
     },
   ];
 
@@ -151,6 +164,7 @@ function ClientesList({
         paginationComponentOptions={paginacionOpciones}
         paginationPerPage={5}
         paginationRowsPerPageOptions={[5, 10, 20, 50]}
+        conditionalRowStyles={[{ when: (row) => !row.Activo, style: { opacity: 0.5 } }]}
         noDataComponent="No se encontraron datos que coincidan con la búsqueda"
         customStyles={{
           cells: {
@@ -175,3 +189,4 @@ function ClientesList({
 }
 
 export default ClientesList;
+

@@ -9,8 +9,11 @@ const usuariosRoutes = require("./routes/usuariosRoutes");
 const rolesRoutes = require("./routes/rolesRoutes");
 const authRoutes = require("./routes/authRoutes");
 const productosRoutes = require("./routes/productosRoutes");
+const unidadesMedidaRoutes = require("./routes/unidadesMedidaRoutes");
+const categoriasProductosRoutes = require("./routes/categoriasProductosRoutes");
 const ventasRoutes = require("./routes/ventasRoutes");
 const inventarioRoutes = require("./routes/inventarioRoutes");
+const proveedoresRoutes = require("./routes/proveedoresRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const { authenticate } = require("./middleware/authz");
 // const { seedAdmin } = require("./seed");
@@ -47,8 +50,11 @@ app.use("/tiposdocumentos", authenticate, tiposDocumentosRoutes);
 app.use("/usuarios", authenticate, authorizePermissions('usuarios:manage'), usuariosRoutes);
 app.use("/roles", authenticate, authorizePermissions('usuarios:manage'), rolesRoutes);
 app.use("/productos", authenticate, productosRoutes);
+app.use("/unidadesmedida", authenticate, unidadesMedidaRoutes);
+app.use("/categoriasproductos", authenticate, categoriasProductosRoutes);
 app.use("/ventas", authenticate, ventasRoutes);
 app.use("/inventario", authenticate, inventarioRoutes);
+app.use("/proveedores", authenticate, proveedoresRoutes);
 
 // Manejo de errores global
 app.use(errorHandler);

@@ -274,3 +274,97 @@ table.table-hover tbody tr:hover {
 .wrapper-btn-ayuda .btn-personalizado i {
   font-size: 1.5rem !important;
 }
+
+.invalid-feedback{
+    font-weight: 500 !important;
+}
+
+/*? ////////////////////////////////////////////////////////////////////////////// */
+/*? Perzonalizacion del select, para darle estilo a las opciones que se despliegan */
+/*? ////////////////////////////////////////////////////////////////////////////// */
+
+select, ::picker(select) {
+    appearance: base-select !important;
+    border: 2px solid #dee7ff !important;
+    cursor: var(--cursor-seleccionables) !important;
+}
+
+::picker(select) {
+    background-color: #ffffff !important;
+    border-radius: 10px !important;
+    margin-bottom: 5px !important;
+    box-shadow: 2px 5px 10px rgba(13, 110, 253, 0.10) !important;
+}
+
+::picker(select)::-webkit-scrollbar {
+    width: 10px !important;
+}
+
+::picker(select)::-webkit-scrollbar-track {
+    background: #f2f2f2 !important;
+    border-radius: 8px !important;
+}
+
+::picker(select)::-webkit-scrollbar-thumb {
+    background: #c9d7ff !important;
+    border-radius: 8px !important;
+    border: 2px solid #f2f2f2 !important;
+}
+
+::picker(select)::-webkit-scrollbar-thumb:hover {
+    background: #a8bfff !important;
+}
+
+select option {
+  margin: 4px;
+  padding: 8px 12px !important;
+  border-radius: 4px !important;
+  background-color: #ffffff !important;
+  color: #333 !important;
+}
+
+select option:hover {
+    background-color: #f0f6ff !important;
+}
+
+select option:checked {
+    background-color: #e7f1ff !important;
+    color: #0d6efd !important;
+}
+
+select::-webkit-scrollbar {
+    width: 10px !important;
+}
+
+select::-webkit-scrollbar-track {
+    background: #f2f2f2 !important;
+    border-radius: 8px !important;
+}
+
+select::-webkit-scrollbar-thumb {
+    background: #c9d7ff !important;
+    border-radius: 8px !important;
+    border: 2px solid #f2f2f2 !important;
+}
+
+select::-webkit-scrollbar-thumb:hover {
+    background: #a8bfff !important;
+}
+
+select:hover {
+    background-color: #f1f5ff !important;
+}
+
+select:focus {
+    border-color: #0D6EFD !important;
+    box-shadow: 0 0 4px rgba(0, 120, 255, 0.4) !important;
+}
+
+select::picker-icon {
+  display: none;
+}
+
+::checkmark {
+  display: none !important;
+}
+

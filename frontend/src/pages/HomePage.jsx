@@ -58,7 +58,7 @@ function HomePage({ user, onNavigate }) {
         <Card
           icon="bi-cart"
           title="Facturación"
-          desc="Registrar ventas, aplicar descuentos y emitir comprobantes."
+          desc="Registrar ventas y emitir comprobantes."
           action={() => onNavigate('pos')}
         />
         <Card
@@ -78,21 +78,18 @@ function HomePage({ user, onNavigate }) {
           title="Compras"
           desc="Órdenes de compra y recepción de productos."
           action={() => alert('Módulo de compras próximamente')}
-          disabled
         />
         <Card
           icon="bi-graph-up"
           title="Reportes"
           desc="Reportes de ventas, stock, vencimientos y más."
           action={() => alert('Módulo de reportes próximamente')}
-          disabled
         />
         <Card
           icon="bi-truck"
           title="Proveedores"
           desc="Alta de proveedores y condiciones comerciales."
-          action={() => alert('Módulo de proveedores próximamente')}
-          disabled
+          action={() => onNavigate('proveedores')}
         />
         <Card
           icon="bi-people"
@@ -114,8 +111,7 @@ function HomePage({ user, onNavigate }) {
             title="Configuración"
             desc="Parámetros generales, catálogos y seguridad."
             action={() => alert('Módulo de configuración próximamente')}
-            disabled
-          />
+        />
         )}
       </div>
     </div>
@@ -123,3 +119,7 @@ function HomePage({ user, onNavigate }) {
 }
 
 export default HomePage;
+
+
+
+

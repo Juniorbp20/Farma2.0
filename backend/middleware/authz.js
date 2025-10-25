@@ -36,10 +36,22 @@ function authorizeRoles(...roles) {
 }
 
 const ROLE_PERMISSIONS = {
-  admin: new Set(['clientes:read','clientes:create','clientes:update','clientes:delete','usuarios:manage']),
-  cajero: new Set(['clientes:read','clientes:create','clientes:update']),
-  farmaceutico: new Set(['clientes:read']),
-  inventario: new Set(['clientes:read'])
+  admin: new Set([
+    'clientes:read','clientes:create','clientes:update','clientes:delete',
+    'usuarios:manage',
+    'productos:read','productos:create','productos:update','productos:delete',
+    'proveedores:read','proveedores:create','proveedores:update','proveedores:delete'
+  ]),
+  cajero: new Set([
+    'clientes:read','clientes:create','clientes:update',
+    'productos:read','proveedores:read'
+  ]),
+  farmaceutico: new Set([
+    'clientes:read','productos:read','proveedores:read'
+  ]),
+  inventario: new Set([
+    'clientes:read','productos:read','proveedores:read'
+  ])
 };
 
 function roleKey(nameOrId) {

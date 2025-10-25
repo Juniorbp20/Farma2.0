@@ -189,7 +189,7 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
           </label>
           <input
             name="Documento"
-            placeholder="XXX-XXXXXXX-X"
+            placeholder="XXXXXXXXXXX"
             value={form.Documento}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -202,7 +202,7 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
           <label className="form-label">Teléfono</label>
           <input
             name="Telefono"
-            placeholder="+1849000000"
+            placeholder="849-555-5555"
             value={form.Telefono}
             onChange={handleChange}
             onBlur={handleBlur}

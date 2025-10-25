@@ -169,8 +169,8 @@ export default function InventarioPage() {
                     <label className="form-label">Producto</label>
                     <select className="form-select" value={nuevoLote.ProductoID} onChange={e=>setNuevoLote({...nuevoLote, ProductoID:e.target.value})} required>
                       <option value="">Seleccione...</option>
-                      {productos.map(p => (
-                        <option key={p.ProductoID} value={p.ProductoID}>{p.Nombre}{p.Presentacion ? ` — ${p.Presentacion}` : ''}</option>
+                      {productos.filter(p=>p.Activo).map(p => (
+                        <option key={p.ProductoID} value={p.ProductoID}>{p.Nombre}{p.Presentacion ? ` – ${p.Presentacion}` : ''}</option>
                       ))}
                     </select>
                   </div>
@@ -205,8 +205,8 @@ export default function InventarioPage() {
                 <label className="form-label">Producto</label>
                 <select className="form-select" value={ajuste.ProductoID} onChange={e=>setAjuste({...ajuste, ProductoID:e.target.value})} required>
                   <option value="">Seleccione...</option>
-                  {productos.map(p => (
-                    <option key={p.ProductoID} value={p.ProductoID}>{p.Nombre}{p.Presentacion ? ` — ${p.Presentacion}` : ''}</option>
+                  {productos.filter(p=>p.Activo).map(p => (
+                    <option key={p.ProductoID} value={p.ProductoID}>{p.Nombre}{p.Presentacion ? ` – ${p.Presentacion}` : ''}</option>
                   ))}
                 </select>
               </div>

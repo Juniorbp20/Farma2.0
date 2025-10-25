@@ -12,7 +12,7 @@ const getClientes = async (req, res) => {
              td.TipoDocumentoID, td.Nombre AS TipoDocumento
       FROM Clientes c
       INNER JOIN TiposDocumentos td ON c.TipoDocumentoID = td.TipoDocumentoID
-      WHERE c.Activo = 1
+      ORDER BY c.ClienteID
     `);
     res.json(result.recordset);
   } catch (err) {
@@ -83,7 +83,7 @@ const createCliente = async (req, res) => {
 // Actualizar cliente
 const updateCliente = async (req, res) => {
   const { id } = req.params;
-  const { Nombres, Apellidos, Documento, TipoDocumentoID, Telefono, Direccion } = req.body;
+  const { Nombres, Apellidos, Documento, TipoDocumentoID, Telefono, Direccion, Activo } = req.body || {};
 
   try {
     const pool = await poolPromise;
@@ -96,10 +96,17 @@ const updateCliente = async (req, res) => {
       .input("TipoDocumentoID", sql.Int, TipoDocumentoID)
       .input("Telefono", sql.NVarChar(20), Telefono || null)
       .input("Direccion", sql.NVarChar(200), Direccion || null)
+      .input("Activo", sql.Bit, typeof Activo === 'boolean' ? (Activo ? 1 : 0) : null)
       .query(`
         UPDATE Clientes
-        SET Nombres=@Nombres, Apellidos=@Apellidos, Documento=@Documento,
-            TipoDocumentoID=@TipoDocumentoID, Telefono=@Telefono, Direccion=@Direccion, FechaModificacion=GETDATE()
+        SET Nombres=COALESCE(@Nombres, Nombres),
+            Apellidos=COALESCE(@Apellidos, Apellidos),
+            Documento=COALESCE(@Documento, Documento),
+            TipoDocumentoID=COALESCE(@TipoDocumentoID, TipoDocumentoID),
+            Telefono=COALESCE(@Telefono, Telefono),
+            Direccion=COALESCE(@Direccion, Direccion),
+            Activo=COALESCE(@Activo, Activo),
+            FechaModificacion=GETDATE()
         WHERE ClienteID=@ClienteID
       `);
 

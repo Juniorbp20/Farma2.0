@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage";
 import PuntoVentaPage from "./pages/PuntoVentaPage";
 import InventarioPage from "./pages/InventarioPage";
 import ProductosPage from "./pages/ProductosPage";
+import ProveedoresPage from "./pages/ProveedoresPage";
 import LoginPage from "./pages/LoginPage";
 import CustomButton from "./components/recursos/CustomButton";
 import AyudaModal from "./components/AyudaModal";
@@ -116,6 +117,15 @@ function App() {
             </button>
             <button
               className={`btn nav-menu-btn ${
+                view === "proveedores" ? "active" : ""
+              }`}
+              onClick={() => setView("proveedores")}
+            >
+              <i className="bi bi-truck"></i>
+              <span className="nav-menu-text">Proveedores</span>
+            </button>
+            <button
+              className={`btn nav-menu-btn ${
                 view === "clientes" ? "active" : ""
               }`}
               onClick={() => setView("clientes")}
@@ -143,6 +153,7 @@ function App() {
             {view === "productos" && <ProductosPage />}
             {view === "clientes" && <ClientesPage user={user} />}
             {view === "inventario" && <InventarioPage />}
+            {view === "proveedores" && <ProveedoresPage />}
             {view === "usuarios" && user?.rol === "admin" && <UsersPage />}
           </div>
         </div>

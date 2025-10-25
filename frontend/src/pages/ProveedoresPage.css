@@ -1,14 +1,14 @@
 .users-page-container {
-    margin: 0 auto !important;
-    max-width: 1200px !important;
+    margin: 0 auto;
+    max-width: 1200px;
 }
 
 .tabla-usuarios-contenedor {
-    max-height: 70vh;
+    max-height: 65vh;
     overflow-y: auto;
     border: 1px solid #ddd;
     border-radius: 10px;
-    padding: 5px !important;
+    padding: 25px !important;
     -webkit-border-radius: 10px;
     -moz-border-radius: 10px;
     -ms-border-radius: 10px;
@@ -16,10 +16,6 @@
 }
 
 form input::placeholder {
-    opacity: 0.9 !important;
-}
-
-.form-control::placeholder {
     opacity: 0.3 !important;
 }
 
@@ -125,15 +121,58 @@ input:checked+.toggle-slider:before {
     transform: translateX(26px);
 }
 
-/* Cursor personalizado en botones de acciones (editar, desactivar, activar) */
-.btn-edit,
-.btn-delete,
-.btn-success {
+/* Modal de confirmación (alineado con Usuarios/Clientes/Productos) */
+.modal-overlay {
+    width: 100%;
+    padding: 0 25%;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 9, 50, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal-content {
+    display: flex;
+    justify-content: end;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 500px;
+}
+
+.modal-delete-content {
+    background-color: white !important;
+    border-radius: 10px !important;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.162);
+    padding: 30px 70px;
+}
+
+.modal-buttons {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.btn-confirm {
+    background-color: #0d6efd !important;
+    border: none !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    border-radius: 6px !important;
     cursor: var(--cursor-seleccionables) !important;
 }
 
-/* Asegurar dentro del contenedor de la tabla */
-.tabla-usuarios-contenedor .btn {
+.btn-cancel {
+    background-color: #dc3545 !important;
+    border: none !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    border-radius: 6px !important;
     cursor: var(--cursor-seleccionables) !important;
 }
-
