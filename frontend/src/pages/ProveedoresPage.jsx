@@ -478,9 +478,9 @@ function ProveedoresPage() {
       {showModalEliminar && proveedorSeleccionado && (
         <div className="modal-overlay modal-delete">
           <div className="modal-content modal-delete-content">
-            <h3>Confirmar DesactivaciÃ³n</h3>
+            <h3>Confirmar Desactivación</h3>
             <p>
-              Â¿Desea desactivar al proveedor <strong>{proveedorSeleccionado.NombreProveedor}</strong>?
+              ¿Desea desactivar al proveedor <strong>{proveedorSeleccionado.NombreProveedor}</strong>?
             </p>
             <div className="modal-buttons">
               <button className="btn btn-confirm" onClick={confirmarEliminar}>

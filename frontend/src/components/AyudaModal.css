@@ -10,6 +10,7 @@
     justify-content: center;
     align-items: center;
     z-index: 2000;
+    overflow-y: auto; /* Permite scroll en el overlay y bloquea el fondo */
 }
 
 .ayuda-modal-content {
@@ -20,7 +21,7 @@
     display: flex;
     flex-direction: column;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
+    overflow: hidden; /* el body interno maneja el scroll */
 }
 
 .ayuda-modal-header {

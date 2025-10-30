@@ -37,7 +37,7 @@ table.table-hover tbody tr:hover {
   transform: translateX(-50%) !important;
   top: 10px !important;
   position: fixed !important;
-  z-index: 1030 !important;
+  z-index: 15 !important;
   margin: 0 auto !important;
 }
 
@@ -67,7 +67,7 @@ table.table-hover tbody tr:hover {
   display: flex !important;
   flex-direction: column !important;
   gap: 0.5rem !important;
-  z-index: 1000 !important;
+  z-index: 10 !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   overflow: hidden !important;
   width: fit-content !important;
@@ -367,4 +367,3 @@ select::picker-icon {
 ::checkmark {
   display: none !important;
 }
-
