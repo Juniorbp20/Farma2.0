@@ -245,7 +245,7 @@ export default function ProductosPage() {
 
   return (
     <div className="container productos-page-container py-3">
-      <h1 className="page-title display-5 fw-bold text-uppercase text-center opacity-75 mb-3">Productos</h1>
+      <h1 className="page-title display-5 fw-bold text-center opacity-75 mb-3">Productos</h1>
       <Toast key={toastKey} message={mensaje} type={tipoMensaje} />
       <div className="row g-3">
         <div className="col-12 col-lg-5">

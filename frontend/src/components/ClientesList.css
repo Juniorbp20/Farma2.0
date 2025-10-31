@@ -1,7 +1,7 @@
 .table-container {
     max-width: 100%;
     margin: 0 auto;
-    margin-bottom: 40px;
+    margin-bottom: 0px !important;
     padding: 0;
     background: #f9f9f9;
     border-radius: 15px;

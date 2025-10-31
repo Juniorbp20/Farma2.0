@@ -29,7 +29,6 @@
 .clientes-list-wrapper {
     max-width: 100%;
     margin: 0 auto;
-    margin-bottom: 40px;
     padding: 0;
     background: #f9f9f9;
     border-radius: 15px;
@@ -209,6 +208,10 @@
 }
 
 .btn-salir {
+    cursor: var(--cursor-seleccionables) !important;
+}
+/* Cursor personalizado para los botones del menú de clientes */
+.clientes-menu .btn {
     cursor: var(--cursor-seleccionables) !important;
 }
 /*? FIN CSS DEL MODAL */
