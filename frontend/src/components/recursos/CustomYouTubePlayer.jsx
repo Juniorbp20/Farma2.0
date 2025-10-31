@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./CustomYouTubePlayer.css";
 
 let youTubeApiReadyPromise = null;
@@ -34,17 +34,16 @@ export default function CustomYouTubePlayer({ videoId }) {
   const wrapperRef = useRef(null);
   const containerRef = useRef(null);
   const playerRef = useRef(null);
-  const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const playingRef = useRef(false);
   const [duration, setDuration] = useState(0);
+  const durationRef = useRef(0);
   const [current, setCurrent] = useState(0);
   const [volume, setVolume] = useState(100);
   const intervalRef = useRef(null);
   const hideTimerRef = useRef(null);
   const [hovered, setHovered] = useState(false);
   const [showControls, setShowControls] = useState(false);
-  const [everPlayed, setEverPlayed] = useState(false);
   const [showPoster, setShowPoster] = useState(true);
   const hoveredRef = useRef(false);
 
@@ -80,33 +79,66 @@ export default function CustomYouTubePlayer({ videoId }) {
           rel: 0,
           iv_load_policy: 3,
           playsinline: 1,
+          fs: 0,
+          disablekb: 1,
         },
         events: {
           onReady: () => {
             playerRef.current = player;
-            setReady(true);
-            setDuration(player.getDuration() || 0);
+            const d = player.getDuration() || 0;
+            durationRef.current = d;
+            setDuration(d);
             setVolume(player.getVolume());
           },
           onStateChange: (e) => {
             const YTState = window.YT?.PlayerState || {};
+            const scheduleHideLocal = (delay = 3000) => {
+              if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+              hideTimerRef.current = setTimeout(() => {
+                if (playingRef.current) setShowControls(false);
+                else if (!hoveredRef.current) setShowControls(false);
+              }, delay);
+            };
             if (e.data === YTState.PLAYING) {
               setPlaying(true);
               playingRef.current = true;
-              setEverPlayed(true);
               setShowPoster(false);
               setShowControls(true);
-              scheduleHide();
+              scheduleHideLocal();
               if (!intervalRef.current) {
                 intervalRef.current = setInterval(() => {
-                  try { setCurrent(player.getCurrentTime() || 0); } catch {}
+                  try {
+                    const d = player.getDuration() || 0;
+                    const t = player.getCurrentTime() || 0;
+                    // Evitar pantalla de recomendaciones: pausar y volver al inicio
+                    if (d && t >= d - 0.35) {
+                      try {
+                        player.pauseVideo();
+                        player.seekTo(0, true);
+                      } catch {}
+                      setPlaying(false);
+                      playingRef.current = false;
+                      setShowControls(true);
+                      scheduleHideLocal(2000);
+                      setShowPoster(true);
+                      clearInterval(intervalRef.current);
+                      intervalRef.current = null;
+                      return;
+                    }
+                    setCurrent(t);
+                    // Refrescar duración si cambia en runtime
+                    if (d && d !== durationRef.current) {
+                      durationRef.current = d;
+                      setDuration(d);
+                    }
+                  } catch {}
                 }, 250);
               }
             } else if (e.data === YTState.ENDED) {
               setPlaying(false);
               playingRef.current = false;
               setShowControls(true);
-              scheduleHide(2000);
+              scheduleHideLocal(2000);
               setShowPoster(true);
               if (intervalRef.current) {
                 clearInterval(intervalRef.current);
@@ -116,8 +148,8 @@ export default function CustomYouTubePlayer({ videoId }) {
               setPlaying(false);
               playingRef.current = false;
               // En pausa o buffer/ended: mostrar controles si el puntero estÃ¡ encima, en otro caso ocultar tras 3s
-              if (hovered) setShowControls(true);
-              else scheduleHide();
+              if (hoveredRef.current) setShowControls(true);
+              else scheduleHideLocal();
               if (intervalRef.current) {
                 clearInterval(intervalRef.current);
                 intervalRef.current = null;
@@ -136,22 +168,20 @@ export default function CustomYouTubePlayer({ videoId }) {
     };
   }, [videoId]);
 
-  // Track hover via document mousemove to work over iframe and fullscreen
-  useEffect(() => {
-    const onMove = (e) => {
-      const rect = wrapperRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
-      hoveredRef.current = inside;
-      setHovered(inside);
-      if (inside && !showPoster) {
-        setShowControls(true);
-        scheduleHide();
-      }
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [showPoster]);
+  // Detectar movimiento del mouse sobre el área del reproductor, incluso en fullscreen,
+  // usando una capa transparente superpuesta en lugar de depender de eventos sobre el iframe.
+  const onHoverMove = () => {
+    hoveredRef.current = true;
+    setHovered(true);
+    if (!showPoster) {
+      setShowControls(true);
+      scheduleHide();
+    }
+  };
+  const onHoverLeave = () => {
+    hoveredRef.current = false;
+    setHovered(false);
+  };
 
   const togglePlay = () => {
     const p = playerRef.current;
@@ -200,9 +230,36 @@ export default function CustomYouTubePlayer({ videoId }) {
     }
   };
 
+  // Al entrar/salir de fullscreen, mostrar controles inicialmente
+  useEffect(() => {
+    const onFs = () => {
+      setShowControls(true);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = setTimeout(() => {
+        if (playingRef.current) setShowControls(false);
+        else if (!hoveredRef.current) setShowControls(false);
+      }, 3000);
+    };
+    document.addEventListener('fullscreenchange', onFs);
+    document.addEventListener('webkitfullscreenchange', onFs);
+    document.addEventListener('mozfullscreenchange', onFs);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFs);
+      document.removeEventListener('webkitfullscreenchange', onFs);
+      document.removeEventListener('mozfullscreenchange', onFs);
+    };
+  }, []);
+
   return (
     <div ref={wrapperRef} className="d-flex flex-column w-100 h-100">
       <div className="cyp-player" ref={containerRef} />
+      {/* Superficie transparente para capturar movimiento del mouse (incluye fullscreen) */}
+      <div
+        className="cyp-hover-surface"
+        onMouseMove={onHoverMove}
+        onMouseEnter={onHoverMove}
+        onMouseLeave={onHoverLeave}
+      />
       {showPoster && (
         <button
           type="button"
@@ -216,14 +273,19 @@ export default function CustomYouTubePlayer({ videoId }) {
           </span>
         </button>
       )}
-      <div className={`cyp-controls-overlay ${showControls ? "visible" : ""}`}>
+      <div
+        className={`cyp-controls-overlay ${showControls ? "visible" : ""}`}
+        onMouseMove={onHoverMove}
+        onMouseEnter={onHoverMove}
+      >
         <button className="btn-icon" type="button" onClick={togglePlay} title={playing ? "Pausar" : "Reproducir"}>
           <i className={`bi ${playing ? "bi-pause-fill" : "bi-play-fill"}`} />
         </button>
         <div className="cyp-progress">
-          <span className="text-muted" style={{ minWidth: 48, fontSize: "0.8rem" }}>{secondsToHMS(current)}</span>
+          <span className="text-muted" style={{ minWidth: 110, fontSize: "0.8rem" }}>
+            {secondsToHMS(current)} / {secondsToHMS(duration)}
+          </span>
           <input type="range" min={0} max={Math.max(1, duration)} step={1} value={Math.min(current, duration)} onChange={onSeek} />
-          <span className="text-muted" style={{ minWidth: 48, fontSize: "0.8rem" }}>{secondsToHMS(duration)}</span>
         </div>
         <div className="cyp-vol-wrapper">
           <button className="btn-icon" type="button" title="Volumen">

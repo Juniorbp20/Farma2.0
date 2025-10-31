@@ -28,7 +28,7 @@ function LineaCarrito({ item, onQty, onRemove }) {
     </tr>
   );
 }
-
+// Componente principal
 export default function PuntoVentaPage({ user }) {
   const [clientes, setClientes] = useState([]);
   const [filtroCliente, setFiltroCliente] = useState('');

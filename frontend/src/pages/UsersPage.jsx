@@ -1,4 +1,4 @@
-﻿/* eslint-disable default-case */
+/* eslint-disable default-case */
 // src/pages/UsersPage.js
 import React, { useEffect, useState } from "react";
 import "./UsersPage.css";
@@ -273,22 +273,6 @@ function UsersPage() {
   const cancelarEliminar = () => {
     setShowModalEliminar(false);
     setUsuarioSeleccionado(null);
-  };
-
-  // Activar usuario inactivo
-  const activarUsuario = async (u) => {
-    try {
-      await updateUsuario(u.UsuarioID, { Activo: true });
-      setMensaje("Usuario activado");
-      setTipoMensaje("success");
-    } catch (err) {
-      const mensajeDeError = extractErrorMessage(err);
-      setMensaje("Ocurri un error: " + mensajeDeError);
-      setTipoMensaje("error");
-    } finally {
-      setToastKey(Date.now());
-      await cargar();
-    }
   };
 
   const abrirModalActivar = (u) => {
