@@ -2,6 +2,7 @@
 // Crear venta (ajusta stock en DB vía Lotes/Productos). No persiste encabezado/detalle.
 const sql = require('mssql');
 const poolPromise = require('../db');
+const { consumirDesdeLotes } = require('./inventarioController');
 let contadorVentas = 1;
 
 const crearVenta = async (req, res) => {
@@ -42,27 +43,10 @@ const crearVenta = async (req, res) => {
     await tx.begin();
     try {
       for (const it of items) {
-        const quitar = Number(it.Cantidad || 0);
-        if (!it.ProductoID || quitar <= 0) continue;
-        // Consumir lotes FIFO por vencimiento
-        const q = await new sql.Request(tx)
-          .input('ProductoID', sql.Int, Number(it.ProductoID))
-          .query(`SELECT LoteID, Cantidad FROM Lotes WHERE ProductoID=@ProductoID AND Activo=1 AND Cantidad>0 ORDER BY FechaVencimiento, LoteID`);
-        let restante = quitar;
-        for (const l of q.recordset) {
-          if (restante <= 0) break;
-          const take = Math.min(restante, Number(l.Cantidad));
-          await new sql.Request(tx)
-            .input('LoteID', sql.Int, l.LoteID)
-            .input('take', sql.Int, take)
-            .query(`UPDATE Lotes SET Cantidad = Cantidad - @take WHERE LoteID = @LoteID;`);
-          restante -= take;
-        }
-        const consumido = quitar - restante;
-        await new sql.Request(tx)
-          .input('ProductoID', sql.Int, Number(it.ProductoID))
-          .input('consumido', sql.Int, consumido + Math.max(0, restante))
-          .query(`UPDATE Productos SET StockActual = CASE WHEN StockActual >= @consumido THEN StockActual - @consumido ELSE 0 END WHERE ProductoID=@ProductoID;`);
+        const quitar = Number(it.Cantidad || it.cantidad || 0);
+        const productoId = Number(it.ProductoID ?? it.productoId);
+        if (!productoId || quitar <= 0) continue;
+        await consumirDesdeLotes(tx, productoId, quitar);
       }
       await tx.commit();
     } catch (err) {

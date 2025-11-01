@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { buscarProductos } from '../services/productsService';
 import useDebounce from '../hooks/useDebounce';
 
-function ProductSelector({ onSelect, placeholder = "Buscar producto..." }) {
+function ProductSelector({ onSelect, placeholder = 'Buscar producto...' }) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11,14 +11,19 @@ function ProductSelector({ onSelect, placeholder = "Buscar producto..." }) {
   const debouncedQuery = useDebounce(query, 300);
   const inputRef = useRef(null);
   const containerRef = useRef(null);
+  const skipNextSearchRef = useRef(false);
 
   useEffect(() => {
-    if (debouncedQuery.trim()) {
-      buscarProductosAsync(debouncedQuery);
-    } else {
+    if (!debouncedQuery.trim()) {
       setSuggestions([]);
       setShowSuggestions(false);
+      return;
     }
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
+      return;
+    }
+    buscarProductosAsync(debouncedQuery);
   }, [debouncedQuery]);
 
   useEffect(() => {
@@ -48,16 +53,15 @@ function ProductSelector({ onSelect, placeholder = "Buscar producto..." }) {
 
   const handleSelect = (producto) => {
     onSelect(producto);
-    setQuery('');
+    const label = `${producto.Nombre}${producto.Presentacion ? ` - ${producto.Presentacion}` : ''}`;
+    setQuery(label);
+    skipNextSearchRef.current = true;
     setSuggestions([]);
     setShowSuggestions(false);
-    inputRef.current?.focus();
   };
 
   const handleInputFocus = () => {
-    if (suggestions.length > 0) {
-      setShowSuggestions(true);
-    }
+    if (query.trim()) setShowSuggestions(true);
   };
 
   return (
@@ -71,7 +75,7 @@ function ProductSelector({ onSelect, placeholder = "Buscar producto..." }) {
         onChange={(e) => setQuery(e.target.value)}
         onFocus={handleInputFocus}
       />
-      
+
       {showSuggestions && (query.trim() || suggestions.length > 0) && (
         <div className="list-group position-absolute w-100 shadow-lg" style={{ zIndex: 1000, maxHeight: '300px', overflowY: 'auto' }}>
           {loading && (
