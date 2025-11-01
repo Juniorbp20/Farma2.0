@@ -58,8 +58,8 @@ function FieldError({ error }) {
   return <div className="text-danger small mt-1">{error}</div>;
 }
 
-export default function InventarioPage() {
-  const [activeTab, setActiveTab] = useState('resumen');
+export default function InventarioPage({ initialTab = 'resumen' }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const [dashboard, setDashboard] = useState(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -96,6 +96,10 @@ export default function InventarioPage() {
   const [purchaseErrors, setPurchaseErrors] = useState('');
   const [creatingCompra, setCreatingCompra] = useState(false);
   const [createCompraOk, setCreateCompraOk] = useState('');
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const [productSearch, setProductSearch] = useState('');
 

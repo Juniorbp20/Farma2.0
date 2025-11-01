@@ -21,6 +21,7 @@ function App() {
   });
 
   const [ayudaAbierto, setAyudaAbierto] = useState(false);
+  const [inventoryInitialTab, setInventoryInitialTab] = useState('resumen');
 
   useEffect(() => {
     const token = getToken();
@@ -39,8 +40,29 @@ function App() {
   const handleLogout = () => {
     logout();
     setUser(null);
+    setInventoryInitialTab('resumen');
     setView("clientes");
     sessionStorage.removeItem("lastView");
+  };
+
+  const handleNavigate = (target) => {
+    if (typeof target === 'string') {
+      if (target !== 'inventario') {
+        setInventoryInitialTab('resumen');
+      }
+      setView(target);
+      return;
+    }
+    if (target && typeof target === 'object') {
+      if (target.view === 'inventario') {
+        setInventoryInitialTab(target.tab || 'resumen');
+        setView('inventario');
+        return;
+      }
+      if (target.view) {
+        setView(target.view);
+      }
+    }
   };
 
   if (!user) return <LoginPage onLogin={handleLogin} />;
@@ -50,7 +72,7 @@ function App() {
       {/* Navbar superior fijo */}
       <nav className="navbar navbar-expand-lg navbar-light bg-light fixed-top">
         <div className="container-fluid px-4 nav-top-container">
-          <span className="navbar-brand" onClick={() => setView("home")}>
+          <span className="navbar-brand" onClick={() => handleNavigate("home")}>
             <img
               src="/logo-horizontal.svg"
               alt="Farmacia Logo"
@@ -85,14 +107,14 @@ function App() {
           <div className="nav-vertical-menu" role="group">
             <button
               className={`btn nav-menu-btn ${view === "home" ? "active" : ""}`}
-              onClick={() => setView("home")}
+              onClick={() => handleNavigate("home")}
             >
               <i className="bi bi-house-door"></i>
               <span className="nav-menu-text">Inicio</span>
             </button>
             <button
               className={`btn nav-menu-btn ${view === "pos" ? "active" : ""}`}
-              onClick={() => setView("pos")}
+              onClick={() => handleNavigate("pos")}
             >
               <i className="bi bi-receipt"></i>
               <span className="nav-menu-text">Facturación</span>
@@ -101,7 +123,7 @@ function App() {
               className={`btn nav-menu-btn ${
                 view === "productos" ? "active" : ""
               }`}
-              onClick={() => setView("productos")}
+              onClick={() => handleNavigate("productos")}
             >
               <i className="bi bi-box-seam"></i>
               <span className="nav-menu-text">Productos</span>
@@ -110,7 +132,7 @@ function App() {
               className={`btn nav-menu-btn ${
                 view === "inventario" ? "active" : ""
               }`}
-              onClick={() => setView("inventario")}
+              onClick={() => handleNavigate("inventario")}
             >
               <i className="bi bi-clipboard-data"></i>
               <span className="nav-menu-text">Inventario</span>
@@ -119,7 +141,7 @@ function App() {
               className={`btn nav-menu-btn ${
                 view === "proveedores" ? "active" : ""
               }`}
-              onClick={() => setView("proveedores")}
+              onClick={() => handleNavigate("proveedores")}
             >
               <i className="bi bi-truck"></i>
               <span className="nav-menu-text">Proveedores</span>
@@ -128,7 +150,7 @@ function App() {
               className={`btn nav-menu-btn ${
                 view === "clientes" ? "active" : ""
               }`}
-              onClick={() => setView("clientes")}
+              onClick={() => handleNavigate("clientes")}
             >
               <i className="bi bi-person-badge"></i>
               <span className="nav-menu-text">Clientes</span>
@@ -138,7 +160,7 @@ function App() {
                 className={`btn nav-menu-btn ${
                   view === "usuarios" ? "active" : ""
                 }`}
-                onClick={() => setView("usuarios")}
+                onClick={() => handleNavigate("usuarios")}
               >
                 <i className="bi bi-people-fill"></i>
                 <span className="nav-menu-text">Usuarios</span>
@@ -148,11 +170,11 @@ function App() {
 
           {/* Contenido principal a la derecha */}
           <div className="app-main">
-            {view === "home" && <HomePage user={user} onNavigate={setView} />}
+            {view === "home" && <HomePage user={user} onNavigate={handleNavigate} />}
             {view === "pos" && <PuntoVentaPage user={user} />}
             {view === "productos" && <ProductosPage />}
             {view === "clientes" && <ClientesPage user={user} />}
-            {view === "inventario" && <InventarioPage />}
+            {view === "inventario" && <InventarioPage initialTab={inventoryInitialTab} />}
             {view === "proveedores" && <ProveedoresPage />}
             {view === "usuarios" && user?.rol === "admin" && <UsersPage />}
           </div>

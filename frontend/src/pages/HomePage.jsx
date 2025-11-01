@@ -77,7 +77,7 @@ function HomePage({ user, onNavigate }) {
           icon="bi-bag-check"
           title="Compras"
           desc="Órdenes de compra y recepción de productos."
-          action={() => alert('Módulo de compras próximamente')}
+          action={() => onNavigate({ view: 'inventario', tab: 'compras' })}
         />
         <Card
           icon="bi-graph-up"
