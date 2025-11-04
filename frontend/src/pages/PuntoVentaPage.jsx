@@ -91,18 +91,6 @@ export default function PuntoVentaPage({ user }) {
   const [error, setError] = useState('');
   const [ok, setOk] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showDevolucion, setShowDevolucion] = useState(false);
-  const [devSelKey, setDevSelKey] = useState('');
-  const [devQty, setDevQty] = useState('');
-  const [devMsg, setDevMsg] = useState('');
-  const [devReemp, setDevReemp] = useState(false);
-  const [devBusca, setDevBusca] = useState('');
-  const [devSug, setDevSug] = useState([]);
-  const [devSugIndex, setDevSugIndex] = useState(0);
-  const [devRep, setDevRep] = useState(null);
-  const [devRepLotes, setDevRepLotes] = useState([]);
-  const [devRepLoteId, setDevRepLoteId] = useState(null);
-  const [devRepQty, setDevRepQty] = useState('');
 
   const inputBusquedaRef = useRef(null);
 
@@ -126,32 +114,10 @@ export default function PuntoVentaPage({ user }) {
     }
   }, [formaPago]);
 
-  // Búsqueda de producto reemplazo en devolución
-  useEffect(() => {
-    let cancel = false;
-    const run = async () => {
-      const q = devBusca.trim();
-      if (!showDevolucion || !devReemp || !q) { setDevSug([]); return; }
-      try {
-        const data = await buscarProductos(q);
-        if (!cancel) { setDevSug(data); setDevSugIndex(0); }
-      } catch { if (!cancel) setDevSug([]); }
-    };
-    const t = setTimeout(run, 250);
-    return () => { cancel = true; clearTimeout(t); };
-  }, [devBusca, devReemp, showDevolucion]);
-
   const canPrint = (() => {
     const r = String(user?.rol || '').toLowerCase();
     return r.includes('admin') || r.includes('cajero');
   })();
-
-  const canReturnItem = (it) => {
-    // Regla simple: por defecto permite devolución; ejemplo de restricción por nombre
-    const name = (it?.nombre || '').toLowerCase();
-    if (name.includes('controlado')) return false;
-    return true;
-  };
 
   useEffect(() => {
     let cancel = false;
@@ -560,110 +526,7 @@ export default function PuntoVentaPage({ user }) {
                   </table>
                 </div>
                 {/* Bloque de devolución */}
-                <div className="border rounded p-2 mb-2">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <strong>Devolución</strong>
-                  </div>
-                  {showDevolucion && (
-                    <div className="row g-2 mt-2">
-                      <div className="col-6">
-                        <label className="form-label">Producto a devolver</label>
-                        <select className="form-select" value={devSelKey} onChange={(e)=>{ setDevSelKey(e.target.value); setDevMsg(''); }}>
-                          <option value="">Seleccione</option>
-                          {items.map(it => (
-                            <option key={`devsel-${it.productoId}-${it.loteId}`} value={`${it.productoId}|${it.loteId}`}>{it.nombre} {it.presentacion ? `· ${it.presentacion}`:''}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="col-3">
-                        <label className="form-label">Cantidad</label>
-                        <input type="number" min={0} className="form-control" value={devQty} onChange={(e)=>setDevQty(e.target.value)} />
-                      </div>
-                      <div className="col-3 d-flex align-items-end">
-                        <button className="btn btn-outline-primary w-100" onClick={() => {
-                          setDevMsg('');
-                          const [pidStr, loteStr] = (devSelKey||'').split('|');
-                          const pid = Number(pidStr); const lid = Number(loteStr);
-                          if(!pid || !lid){ setDevMsg('Seleccione un producto.'); return; }
-                          const it = items.find(p => p.productoId===pid && p.loteId===lid);
-                          if(!it){ setDevMsg('Producto no válido.'); return; }
-                          if(!canReturnItem(it)){ setDevMsg('Este producto no permite devolución.'); return; }
-                          const qty = Math.max(0, Math.floor(Number(devQty)||0));
-                          if(qty<=0){ setDevMsg('Cantidad inválida.'); return; }
-                          if(qty>(it.cantUnidadesMinimas||0)){ setDevMsg('Cantidad excede a la comprada.'); return; }
-                          // aplicar devolución directa (reduce cantidad)
-                          setItems(prev => prev.map(p => (p.productoId===pid && p.loteId===lid ? { ...p, cantUnidadesMinimas: (p.cantUnidadesMinimas||0)-qty } : p)).filter(p => (p.cantUnidadesMinimas||0)>0));
-                          setDevMsg('Devolución aplicada.');
-                        }}>Aplicar devolución</button>
-                      </div>
-
-                      <div className="col-12">
-                        <div className="form-check">
-                          <input className="form-check-input" type="checkbox" id="chkReemp" checked={devReemp} onChange={(e)=>setDevReemp(e.target.checked)} />
-                          <label className="form-check-label" htmlFor="chkReemp">Agregar reemplazo</label>
-                        </div>
-                      </div>
-                      {devReemp && (
-                        <>
-                          <div className="col-7">
-                            <input value={devBusca} onChange={(e)=>setDevBusca(e.target.value)} className="form-control" placeholder="Buscar producto de reemplazo..." />
-                            {!!devSug.length && (
-                              <div className="list-group mt-1" style={{ maxHeight: 140, overflowY: 'auto' }}>
-                                {devSug.map((p, idx) => (
-                                  <button key={`sug-${p.ProductoID}`} className={`list-group-item list-group-item-action ${idx===devSugIndex ? 'active':''}`} onMouseEnter={()=>setDevSugIndex(idx)} onClick={async ()=>{
-                                    setDevRep(p);
-                                    try{ const lots = await getLotes({ productoId: p.ProductoID, estado: 'activos' }); setDevRepLotes(lots); setDevRepLoteId(lots[0]?.loteId||null);}catch{ setDevRepLotes([]); setDevRepLoteId(null); }
-                                    setDevSug([]); setDevBusca('');
-                                  }}>{p.Nombre}{p.Presentacion?` · ${p.Presentacion}`:''}</button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <div className="col-3">
-                            <select className="form-select" value={devRepLoteId||''} onChange={(e)=>setDevRepLoteId(Number(e.target.value)||null)}>
-                              <option value="">Lote</option>
-                              {devRepLotes.map(l=> <option key={`rl-${l.loteId}`} value={l.loteId}>{l.numeroLote||`Lote ${l.loteId}`}</option>)}
-                            </select>
-                          </div>
-                          <div className="col-2">
-                            <input type="number" min={0} className="form-control" placeholder="Cant." value={devRepQty} onChange={(e)=>setDevRepQty(e.target.value)} />
-                          </div>
-                          <div className="col-12 d-flex justify-content-end">
-                            <button className="btn btn-outline-success" onClick={async ()=>{
-                              setDevMsg('');
-                              if(!devRep || !devRepLoteId){ setDevMsg('Seleccione producto/lote de reemplazo.'); return; }
-                              const qty = Math.max(0, Math.floor(Number(devRepQty)||0));
-                              if(qty<=0){ setDevMsg('Cantidad de reemplazo inválida.'); return; }
-                              // agregar nuevo item de reemplazo (detalle por unidades)
-                              try{
-                                const lots = devRepLotes.length ? devRepLotes : await getLotes({ productoId: devRep.ProductoID, estado: 'activos' });
-                                const l = lots.find(x=>x.loteId===Number(devRepLoteId));
-                                if(!l){ setDevMsg('Lote no disponible.'); return; }
-                                const nuevo = {
-                                  productoId: devRep.ProductoID,
-                                  nombre: devRep.Nombre,
-                                  presentacion: devRep.Presentacion,
-                                  factorUnidad: Number(devRep.CantidadUnidadMinimaXEmpaque||1),
-                                  lotes: lots.map(x=>({
-                                    loteId:x.loteId, numeroLote:x.numeroLote, fechaVencimiento:x.fechaVencimiento,
-                                    cantidadEmpaques:x.cantidadEmpaques, cantidadUnidadesMinimas:x.cantidadUnidadesMinimas,
-                                    precioUnitarioVenta:x.precioVenta, precioVenta:x.precioVenta, impuesto:x.impuesto,
-                                    porcentajeImpuesto:x.impuesto, descuento:x.descuento, porcentajeDescuentoEmpaque:x.descuento,
-                                  })),
-                                  loteId: devRepLoteId,
-                                  cantUnidadesMinimas: qty,
-                                };
-                                setItems(prev => [...prev, nuevo]);
-                                setDevMsg('Reemplazo agregado.');
-                              }catch{ setDevMsg('No fue posible agregar reemplazo.'); }
-                            }}>Agregar reemplazo</button>
-                          </div>
-                        </>
-                      )}
-                      {!!devMsg && <div className="col-12"><div className="alert alert-info py-2 mb-0">{devMsg}</div></div>}
-                    </div>
-                  )}
-                </div>
+                {/* Devolución deshabilitada (solo botón visible en footer) */}
                 <div className="d-flex justify-content-end">
                   <div style={{ minWidth: 260 }}>
                     <div className="d-flex justify-content-between"><div>Subtotal</div><div>{subtotal.toFixed(2)}</div></div>
@@ -675,7 +538,6 @@ export default function PuntoVentaPage({ user }) {
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowConfirm(false)}>Seguir editando</button>
-                <button className="btn btn-outline-warning" onClick={()=> setShowDevolucion((v)=>!v)}>Devolución</button>
                 <button className="btn btn-primary" disabled={!canPrint} title={canPrint?'' :'No autorizado para imprimir'} onClick={() => { setShowConfirm(false); onFinalizar(); }}>Confirmar e imprimir</button>
               </div>
             </div>
