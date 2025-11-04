@@ -1,0 +1,941 @@
+{
+  "seq": 25,
+  "ventas": [
+    {
+      "fecha": "2025-11-02T23:42:02.993Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7
+        }
+      ],
+      "ventaId": 1
+    },
+    {
+      "fecha": "2025-11-02T23:51:41.308Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 2
+    },
+    {
+      "fecha": "2025-11-03T00:10:45.205Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 100,
+        "cambio": 46.9
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 45,
+      "impuestoTotal": 8.1,
+      "total": 53.1,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 3,
+          "unidades": 3,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 45,
+          "impuesto": 8.1,
+          "total": 53.1,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 3
+    },
+    {
+      "fecha": "2025-11-03T00:16:22.114Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 100,
+        "cambio": 29.2
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 60,
+      "impuestoTotal": 10.8,
+      "total": 70.8,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 4,
+          "unidades": 4,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 60,
+          "impuesto": 10.8,
+          "total": 70.8,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 4
+    },
+    {
+      "fecha": "2025-11-03T00:23:22.574Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 100,
+        "cambio": 29.2
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 60,
+      "impuestoTotal": 10.8,
+      "total": 70.8,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 4,
+          "unidades": 4,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 60,
+          "impuesto": 10.8,
+          "total": 70.8,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 5
+    },
+    {
+      "fecha": "2025-11-03T00:26:20.882Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Tarjeta",
+      "pago": {
+        "metodo": "Tarjeta",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 60,
+      "impuestoTotal": 10.8,
+      "total": 70.8,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 1,
+          "cantUnidadesMinimas": 4,
+          "unidades": 4,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 60,
+          "impuesto": 10.8,
+          "total": 70.8,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 6
+    },
+    {
+      "fecha": "2025-11-03T00:53:32.463Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 200,
+        "cambio": 23
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 150,
+      "impuestoTotal": 27,
+      "total": 177,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "empaque",
+          "cantEmpaques": 1,
+          "cantUnidadesMinimas": 1,
+          "unidades": 10,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 150,
+          "impuesto": 27,
+          "total": 177,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 7
+    },
+    {
+      "fecha": "2025-11-03T01:13:04.260Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 200,
+        "cambio": 23
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 150,
+      "impuestoTotal": 27,
+      "total": 177,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "empaque",
+          "cantEmpaques": 1,
+          "cantUnidadesMinimas": 4,
+          "unidades": 10,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 150,
+          "impuesto": 27,
+          "total": 177,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 8
+    },
+    {
+      "fecha": "2025-11-03T02:02:05.629Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 100,
+        "cambio": 46.9
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 45,
+      "impuestoTotal": 8.1,
+      "total": 53.1,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 3,
+          "unidades": 3,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 45,
+          "impuesto": 8.1,
+          "total": 53.1,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 9
+    },
+    {
+      "fecha": "2025-11-03T02:30:31.253Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 100,
+        "cambio": 29.2
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 60,
+      "impuestoTotal": 10.8,
+      "total": 70.8,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 4,
+          "unidades": 4,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 60,
+          "impuesto": 10.8,
+          "total": 70.8,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 10
+    },
+    {
+      "fecha": "2025-11-03T02:36:44.048Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 100,
+        "cambio": 46.9
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 45,
+      "impuestoTotal": 8.1,
+      "total": 53.1,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 3,
+          "unidades": 3,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 45,
+          "impuesto": 8.1,
+          "total": 53.1,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 11
+    },
+    {
+      "fecha": "2025-11-03T02:43:09.138Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 50,
+        "cambio": 32.3
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 12
+    },
+    {
+      "fecha": "2025-11-03T02:44:18.293Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 50,
+        "cambio": 32.3
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 13
+    },
+    {
+      "fecha": "2025-11-03T02:48:00.694Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 50,
+        "cambio": 32.3
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 14
+    },
+    {
+      "fecha": "2025-11-03T02:49:45.596Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 50,
+        "cambio": 32.3
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 15
+    },
+    {
+      "fecha": "2025-11-03T02:50:39.285Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 16
+    },
+    {
+      "fecha": "2025-11-03T02:51:34.272Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 17
+    },
+    {
+      "fecha": "2025-11-03T02:52:28.110Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 18
+    },
+    {
+      "fecha": "2025-11-03T02:53:49.558Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 19
+    },
+    {
+      "fecha": "2025-11-03T02:55:11.735Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 20
+    },
+    {
+      "fecha": "2025-11-03T02:56:03.544Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 21
+    },
+    {
+      "fecha": "2025-11-03T03:03:35.126Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 22
+    },
+    {
+      "fecha": "2025-11-03T03:12:02.458Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 23
+    },
+    {
+      "fecha": "2025-11-03T03:12:30.634Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 0,
+        "cambio": 0
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 0,
+      "subtotal": 15,
+      "impuestoTotal": 2.7,
+      "total": 17.7,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 1,
+          "unidades": 1,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 15,
+          "impuesto": 2.7,
+          "total": 17.7,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 24
+    },
+    {
+      "fecha": "2025-11-04T02:07:13.584Z",
+      "usuarioId": 1,
+      "clienteId": null,
+      "formaPago": "Efectivo",
+      "pago": {
+        "metodo": "Efectivo",
+        "monto": 100,
+        "cambio": 13.75
+      },
+      "estado": "Pagada",
+      "observaciones": "",
+      "descuento": 2.25,
+      "subtotal": 75,
+      "impuestoTotal": 13.5,
+      "total": 86.25,
+      "items": [
+        {
+          "productoId": 1,
+          "loteId": 1,
+          "modo": "detalle",
+          "cantEmpaques": 0,
+          "cantUnidadesMinimas": 5,
+          "unidades": 5,
+          "factor": 10,
+          "precioUnitarioVenta": 15,
+          "porcentajeImpuesto": 18,
+          "porcentajeDescEmpaque": 0,
+          "subtotal": 75,
+          "impuesto": 13.5,
+          "total": 88.5,
+          "numeroLote": "PAC-001",
+          "productoNombre": "Paracetamol 500mg",
+          "productoPresentacion": "Tableta"
+        }
+      ],
+      "ventaId": 25
+    }
+  ]
+}

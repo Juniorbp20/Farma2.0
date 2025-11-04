@@ -24,6 +24,15 @@ export async function buscarProductos(q) {
   return res.json();
 }
 
+export async function buscarProductosConStock(q) {
+  const url = new URL(`${API_URL}/productos/buscar`);
+  url.searchParams.set('q', q || '');
+  url.searchParams.set('soloConStock', 'true');
+  const res = await fetch(url, { headers: { ...authHeader() } });
+  await handleErrors(res, "Error al buscar productos con stock.");
+  return res.json();
+}
+
 export async function getProductoPorCodigo(codigo) {
   throw new Error('No disponible');
 }

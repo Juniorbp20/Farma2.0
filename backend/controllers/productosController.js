@@ -2,6 +2,7 @@
 // Implementación contra SQL Server (tabla Productos)
 const sql = require('mssql');
 const poolPromise = require('../db');
+const { getLotesColumnInfo, getCantidadExpressions } = require('../store/inventoryUtils');
 
 function mapProductoRow(r) {
   return {
@@ -43,26 +44,42 @@ const getProductos = async (req, res) => {
 
 const buscarProductos = async (req, res) => {
   try {
-    const term = String((req.query.q || '').trim());
+    const raw = (req.query.q ?? req.query.search ?? '').toString();
+    const term = raw.trim();
     if (!term) return res.json([]);
+    const soloConStock = String(req.query.soloConStock || req.query.solo_stock || '').toLowerCase() === 'true';
     const pool = await poolPromise;
-    const q = await pool
+    const request = pool
       .request()
-      .input('term', sql.NVarChar(200), `%${term}%`)
-      .query(`
-        SELECT TOP 25 p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
-               p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.CantidadUnidadMinimaXEmpaque,
-               ume.Nombre AS UnidadMedidaEmpaqueNombre,
-               umm.Nombre AS UnidadMedidaMinimaNombre
-        FROM Productos p
-        LEFT JOIN UnidadesMedida ume ON ume.UnidadMedidaID = p.UnidadMedidaEmpaqueID
-        LEFT JOIN UnidadesMedida umm ON umm.UnidadMedidaID = p.UnidadMedidaMinimaID
-        WHERE p.Activo = 1 AND (
-          p.NombreProducto LIKE @term OR p.Presentacion LIKE @term OR
-          ume.Nombre LIKE @term OR umm.Nombre LIKE @term
+      .input('term', sql.NVarChar(200), `%${term}%`);
+    let query = `
+      SELECT TOP 25 p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
+             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.CantidadUnidadMinimaXEmpaque,
+             ume.Nombre AS UnidadMedidaEmpaqueNombre,
+             umm.Nombre AS UnidadMedidaMinimaNombre
+      FROM dbo.Productos p
+      LEFT JOIN dbo.UnidadesMedida ume ON ume.UnidadMedidaID = p.UnidadMedidaEmpaqueID
+      LEFT JOIN dbo.UnidadesMedida umm ON umm.UnidadMedidaID = p.UnidadMedidaMinimaID
+      WHERE p.Activo = 1 AND (
+        p.NombreProducto LIKE @term OR p.Presentacion LIKE @term OR
+        ume.Nombre LIKE @term OR umm.Nombre LIKE @term
+      )
+    `;
+    if (soloConStock) {
+      const meta = await getLotesColumnInfo();
+      const { cantidadExpr } = getCantidadExpressions(meta, { alias: 'l', productAlias: 'p' });
+      query += ` AND (
+        EXISTS (
+          SELECT 1 FROM dbo.Lotes l
+          WHERE l.ProductoID = p.ProductoID AND COALESCE(l.Activo,1) = 1
+            AND (l.FechaVencimiento IS NULL OR DATEDIFF(day, CAST(GETDATE() AS date), l.FechaVencimiento) >= 0)
+            AND (${cantidadExpr} > 0)
         )
-        ORDER BY p.NombreProducto
-      `);
+        OR COALESCE(p.StockActual,0) > 0
+      )`;
+    }
+    query += ` ORDER BY p.NombreProducto`;
+    const q = await request.query(query);
     res.json(q.recordset.map(mapProductoRow));
   } catch (err) {
     console.error('buscarProductos error:', err);

@@ -15,3 +15,23 @@ export async function crearVenta(venta) {
   }
   return res.json();
 }
+
+export async function getVentaPdf(ventaId) {
+  const res = await fetch(`${API_URL}/ventas/${ventaId}/pdf`, {
+    headers: { ...authHeader() },
+  });
+  if (!res.ok) {
+    try {
+      const err = await res.json();
+      throw new Error(err?.message || 'No se pudo obtener el PDF de la factura');
+    } catch {
+      throw new Error('No se pudo obtener el PDF de la factura');
+    }
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  let filename = `factura_${ventaId}.pdf`;
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  if (match?.[1]) filename = match[1];
+  return { blob, filename };
+}

@@ -14,16 +14,27 @@ const dbConfig = {
   },
 };
 
-const poolPromise = new sql.ConnectionPool(dbConfig)
-  .connect()
-  .then((pool) => {
-    console.log("Conectado a SQL Server ✅");
-    return pool;
-  })
-  .catch((err) => {
-    console.error("Error al conectar con DB:", err.message);
-    process.exit(1);
-  });
+async function connectWithRetry(maxRetries = 5, delayMs = 3000) {
+  let attempt = 0;
+  while (true) {
+    try {
+      const pool = await new sql.ConnectionPool(dbConfig).connect();
+      console.log("Conectado a SQL Server");
+      return pool;
+    } catch (err) {
+      attempt += 1;
+      console.error(`Error al conectar con DB (intento ${attempt}/${maxRetries}):`, err.message);
+      if (attempt >= maxRetries) throw err;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+
+const poolPromise = connectWithRetry(
+  parseInt(process.env.DB_RETRIES || '5', 10),
+  parseInt(process.env.DB_RETRY_DELAY || '3000', 10)
+);
 
 module.exports = poolPromise;
+
 
