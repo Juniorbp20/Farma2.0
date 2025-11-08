@@ -71,7 +71,7 @@ function number(val, d = 2) {
   );
 }
 
-export default function PuntoVentaPage({ user }) {
+export default function PuntoVentaPage({ user, onNavigate }) {
   const [clientes, setClientes] = useState([]);
   const [clienteSel, setClienteSel] = useState(null);
   const [estado, setEstado] = useState('Pagada');
@@ -447,6 +447,7 @@ export default function PuntoVentaPage({ user }) {
             <div className="d-flex justify-content-between fs-5 mt-2"><div>Total</div><div className="fw-bold">{total.toFixed(2)}</div></div>
             {!!error && <div className="alert alert-danger mt-2 mb-0 py-2">{error}</div>}
             <div className="mt-auto d-flex gap-2 pt-2">
+              <button className="btn btn-outline-secondary" onClick={() => onNavigate && onNavigate('devoluciones')}>Ir a devoluciones</button>
               <button className="btn btn-primary" disabled={finalizarDisabled} onClick={openConfirm}>{saving ? 'Procesando...' : 'Finalizar venta'}</button>
               <button className="btn btn-outline-danger" onClick={() => setItems([])}>Limpiar</button>
             </div>
@@ -544,6 +545,8 @@ export default function PuntoVentaPage({ user }) {
           </div>
         </div>
       )}
+
+      {/* Navegación a Devoluciones se realiza con el botón en el panel derecho */}
 
       {/* Aviso: venta generada, lado derecho debajo */}
       {!!ok && (

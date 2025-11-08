@@ -11,6 +11,17 @@ export const getClientes = async () => {
   return res.json();
 };
 
+// Obtener cliente por ID
+export const getClienteById = async (id) => {
+  const res = await fetch(`${API_URL}/clientes/${id}`, {
+    headers: { ...authHeader() },
+  });
+  if (!res.ok) {
+    try { const e = await res.json(); throw new Error(e?.message || 'Cliente no encontrado'); } catch { throw new Error('Cliente no encontrado'); }
+  }
+  return res.json();
+};
+
 export const createCliente = async (cliente) => {
   const res = await fetch(`${API_URL}/clientes`, {
     method: "POST",

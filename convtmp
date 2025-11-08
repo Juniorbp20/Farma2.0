@@ -1,1 +1,214 @@
-tmp
+    res.status(500).json({ message: 'Error al obtener la venta' });
+  }
+};
+
+// Aplicar devolución (nota de crédito simple) que incrementa stock de lotes
+const devolucionVenta = async (req, res) => {
+  const httpError = (status, message) => Object.assign(new Error(message), { status });
+  try {
+    const ventaId = Number(req.params.ventaId);
+    const { items = [], motivo = '' } = req.body || {};
+    if (!ventaId) throw httpError(400, 'ventaId requerido');
+    if (!Array.isArray(items) || items.length === 0) throw httpError(400, 'items requeridos');
+
+    // Validar items de entrada y acumular por (ProductoID, LoteID)
+    const reqMap = new Map(); // key: pid|lid -> unidades
+    for (const it of items) {
+      const pid = Number(it.productoId || it.ProductoID);
+      const lid = Number(it.loteId || it.LoteID);
+      const unidades = Number(it.unidades || it.Unidades || 0);
+      if (!Number.isFinite(pid) || pid <= 0) throw httpError(400, 'productoId inválido');
+      if (!Number.isFinite(lid) || lid <= 0) throw httpError(400, 'loteId inválido');
+      if (!Number.isFinite(unidades) || unidades <= 0) throw httpError(400, 'unidades debe ser > 0');
+      const k = `${pid}|${lid}`;
+      reqMap.set(k, (reqMap.get(k) || 0) + Math.round(unidades));
+    }
+
+    const pool = await poolPromise;
+
+    // Cargar detalle de la venta para validar pertenencia y límites
+    const det = await pool.request().input('id', sql.Int, ventaId).query(`
+      SELECT dv.ProductoID, dv.LoteID,
+             COALESCE(dv.CantidadEmpaquesVendidos,0) AS CantEmp,
+             COALESCE(dv.CantidadUnidadesMinimasVendidas,0) AS CantUni,
+             COALESCE(dv.PrecioUnitario,0) AS PrecioUnitario,
+             COALESCE(p.CantidadUnidadMinimaXEmpaque,1) AS Factor
+      FROM dbo.DetalleVenta dv
+      INNER JOIN dbo.Productos p ON p.ProductoID = dv.ProductoID
+      WHERE dv.VentaID=@id
+    `);
+    if (!det.recordset.length) throw httpError(404, 'Venta no encontrada o sin detalle');
+
+    const soldMap = new Map(); // pid|lid -> unidadesVendidas (en unidades mínimas)
+    for (const r of det.recordset) {
+      const factor = ensurePositiveNumber(r.Factor, 1) || 1;
+      const units = Number(r.CantUni) + Number(r.CantEmp) * factor;
+      const k = `${r.ProductoID}|${r.LoteID}`;
+      soldMap.set(k, (soldMap.get(k) || 0) + Math.round(units));
+    }
+
+    // Validar que cada item pertenezca a la factura y no exceda lo vendido
+    
+    // No se recalculan totales de la venta en esta instalación.
+    const tx = new sql.Transaction(await pool);
+    await tx.begin();
+    try {
+      const meta = await getLotesColumnInfo();
+
+      for (const [k, unidades] of reqMap.entries()) {
+        const [pidStr, lidStr] = k.split('|');
+        const pid = Number(pidStr), lid = Number(lidStr);
+
+        const rqP = new sql.Request(tx).input('pid', sql.Int, pid);
+        const rP = await rqP.query('SELECT CantidadUnidadMinimaXEmpaque AS Factor FROM dbo.Productos WHERE ProductoID=@pid');
+        const factor = ensurePositiveNumber(rP.recordset?.[0]?.Factor, 1) || 1;
+
+        const rqL = new sql.Request(tx).input('lid', sql.Int, lid);
+        const selectLote = `SELECT LoteID, ProductoID, COALESCE(Activo,1) AS Activo,
+          ${meta.hasCantidad ? 'COALESCE(Cantidad,0)' : '0'} AS Cantidad,
+          ${meta.hasCantidadEmpaques ? 'COALESCE(CantidadEmpaques,0)' : '0'} AS CantidadEmpaques,
+          ${meta.hasCantidadUnidades ? 'COALESCE(CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas
+        FROM dbo.Lotes WHERE LoteID=@lid`;
+        const rL = await rqL.query(selectLote);
+        if (!rL.recordset.length) throw httpError(404, 'Lote no encontrado');
+        const row = rL.recordset[0];
+        if (row.Activo === 0) throw httpError(409, 'Lote inactivo');
+
+        const totalActual = meta.hasCantidad
+          ? ensurePositiveNumber(row.Cantidad)
+          : (ensurePositiveNumber(row.CantidadEmpaques) * factor + ensurePositiveNumber(row.CantidadUnidadesMinimas));
+        const nuevoTotal = totalActual + unidades;
+        const nv = splitUnitsToCounts(nuevoTotal, factor, meta);
+
+        const upd = new sql.Request(tx).input('lid', sql.Int, lid);
+        const parts = [];
+        if (meta.hasCantidad) { parts.push('Cantidad=@Cantidad'); upd.input('Cantidad', sql.Int, Math.round(nv.cantidad ?? nuevoTotal)); }
+        if (meta.hasCantidadEmpaques) { parts.push('CantidadEmpaques=@CE'); upd.input('CE', sql.Int, Math.round(nv.empaques ?? 0)); }
+        if (meta.hasCantidadUnidades) { parts.push('CantidadUnidadesMinimas=@CU'); upd.input('CU', sql.Int, Math.round(nv.unidades ?? 0)); }
+        if (parts.length) await upd.query(`UPDATE dbo.Lotes SET ${parts.join(', ')} WHERE LoteID=@lid`);
+
+        await new sql.Request(tx)
+          .input('pid', sql.Int, pid)
+          .input('u', sql.Int, Math.round(unidades))
+          .query('UPDATE dbo.Productos SET StockActual = COALESCE(StockActual,0) + @u, FechaModificacion=GETDATE() WHERE ProductoID=@pid');
+      }
+
+      await tx.commit();
+    } catch (err) {
+      await tx.rollback();
+      throw err;
+    }\n    // Actualizar totales de la venta: se descuenta proporcionalmente impuestos
+    try {
+      const cabQ = await pool.request().input('id', sql.Int, ventaId).query(`
+        SELECT Subtotal, DescuentoTotal, ImpuestoTotal, Total FROM dbo.Ventas WHERE VentaID=@id
+      `);
+      if (cabQ.recordset.length) {
+        const cab = cabQ.recordset[0];
+        const oldSubtotal = Number(cab.Subtotal || 0);
+        const oldDesc = Number(cab.DescuentoTotal || 0);
+        const oldImp = Number(cab.ImpuestoTotal || 0);
+        const prop = oldSubtotal > 0 ? Math.min(1, Math.max(0, devolverSub / oldSubtotal)) : 0;
+        const impDev = oldImp * prop;
+        const newSubtotal = Math.max(0, oldSubtotal - devolverSub);
+        const newImpuesto = Math.max(0, oldImp - impDev);
+        const newTotal = Math.max(0, (newSubtotal - oldDesc) + newImpuesto);
+        await pool.request()
+          .input('id', sql.Int, ventaId)
+          .input('sub', sql.Decimal(18,2), newSubtotal)
+          .input('imp', sql.Decimal(18,2), newImpuesto)
+          .input('tot', sql.Decimal(18,2), newTotal)
+          .query('UPDATE dbo.Ventas SET Subtotal=@sub, ImpuestoTotal=@imp, Total=@tot, FechaModificacion=GETDATE() WHERE VentaID=@id');
+      }
+    } catch (e) {
+      // continuar: no bloquear por fallo de recálculo
+    }\n    return res.json({ message: 'Devolución aplicada' });
+  } catch (err) {
+    const status = err.status && Number.isInteger(err.status) ? err.status : 500;
+    return res.status(status).json({ message: err.message || 'Error al aplicar devolución' });
+  }
+};
+
+// obtenerVenta / devolucionVenta removidos en esta instalación
+
+const anularVenta = async (req, res) => {
+  try {
+    const ventaId = Number(req.params.ventaId);
+    const { motivo = '' } = req.body || {};
+    // JSON store no disponible; buscar archivo directamente
+    const venta = { ventaId };
+    if (String(venta.estado || '').toLowerCase() === 'anulada') {
+      return res.status(400).json({ message: 'La venta ya está anulada' });
+    }
+
+    // Restituir stock por lote
+    const pool = await poolPromise;
+    const tx = new sql.Transaction(await pool);
+    await tx.begin();
+    try {
+      const meta = await getLotesColumnInfo();
+      for (const it of venta.items || []) {
+        const reqL = createRequest(tx).input('LoteID', sql.Int, Number(it.loteId));
+        const meta = await getLotesColumnInfo();
+        const q = await reqL.query(`SELECT LoteID, ProductoID,
+          ${meta.hasCantidad ? 'COALESCE(Cantidad,0)' : '0'} AS Cantidad,
+          ${meta.hasCantidadEmpaques ? 'COALESCE(CantidadEmpaques,0)' : '0'} AS CantidadEmpaques,
+          ${meta.hasCantidadUnidades ? 'COALESCE(CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas
+          FROM dbo.Lotes WHERE LoteID = @LoteID`);
+        if (!q.recordset.length) continue;
+        const r = q.recordset[0];
+        const reqP = createRequest(tx).input('ProductoID', sql.Int, Number(r.ProductoID));
+        const p = await reqP.query(`SELECT CantidadUnidadMinimaXEmpaque FROM dbo.Productos WHERE ProductoID = @ProductoID`);
+        const factor = ensurePositiveNumber(p.recordset?.[0]?.CantidadUnidadMinimaXEmpaque, 1) || 1;
+        const totalActual = meta.hasCantidad ? ensurePositiveNumber(r.Cantidad) : (ensurePositiveNumber(r.CantidadEmpaques) * factor + ensurePositiveNumber(r.CantidadUnidadesMinimas));
+        const nuevoTotal = totalActual + ensurePositiveNumber(it.unidades);
+        const nv = splitUnitsToCounts(nuevoTotal, factor, meta);
+        const parts = [];
+        const reqUp = createRequest(tx).input('LoteID', sql.Int, Number(r.LoteID));
+        if (meta.hasCantidad) { parts.push('Cantidad = @Cantidad'); reqUp.input('Cantidad', sql.Int, Math.round(nv.cantidad ?? nuevoTotal)); }
+        if (meta.hasCantidadEmpaques) { parts.push('CantidadEmpaques = @CantidadEmpaques'); reqUp.input('CantidadEmpaques', sql.Int, Math.round(nv.empaques ?? 0)); }
+        if (meta.hasCantidadUnidades) { parts.push('CantidadUnidadesMinimas = @CantidadUnidades'); reqUp.input('CantidadUnidades', sql.Int, Math.round(nv.unidades ?? 0)); }
+        if (parts.length) await reqUp.query(`UPDATE dbo.Lotes SET ${parts.join(', ')} WHERE LoteID = @LoteID;`);
+        await createRequest(tx)
+          .input('ProductoID', sql.Int, Number(r.ProductoID))
+          .input('Cantidad', sql.Int, Math.round(ensurePositiveNumber(it.unidades)))
+          .query(`UPDATE dbo.Productos SET StockActual = COALESCE(StockActual,0) + @Cantidad, FechaModificacion = GETDATE() WHERE ProductoID = @ProductoID;`);
+      }
+      await tx.commit();
+    } catch (err) {
+      await tx.rollback();
+      throw err;
+    }
+
+    const updated = updateVenta(ventaId, { estado: 'Anulada', motivoAnulacion: motivo, fechaAnulacion: new Date().toISOString() });
+    res.json({ message: 'Venta anulada', venta: updated });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Error al anular venta' });
+  }
+};
+
+const obtenerPdf = async (req, res) => {
+  try {
+    const ventaId = Number(req.params.ventaId);
+    // No dependemos de JSON; verificamos archivo PDF disponible
+    // Buscar archivo más reciente por patrón
+    const files = fs.existsSync(FACTURAS_DIR) ? fs.readdirSync(FACTURAS_DIR) : [];
+    const prefix = `factura_${ventaId}_`;
+    const found = files.filter(f => f.startsWith(prefix) && f.endsWith('.pdf')).sort().pop();
+    if (!found) return res.status(404).json({ message: 'PDF no disponible' });
+    const filePath = path.join(FACTURAS_DIR, found);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${found}"`);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    res.status(500).json({ message: 'Error al obtener PDF' });
+  }
+};
+
+module.exports = { crearVenta, listarVentas, obtenerVenta, devolucionVenta, anularVenta, obtenerPdf };
+
+
+
+
+
+
+

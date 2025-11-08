@@ -35,3 +35,67 @@ export async function getVentaPdf(ventaId) {
   if (match?.[1]) filename = match[1];
   return { blob, filename };
 }
+
+export async function getVentas(params = {}) {
+  try {
+    const url = new URL(`${API_URL}/ventas`);
+    if (params.from) url.searchParams.set('from', params.from);
+    if (params.to) url.searchParams.set('to', params.to);
+    if (params.clienteId) url.searchParams.set('clienteId', params.clienteId);
+    if (params.estado) url.searchParams.set('estado', params.estado);
+    const res = await fetch(url, { headers: { ...authHeader() } });
+    if (!res.ok) {
+      let m = 'Error al obtener ventas';
+      try { const e = await res.json(); m = e?.message || m; } catch {}
+      throw new Error(m);
+    }
+    return res.json();
+  } catch (e) {
+    // Mejora del mensaje cuando hay fallo de red/CORS
+    if (e?.message && e.message.toLowerCase().includes('failed to fetch')) {
+      throw new Error('No se pudo conectar con el servidor. Verifique que el backend esté activo y la URL REACT_APP_API_URL sea correcta.');
+    }
+    throw e;
+  }
+}
+
+export async function getVenta(ventaId) {
+  const res = await fetch(`${API_URL}/ventas/${ventaId}`, { headers: { ...authHeader() } });
+  if (!res.ok) {
+    let m = 'Error al obtener la venta';
+    try { const e = await res.json(); m = e?.message || m; } catch {}
+    throw new Error(m);
+  }
+  return res.json();
+}
+
+export async function aplicarDevolucion(ventaId, payload) {
+  const res = await fetch(`${API_URL}/ventas/${ventaId}/devolucion`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    body: JSON.stringify(payload || {}),
+  });
+  if (!res.ok) {
+    let m = 'Error al aplicar devolución';
+    try { const e = await res.json(); m = e?.message || m; } catch {}
+    throw new Error(m);
+  }
+  return res.json();
+}
+
+export async function anularVenta(ventaId, motivo = '') {
+  const res = await fetch(`${API_URL}/ventas/${ventaId}/anular`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    body: JSON.stringify({ motivo })
+  });
+  if (!res.ok) {
+    try {
+      const err = await res.json();
+      throw new Error(err?.message || 'No se pudo anular la venta');
+    } catch {
+      throw new Error('No se pudo anular la venta');
+    }
+  }
+  return res.json();
+}
