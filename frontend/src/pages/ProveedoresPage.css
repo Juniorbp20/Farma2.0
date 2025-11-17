@@ -4,15 +4,51 @@
 }
 
 .tabla-usuarios-contenedor {
-    max-height: 65vh;
-    overflow-y: auto;
     border: 1px solid #ddd;
     border-radius: 10px;
-    padding: 25px !important;
+    padding: 5px !important;
     -webkit-border-radius: 10px;
     -moz-border-radius: 10px;
     -ms-border-radius: 10px;
     -o-border-radius: 10px;
+}
+
+.proveedores-table-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.tabla-usuarios-contenedor .table {
+    margin-bottom: 0;
+}
+
+.proveedores-search-wrapper {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.proveedores-search-field {
+    border: 1px solid #d8dee8;
+    border-radius: 12px;
+    padding: 0.45rem 0.9rem;
+    min-width: 220px;
+    max-width: 300px;
+    width: 100%;
+    font-size: 0.95rem;
+    color: #4b5563;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.proveedores-search-field:focus {
+    outline: none;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.proveedores-search-field::placeholder {
+    color: rgba(107, 114, 128, 0.7);
 }
 
 form input::placeholder {

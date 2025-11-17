@@ -1,6 +1,7 @@
 // index.js
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 require("dotenv").config();
 
 const clientesRoutes = require("./routes/clientesRoutes");
@@ -14,12 +15,17 @@ const categoriasProductosRoutes = require("./routes/categoriasProductosRoutes");
 const ventasRoutes = require("./routes/ventasRoutes");
 const inventarioRoutes = require("./routes/inventarioRoutes");
 const proveedoresRoutes = require("./routes/proveedoresRoutes");
+const configRoutes = require("./routes/configRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const { authenticate } = require("./middleware/authz");
 // const { seedAdmin } = require("./seed");
 
 const app = express();
 app.use(express.json());
+app.use(
+  "/recursos",
+  express.static(path.join(__dirname, "recursos_sistema"))
+);
 
 // CORS con configuración por entorno
 const allowedOrigins = (process.env.CORS_ORIGIN || "")
@@ -55,6 +61,7 @@ app.use("/categoriasproductos", authenticate, categoriasProductosRoutes);
 app.use("/ventas", authenticate, ventasRoutes);
 app.use("/inventario", authenticate, inventarioRoutes);
 app.use("/proveedores", authenticate, proveedoresRoutes);
+app.use("/api/config", authenticate, configRoutes);
 
 // Manejo de errores global
 app.use(errorHandler);

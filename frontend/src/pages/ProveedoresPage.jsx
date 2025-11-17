@@ -296,6 +296,24 @@ function ProveedoresPage() {
     )
   );
 
+  const proveedoresTableStyles = {
+    headCells: {
+      style: {
+        backgroundColor: "#fff",
+        fontWeight: 600,
+        whiteSpace: "normal !important",
+      },
+    },
+    cells: {
+      style: {
+        whiteSpace: "normal !important",
+        overflow: "visible !important",
+        wordWrap: "break-word !important",
+        textOverflow: "initial !important",
+      },
+    },
+  };
+
   const paginacionOpciones = {
     rowsPerPageText: "Filas:",
     rangeSeparatorText: "de",
@@ -303,7 +321,7 @@ function ProveedoresPage() {
 
   return (
     <div className="container py-3 users-page-container">
-      <h1 className="page-title display-5 fw-bold text-center opacity-75 mb-5">
+      <h1 className="page-title display-5 fw-bold text-center opacity-75 mb-3">
         Gestión de Proveedores
       </h1>
 
@@ -424,19 +442,14 @@ function ProveedoresPage() {
 
         <div className="col-12 col-lg-7">
           <div className="card shadow-sm tabla-usuarios-contenedor">
-            <div className="card-body">
-              <div className="d-flex align-items-center mb-2">
-                <div className="input-group">
-                  <span className="input-group-text">
-                    <i className="bi bi-search"></i>
-                  </span>
-                  <input
-                    placeholder="Buscar..."
-                    className="form-control"
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
-                  />
-                </div>
+            <div className="card-body proveedores-table-panel">
+              <div className="proveedores-search-wrapper mb-2">
+                <input
+                  placeholder="Buscar proveedor..."
+                  className="proveedores-search-field"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                />
               </div>
 
               <DataTable
@@ -453,21 +466,10 @@ function ProveedoresPage() {
                 paginationRowsPerPageOptions={[5, 10, 20, 50]}
                 conditionalRowStyles={[{ when: (row) => !row.Activo, style: { opacity: 0.5 } }]}
                 noDataComponent="No se encontraron proveedores que coincidan con la búsqueda"
-                customStyles={{
-                  cells: {
-                    style: {
-                      whiteSpace: "normal !important",
-                      overflow: "visible !important",
-                      wordWrap: "break-word !important",
-                      textOverflow: "initial !important",
-                    },
-                  },
-                  headCells: {
-                    style: {
-                      whiteSpace: "normal !important",
-                    },
-                  },
-                }}
+                fixedHeader
+                fixedHeaderScrollHeight="45vh"
+                persistTableHead
+                customStyles={proveedoresTableStyles}
               />
             </div>
           </div>
@@ -517,3 +519,5 @@ function ProveedoresPage() {
 }
 
 export default ProveedoresPage;
+
+

@@ -17,6 +17,7 @@ let PDFDocument = null;
 try { PDFDocument = require('pdfkit'); } catch {}
 
 const FACTURAS_DIR = path.join(process.cwd(), 'recursos_sistema', 'facturas_fmanager');
+const DEFAULT_FACTOR_UNIDADES = 1;
 
 function createRequest(scope) {
   if (scope instanceof sql.Transaction) return new sql.Request(scope);
@@ -25,11 +26,8 @@ function createRequest(scope) {
   return new sql.Request(scope);
 }
 
-async function getProductoFactor(scope, productoId) {
-  const req = createRequest(scope).input('ProductoID', sql.Int, Number(productoId));
-  const r = await req.query(`SELECT CantidadUnidadMinimaXEmpaque FROM dbo.Productos WHERE ProductoID = @ProductoID`);
-  const factor = ensurePositiveNumber(r.recordset?.[0]?.CantidadUnidadMinimaXEmpaque, 1) || 1;
-  return factor;
+async function getProductoFactor() {
+  return DEFAULT_FACTOR_UNIDADES;
 }
 
 async function consumirDeLote(scope, loteId, unidades) {
@@ -40,8 +38,8 @@ async function consumirDeLote(scope, loteId, unidades) {
            ${meta.hasCantidad ? 'COALESCE(l.Cantidad,0)' : '0'} AS Cantidad,
            ${meta.hasCantidadEmpaques ? 'COALESCE(l.CantidadEmpaques,0)' : '0'} AS CantidadEmpaques,
            ${meta.hasCantidadUnidades ? 'COALESCE(l.CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas,
-           p.CantidadUnidadMinimaXEmpaque AS Factor
-    FROM dbo.Lotes l INNER JOIN dbo.Productos p ON p.ProductoID = l.ProductoID
+           CAST(1 AS int) AS Factor
+    FROM dbo.Lotes l
     WHERE l.LoteID = @LoteID`;
   const loteQ = await reqL.query(selectQuery);
   if (!loteQ.recordset.length) throw new Error('Lote no encontrado');
@@ -50,7 +48,7 @@ async function consumirDeLote(scope, loteId, unidades) {
   const factor = ensurePositiveNumber(row.Factor, 1) || 1;
   const totalActual = meta.hasCantidad
     ? ensurePositiveNumber(row.Cantidad)
-    : (ensurePositiveNumber(row.CantidadEmpaques) * factor + ensurePositiveNumber(row.CantidadUnidadesMinimas));
+    : ensurePositiveNumber(row.CantidadEmpaques) * factor;
   const tomar = Math.max(0, Math.min(ensurePositiveNumber(unidades), totalActual));
   const restante = totalActual - tomar;
   const nv = splitUnitsToCounts(restante, factor, meta);
@@ -73,13 +71,13 @@ function calcLinea(item, factor, loteData) {
   const cantEmp = ensurePositiveNumber(item.cantEmpaques);
   const cantUni = ensurePositiveNumber(item.cantUnidadesMinimas);
   const unidades = modo === 'empaque' ? cantEmp * factor : cantUni;
-  const precioUnidadMin = parseDecimal(loteData?.PrecioUnitarioVenta ?? item.precioUnitarioVenta);
+  const precioEmpaque = parseDecimal(loteData?.PrecioUnitarioVenta ?? item.precioUnitarioVenta);
+  const precioUnidadMin = factor > 0 ? precioEmpaque / factor : precioEmpaque;
   const descEmpaque = parseDecimal(loteData?.PorcentajeDescuentoEmpaque ?? item.porcentajeDescEmpaque, 4);
   const impuestoPct = parseDecimal(loteData?.PorcentajeImpuesto ?? item.porcentajeImpuesto, 4);
   let precioAplicadoUnidad = precioUnidadMin;
   if (modo === 'empaque' && factor > 0) {
-    const baseEmpaque = precioUnidadMin * factor;
-    const conDesc = baseEmpaque * (1 - descEmpaque);
+    const conDesc = precioEmpaque * (1 - descEmpaque);
     precioAplicadoUnidad = conDesc / factor;
   }
   const subtotalLinea = parseDecimal(unidades * precioAplicadoUnidad);
@@ -491,7 +489,7 @@ const devolucionVenta = async (req, res) => {
              COALESCE(dv.CantidadEmpaquesVendidos,0) AS CantEmp,
              COALESCE(dv.CantidadUnidadesMinimasVendidas,0) AS CantUni,
              COALESCE(dv.PrecioUnitario,0) AS PrecioUnitario,
-             COALESCE(p.CantidadUnidadMinimaXEmpaque,1) AS Factor
+             CAST(1 AS int) AS Factor
       FROM dbo.DetalleVenta dv
       INNER JOIN dbo.Productos p ON p.ProductoID = dv.ProductoID
       WHERE dv.VentaID=@id
@@ -519,9 +517,7 @@ const devolucionVenta = async (req, res) => {
         const [pidStr, lidStr] = k.split('|');
         const pid = Number(pidStr), lid = Number(lidStr);
 
-        const rqP = new sql.Request(tx).input('pid', sql.Int, pid);
-        const rP = await rqP.query(`SELECT CantidadUnidadMinimaXEmpaque AS Factor FROM dbo.Productos WHERE ProductoID=@pid`);
-        const factor = ensurePositiveNumber(rP.recordset?.[0]?.Factor, 1) || 1;
+        const factor = DEFAULT_FACTOR_UNIDADES;
         // Detectar de forma segura si existe la columna PermiteDevolucion y, si existe, leer su valor
         let permite = true;
         try {
@@ -547,7 +543,7 @@ const devolucionVenta = async (req, res) => {
 
         const totalActual = meta.hasCantidad
           ? ensurePositiveNumber(row.Cantidad)
-          : (ensurePositiveNumber(row.CantidadEmpaques) * factor + ensurePositiveNumber(row.CantidadUnidadesMinimas));
+          : ensurePositiveNumber(row.CantidadEmpaques) * factor;
         const nuevoTotal = totalActual + unidades;
         const nv = splitUnitsToCounts(nuevoTotal, factor, meta);
 
@@ -604,10 +600,10 @@ const anularVenta = async (req, res) => {
           FROM dbo.Lotes WHERE LoteID = @LoteID`);
         if (!q.recordset.length) continue;
         const r = q.recordset[0];
-        const reqP = createRequest(tx).input('ProductoID', sql.Int, Number(r.ProductoID));
-        const p = await reqP.query(`SELECT CantidadUnidadMinimaXEmpaque FROM dbo.Productos WHERE ProductoID = @ProductoID`);
-        const factor = ensurePositiveNumber(p.recordset?.[0]?.CantidadUnidadMinimaXEmpaque, 1) || 1;
-        const totalActual = meta.hasCantidad ? ensurePositiveNumber(r.Cantidad) : (ensurePositiveNumber(r.CantidadEmpaques) * factor + ensurePositiveNumber(r.CantidadUnidadesMinimas));
+        const factor = DEFAULT_FACTOR_UNIDADES;
+    const totalActual = meta.hasCantidad
+      ? ensurePositiveNumber(r.Cantidad)
+      : ensurePositiveNumber(r.CantidadEmpaques) * factor;
         const nuevoTotal = totalActual + ensurePositiveNumber(it.unidades);
         const nv = splitUnitsToCounts(nuevoTotal, factor, meta);
         const parts = [];

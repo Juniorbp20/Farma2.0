@@ -59,11 +59,11 @@ export async function updateLote(id, payload) {
   return res.json();
 }
 
-export async function deactivateLote(id, motivo) {
+export async function deactivateLote(id) {
   const res = await fetch(`${API_URL}/inventario/lotes/${id}/desactivar`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify(motivo ? { motivo } : {}),
+    body: JSON.stringify({}),
   });
   await handleErrors(res, 'Error al desactivar lote.');
   return res.json();

@@ -1,4 +1,4 @@
-// controllers/comprasController.js
+﻿// controllers/comprasController.js
 const sql = require('mssql');
 const poolPromise = require('../db');
 const {
@@ -19,6 +19,7 @@ try {
   console.warn('exceljs no disponible para exportar compras:', err?.message);
 }
 
+// Soporte PDF para exportación (además de Excel)
 let PDFDocument = null;
 let hasPdfKit = false;
 try {
@@ -54,9 +55,10 @@ const LISTAR_COMPRAS_BASE_QUERY = `
   ORDER BY oc.FechaOrden DESC, oc.OrdenCompraID DESC
 `;
 
-const dateFormatter = new Intl.DateTimeFormat('es-PE');
-const currencyFormatter = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
-const integerFormatter = new Intl.NumberFormat('es-PE');
+const dateFormatter = new Intl.DateTimeFormat('es-DO');
+const currencyFormatter = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' });
+const integerFormatter = new Intl.NumberFormat('es-DO');
+const DEFAULT_FACTOR_UNIDADES = 1;
 
 function formatDate(value) {
   if (!value) return '';
@@ -133,10 +135,7 @@ async function listarCompras(req, res) {
         hasPrevious: currentPage > 1,
         hasNext: totalPages > 0 && currentPage < totalPages,
       },
-      exports: {
-        excel: hasExcelJs,
-        pdf: hasPdfKit,
-      },
+      exports: { excel: hasExcelJs, pdf: hasPdfKit },
     });
   } catch (err) {
     console.error('listarCompras error:', err);
@@ -169,7 +168,7 @@ async function exportarCompras(req, res) {
         { header: 'Items', key: 'items', width: 10 },
         { header: 'Empaques', key: 'empaques', width: 12 },
         { header: 'Unidades mínimas', key: 'unidades', width: 18 },
-        { header: 'Total (S/)', key: 'total', width: 14 },
+        { header: 'Total (RD$)', key: 'total', width: 14 },
       ];
 
       worksheet.addRows(
@@ -198,13 +197,10 @@ async function exportarCompras(req, res) {
       await workbook.xlsx.write(res);
       res.end();
       return;
-    }
 
     if (format === 'pdf') {
       if (!hasPdfKit || !PDFDocument) {
-        return res
-          .status(503)
-          .json({ message: 'Exportacion a PDF no disponible. Instale pdfkit en el servidor.' });
+        return res.status(503).json({ message: 'Exportación a PDF no disponible. Instale pdfkit en el servidor.' });
       }
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename="historial_compras.pdf"');
@@ -221,7 +217,71 @@ async function exportarCompras(req, res) {
         { key: 'usuario', header: 'Usuario', width: 110, align: 'left' },
         { key: 'items', header: 'Items', width: 50, align: 'right' },
         { key: 'empaques', header: 'Empaques', width: 60, align: 'right' },
-        { key: 'total', header: 'Total (S/)', width: 70, align: 'right' },
+        { key: 'total', header: 'Total (RD$)', width: 70, align: 'right' },
+      ];
+
+      const startX = doc.page.margins.left;
+      let currentY = doc.y;
+      const ensureSpace = (height = 18) => {
+        const bottom = doc.page.height - doc.page.margins.bottom;
+        if (currentY + height > bottom) {
+          doc.addPage();
+          currentY = doc.page.margins.top;
+        }
+      };
+      const drawRow = (rowValues, isHeader = false) => {
+        ensureSpace(isHeader ? 20 : 16);
+        let cursorX = startX;
+        columns.forEach((column, index) => {
+          const text = rowValues[index] ?? '';
+          doc
+            .font(isHeader ? 'Helvetica-Bold' : 'Helvetica')
+            .fontSize(isHeader ? 11 : 10)
+            .text(text, cursorX, currentY, { width: column.width, align: column.align || 'left' });
+          cursorX += column.width;
+        });
+        currentY += isHeader ? 18 : 16;
+      };
+
+      // Header
+      drawRow(columns.map((c) => c.header), true);
+      // Rows
+      if (compras.length) {
+        compras.forEach((c) => {
+          drawRow([
+            formatDate(c.fechaOrden) || '-',
+            c.proveedor || 'Sin proveedor',
+            c.usuarioNombre || 'Sin usuario',
+            formatInteger(c.items),
+            formatInteger(c.cantidadEmpaques),
+            formatCurrency(c.total),
+          ]);
+        });
+      } else {
+        doc.font('Helvetica').fontSize(10).text('No hay compras registradas.', startX, currentY);
+      }
+
+      doc.end();
+      return;
+    }
+
+    res.status(400).json({ message: 'Formato de exportación no soportado. Use excel o pdf.' });
+      res.setHeader('Content-Type', '');
+      res.setHeader('Content-Disposition', 'attachment; filename=""');
+
+      const doc = new ({ size: 'A4', margin: 40 });
+      doc.pipe(res);
+
+      doc.fontSize(16).text('Historial de compras', { align: 'center' });
+      doc.moveDown(1);
+
+      const columns = [
+        { key: 'fecha', header: 'Fecha', width: 70, align: 'left' },
+        { key: 'proveedor', header: 'Proveedor', width: 160, align: 'left' },
+        { key: 'usuario', header: 'Usuario', width: 110, align: 'left' },
+        { key: 'items', header: 'Items', width: 50, align: 'right' },
+        { key: 'empaques', header: 'Empaques', width: 60, align: 'right' },
+        { key: 'total', header: 'Total (RD$)', width: 70, align: 'right' },
       ];
 
       const startX = doc.page.margins.left;
@@ -252,24 +312,21 @@ async function exportarCompras(req, res) {
         currentY += isHeader ? 18 : 16;
       };
 
-      drawRow(
-        columns.map((column) => column.header),
-        true
-      );
-
-      compras.forEach((compra) => {
-        drawRow([
-          formatDate(compra.fechaOrden) || '-',
-          compra.proveedor || 'Sin proveedor',
-          compra.usuarioNombre || 'Sin usuario',
-          formatInteger(compra.items),
-          formatInteger(compra.cantidadEmpaques),
-          formatCurrency(compra.total),
-        ]);
-      });
-
-      if (!compras.length) {
-        ensureSpace();
+      // Header
+      drawRow(columns.map((c) => c.header), true);
+      // Rows
+      if (compras.length) {
+        compras.forEach((c) => {
+          drawRow([
+            formatDate(c.fechaOrden) || '-',
+            c.proveedor || 'Sin proveedor',
+            c.usuarioNombre || 'Sin usuario',
+            formatInteger(c.items),
+            formatInteger(c.cantidadEmpaques),
+            formatCurrency(c.total),
+          ]);
+        });
+      } else {
         doc.font('Helvetica').fontSize(10).text('No hay compras registradas.', startX, currentY);
       }
 
@@ -277,7 +334,7 @@ async function exportarCompras(req, res) {
       return;
     }
 
-    res.status(400).json({ message: 'Formato de exportación no soportado. Use excel o pdf.' });
+    res.status(400).json({ message: 'Formato de exportación no soportado. Solo excel.' });
   } catch (err) {
     console.error('exportarCompras error:', err);
     res.status(500).json({ message: 'Error al exportar el historial de compras.' });
@@ -329,7 +386,8 @@ async function obtenerCompra(req, res) {
           l.PorcentajeDescuentoEmpaque,
           dc.PrecioUnitario,
           dc.CantidadEmpaquesRecibidos,
-          dc.CantidadUnidadesMinimasTotales
+          dc.CantidadUnidadesMinimasTotales,
+          l.CantidadUnidadesMinimas AS FactorUnidad
         FROM dbo.DetalleCompra dc
         INNER JOIN dbo.Productos prod ON prod.ProductoID = dc.ProductoID
         LEFT JOIN dbo.Lotes l ON l.LoteID = dc.LoteID
@@ -351,7 +409,9 @@ async function obtenerCompra(req, res) {
       descuento: parseDecimal(row.PorcentajeDescuentoEmpaque, 4),
       precioUnitario: parseDecimal(row.PrecioUnitario),
       cantidadEmpaques: ensurePositiveNumber(row.CantidadEmpaquesRecibidos),
-      cantidadUnidadesMinimas: ensurePositiveNumber(row.CantidadUnidadesMinimasTotales),
+      factorUnidad: ensurePositiveNumber(row.FactorUnidad),
+      totalUnidades: ensurePositiveNumber(row.CantidadUnidadesMinimasTotales),
+      cantidadUnidadesMinimas: ensurePositiveNumber(row.FactorUnidad),
     }));
 
     res.json({
@@ -480,7 +540,7 @@ async function crearCompra(req, res) {
         const productoQuery = await new sql.Request(tx)
           .input('ProductoID', sql.Int, item.productoId)
           .query(`
-            SELECT ProductoID, Activo, CantidadUnidadMinimaXEmpaque
+            SELECT ProductoID, Activo
             FROM dbo.Productos
             WHERE ProductoID = @ProductoID
           `);
@@ -491,30 +551,20 @@ async function crearCompra(req, res) {
         if (!producto.Activo) {
           throw new Error(`Producto inactivo (item ${item.index + 1})`);
         }
-        let factor = ensurePositiveNumber(producto.CantidadUnidadMinimaXEmpaque, 1) || 1;
         const cantidadEmpaques = Math.round(ensurePositiveNumber(item.cantidadEmpaques));
-        const unidadesInput = Math.round(ensurePositiveNumber(item.cantidadUnidadesMinimas));
-        const cantidadUnidadesMinimasDetalle = unidadesInput;
-
-        let unidadesPorEmpaque = factor;
+        const factorEntrada = meta.hasCantidadUnidades
+          ? ensurePositiveNumber(item.cantidadUnidadesMinimas)
+          : DEFAULT_FACTOR_UNIDADES;
+        if (meta.hasCantidadUnidades && factorEntrada <= 0) {
+          throw new Error(`Unidades por empaque inválidas (item ${item.index + 1})`);
+        }
+        let factor = factorEntrada || DEFAULT_FACTOR_UNIDADES;
         let totalUnidades;
 
         if (meta.hasCantidad && item.cantidadTotal != null) {
           totalUnidades = Math.round(ensurePositiveNumber(item.cantidadTotal));
-        } else if (cantidadEmpaques > 0) {
-          if (unidadesInput > 0) {
-            unidadesPorEmpaque = unidadesInput;
-          }
-          totalUnidades = Math.max(0, cantidadEmpaques * unidadesPorEmpaque);
-          if (unidadesPorEmpaque !== factor) {
-            factor = unidadesPorEmpaque;
-            await new sql.Request(tx)
-              .input('ProductoID', sql.Int, item.productoId)
-              .input('Factor', sql.Int, unidadesPorEmpaque)
-              .query(`UPDATE dbo.Productos SET CantidadUnidadMinimaXEmpaque = @Factor WHERE ProductoID = @ProductoID;`);
-          }
         } else {
-          totalUnidades = unidadesInput;
+          totalUnidades = Math.round(cantidadEmpaques * factor);
         }
 
         if (totalUnidades <= 0) {
@@ -562,7 +612,7 @@ async function crearCompra(req, res) {
           if (meta.hasCantidadUnidades) {
             insertColumns.push('CantidadUnidadesMinimas');
             insertValues.push('@CantidadUnidadesMinimas');
-            reqLote.input('CantidadUnidadesMinimas', sql.Int, Math.round(counts.unidades ?? cantidadUnidadesMinimasDetalle));
+            reqLote.input('CantidadUnidadesMinimas', sql.Int, Math.round(factor));
           }
           if (meta.hasCantidad) {
             insertColumns.push('Cantidad');
@@ -603,17 +653,22 @@ async function crearCompra(req, res) {
           ) {
             throw new Error(`El lote tiene precios diferentes; marque "crear nuevo lote" (item ${item.index + 1})`);
           }
+          const factorLote = ensurePositiveNumber(loteActual.CantidadUnidadesMinimas, 0);
+          if (factorLote > 0 && Math.round(factorLote) !== Math.round(factor)) {
+            throw new Error(`Las unidades por empaque no coinciden con el lote (item ${item.index + 1})`);
+          }
+          const factorEfectivo = factorLote > 0 ? factorLote : factor;
           const unidadesActuales = computeUnitsFromCounts(
             {
               empaques: loteActual.CantidadEmpaques,
               unidades: loteActual.CantidadUnidadesMinimas,
               cantidad: loteActual.Cantidad,
             },
-            factor,
+            factorEfectivo,
             meta
           );
           const unidadesActualizadas = unidadesActuales + totalUnidades;
-          const nuevos = splitUnitsToCounts(unidadesActualizadas, factor, meta);
+          const nuevos = splitUnitsToCounts(unidadesActualizadas, factorEfectivo, meta);
           const updateParts = [
             'PrecioCosto = @PrecioCosto',
             'PrecioUnitarioVenta = @PrecioVenta',
@@ -632,7 +687,7 @@ async function crearCompra(req, res) {
           }
           if (meta.hasCantidadUnidades) {
             updateParts.push('CantidadUnidadesMinimas = @CantidadUnidadesMinimas');
-            reqUpdate.input('CantidadUnidadesMinimas', sql.Int, Math.round(nuevos.unidades ?? 0));
+            reqUpdate.input('CantidadUnidadesMinimas', sql.Int, Math.round(nuevos.unidades ?? factorEfectivo));
           }
           if (meta.hasCantidad) {
             updateParts.push('Cantidad = @CantidadTotal');
@@ -655,7 +710,7 @@ async function crearCompra(req, res) {
           .input('LoteID', sql.Int, loteIdAsignado)
           .input('PrecioUnitario', sql.Decimal(10, 2), item.precioCosto)
           .input('CantidadEmpaquesRecibidos', sql.Int, Math.round(item.cantidadEmpaques))
-          .input('CantidadUnidadesMinimasTotales', sql.Int, Math.round(cantidadUnidadesMinimasDetalle))
+          .input('CantidadUnidadesMinimasTotales', sql.Int, Math.round(totalUnidades))
           .query(`
             INSERT INTO dbo.DetalleCompra
               (OrdenCompraID, ProductoID, LoteID, PrecioUnitario, CantidadEmpaquesRecibidos, CantidadUnidadesMinimasTotales)
@@ -672,11 +727,9 @@ async function crearCompra(req, res) {
             WHERE ProductoID = @ProductoID;
           `);
 
-        const base = parseDecimal(item.precioCosto) * totalUnidades;
-        const impuestoMonto = base * (item.impuesto / 100);
-        const descuentoMonto = base * (item.descuento / 100);
-        const totalItem = base + impuestoMonto - descuentoMonto;
-        totalOrden += totalItem;
+        const costoPorEmpaque = parseDecimal(item.precioCosto);
+        const base = costoPorEmpaque * cantidadEmpaques;
+        totalOrden += base;
       }
 
       await new sql.Request(tx)
@@ -710,3 +763,5 @@ module.exports = {
   obtenerCompra,
   crearCompra,
 };
+
+

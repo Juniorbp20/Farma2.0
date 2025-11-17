@@ -4,6 +4,13 @@
   background: none;
   width: 100%;
   text-align: left;
+  display: block;
+  height: 100%;
+  cursor: var(--cursor-seleccionables) !important;
+}
+
+.inventario-page .inventory-card-button .card {
+  height: 100%;
 }
 
 .inventario-page .inventory-card-button:focus {
@@ -30,32 +37,121 @@
 .inventory-modal {
   background: #fff;
   border-radius: 12px;
-  max-width: 720px;
-  width: 100%;
-  max-height: 90vh;
+  width: 75%;
+  height: 70vh;
+  max-width: none;
+  max-height: none;
   display: flex;
   flex-direction: column;
 }
 
 .inventory-modal-lg {
-  max-width: 960px;
+  width: 75%;
+  height: 60vh;
 }
 
 .inventory-modal-header {
-  padding: 16px 20px;
+  padding: 10px 15px;
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
+.inventory-modal-title-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #F8FBFF;
+  color: #0d6efd;
+  border-radius: 9px;
+  padding: 0.35rem 0.95rem;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.inventory-modal-title-badge i {
+  font-size: 1.2rem;
+}
+
 .inventory-modal-body {
-  padding: 20px;
+  padding: 10px 20px;
   overflow-y: auto;
+  flex: 1;
+}
+
+.inventory-lote-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.inventory-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #dfe3e8;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background-color: #ffffff;
+  box-shadow: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  border-radius: 0 0 12px 12px;
+}
+
+.inventory-modal-footer .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: var(--cursor-seleccionables) !important;
+  font-weight: 600;
+  width: auto;
+}
+
+.inventory-modal-cancel-btn {
+  background: transparent !important;
+  border: 1px solid #dc3545 !important;
+  color: #dc3545 !important;
+  box-shadow: none !important;
+  padding: 0.45rem 1.1rem;
+}
+
+.inventory-modal-cancel-btn:hover,
+.inventory-modal-cancel-btn:focus {
+  background: #dc3545 !important;
+  color: #fff !important;
+  border-color: #dc3545 !important;
+}
+
+.inventory-modal-cancel-btn:active {
+  background: #bb2d3b !important;
+  border-color: #b02a37 !important;
+  color: #fff !important;
+}
+
+.inventory-modal-save-btn {
+  min-width: auto;
+}
+
+.compras-form-card {
+  padding: 0 !important;
+  max-width: 920px !important; /* ancho máximo del contenedor verde */
+}
+
+.purchase-items {
+  border-radius: 10px;
+  background-color: rgb(245, 245, 245) !important;
+  height: 45vh !important;
+  max-height: 45vh;
+  overflow-y: auto;
+  margin-bottom: 10px;
 }
 
 .purchase-items .purchase-item-card {
-  border-left: 4px solid #0d6efd;
+  padding: 0 !important;
+  background-color: #ffffff !important; /* azul claro como el chip */
+  border: 2px solid #c5dbff !important;
 }
 
 .info-label {
@@ -69,8 +165,480 @@
   font-weight: 600;
 }
 
-@media (max-width: 576px) {
-  .inventory-modal {
-    max-height: 95vh;
-  }
+.lista-productos-scroll {
+  /* Deja que DataTable maneje el scroll y la altura fija (fixedHeaderScrollHeight) */
+  padding-right: 10px;
 }
+
+/* Scroll container para historial de compras */
+.compras-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+  /* max-height: 45vh; */
+}
+.lista-compras-scroll {
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+/* Botón de exportación con colores de marca */
+.inventario-page .export-brand > .btn {
+  background-color: #0D6EFD;
+  color: #fff;
+  border-color: #0D6EFD;
+  cursor: var(--cursor-seleccionables) !important;
+}
+.inventario-page .export-brand > .btn:hover,
+.inventario-page .export-brand > .btn:focus {
+  background-color: #0b5ed7;
+  border-color: #0b5ed7;
+  color: #fff;
+}
+.inventario-page .export-brand { position: relative; }
+.inventario-page .export-brand .dropdown-menu {
+  right: 0;
+  left: auto;
+  top: 100% !important;           /* desplegar debajo del botón */
+  margin-top: .25rem;              /* pequeño espacio visual */
+  transform: none !important;      /* evitar offsets inesperados */
+}
+.inventario-page .export-brand .dropdown-item {
+  cursor: var(--cursor-seleccionables) !important; /* cursor personalizado en opciones */
+}
+
+/* Icono circular perfecto dentro de StatsCard */
+.stats-card-icon {
+  aspect-ratio: 1 / 1; /* asegura círculo perfecto si el navegador lo soporta */
+  border-radius: 50%;
+}
+
+/* Cursor personalizado reutilizable */
+.cursor-selectable {
+  cursor: var(--cursor-seleccionables) !important;
+}
+
+/* Toolbar de filtros (Lotes): inputs más compactos */
+.lotes-toolbar .lotes-search-input {
+  max-width: 500px !important;
+  min-width: 400px !important;
+}
+.lotes-toolbar .lotes-estado-select {
+  max-width: 100px !important;
+}
+
+.lotes-toolbar .form-check {
+  min-width: fit-content !important;
+  margin-left: .2rem;
+}
+
+.lotes-chip-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.lotes-chip-wrapper .form-check-input,
+.lotes-chip-wrapper .form-check-label,
+.lotes-chip-wrapper .lotes-chip-badge {
+  cursor: var(--cursor-seleccionables) !important;
+}
+
+.lotes-toolbar .lotes-chip-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.55rem;
+  border: 1px solid #bfd4ff;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  color: #0d6efd;
+  background-color: rgba(13, 110, 253, 0.08);
+  margin-left: 0.35rem;
+  font-weight: 600;
+}
+
+
+/* Botones de cierre en modales dentro de Inventario */
+.inventario-page .btn-close {
+  cursor: var(--cursor-seleccionables) !important;
+  background: none;
+  font-size: 1.7rem !important;
+  width: 30px !important;
+  height: 30px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+.inventario-page .btn-close:hover {
+  color: #dc3545;
+  background-color: rgba(220,53,69,0.1);
+}
+
+/* ============================= */
+/* Modal Detalle de Lote (exclusivo) */
+/* ============================= */
+.lote-detail-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b; /* slate-500 */
+  margin-bottom: 4px;
+}
+
+/* .lote-detail-product (legacy): no longer used */
+
+/* Inline layout for single-line label + chip */
+.lote-inline-field {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.lote-product-chip {
+  font-weight: 700 !important;
+  font-size: .9rem !important;
+  padding: 3px 8px !important; /* igual que número de lote */
+}
+
+/* Número de lote (solo lectura) como chip fuerte, compacto */
+.inventory-modal .inventory-modal-body form > .row.g-3 > .col-md-6:nth-child(2) .form-control-plaintext {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: .9rem;
+  font-weight: 700;
+  background-color: #E2EDFF; /* fuerte */
+  color: #0D6EFD;
+  border: 1px solid #ADCDFF;
+  margin-left: .5rem; /* gap entre título y chip */
+  width: auto !important;
+}
+
+/* Variantes exclusivas del modal para diferenciar intensidad */
+.inventory-modal .chip-strong {
+  background-color: #E2EDFF;
+  border-color: #ADCDFF;
+  color: #0D6EFD;
+}
+.inventory-modal .chip-soft {
+  background-color: #F3F7FF;
+  border-color: #D8E7FF;
+  color: #0D6EFD;
+}
+
+.lote-numero-chip {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* Removed lote-detail-chip styles in favor of shared estado-chip */
+
+/* Forzar estilo chip a valores de solo lectura dentro del modal (se usa para Número de lote) */
+.inventory-modal .inventory-modal-body .form-control-plaintext {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background-color: #E2EDFF;
+  color: #0D6EFD;
+  border: 1px solid #ADCDFF;
+  margin-left: .5rem;
+  width: auto !important;
+  max-width: 100%;
+}
+
+/* Chips para estado (similar a etiquetas de soporte) */
+.estado-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #e6dede;
+}
+
+.estado-chip i {
+  font-size: .8rem;
+  line-height: 1;
+}
+.chip-success {
+  background-color: #E2EDFF;
+  border-color: #ADCDFF;
+  color: #0D6EFD;
+}
+.chip-inactive {
+  background-color: rgba(108,117,125,0.08);
+  border-color: rgba(108,117,125,0.35);
+  color: #6c757d;
+}
+
+/* Chips para vencimientos */
+.chip-danger-solid {
+  background-color: #dc3545; /* rojo Bootstrap */
+  border-color: #dc3545;
+  color: #fff;
+}
+.chip-warning {
+  background-color: #fff3cd; /* amarillo claro */
+  border-color: #ffe69c;
+  color: #664d03; /* texto oscuro acorde */
+}
+.chip-danger {
+  background-color: #f8d7da; /* rojo claro tipo alerta */
+  border-color: #f1aeb5;     /* borde rojo claro */
+  color: #dc3545;            /* texto rojo marca */
+}
+.chip-secondary {
+  background-color: rgba(108,117,125,0.08);
+  border-color: rgba(108,117,125,0.35);
+  color: #6c757d;
+}
+
+/* Chip exclusivo para "Registrado por" en compras */
+.inventario-page .registrado-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background-color: #E2EDFF;
+  color: #0D6EFD;
+  border: 1px solid #ADCDFF;
+  -webkit-border-radius: 6px;
+  -moz-border-radius: 6px;
+  -ms-border-radius: 6px;
+  -o-border-radius: 6px;
+}
+
+/* Chip para cabecera de cada producto en compras */
+.inventario-page .producto-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background-color: #E2EDFF;
+  color: #0D6EFD;
+  border: 1px solid #ADCDFF;
+  -webkit-border-radius: 6px;
+  -moz-border-radius: 6px;
+  -ms-border-radius: 6px;
+  -o-border-radius: 6px;
+}
+
+/* Chip compacto que se reutiliza dentro de los StatsCard */
+.inventario-page .stats-card-subtitle {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.inventario-page .stats-card-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.inventario-page .stats-card-chip i {
+  font-size: 1rem;
+  line-height: 1;
+}
+.inventario-page .stats-card-chip-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.inventario-page .stats-card-chip-warning {
+  background-color: #FFF3CD;
+  color: #664d03;
+  border-color: #FFE69C;
+}
+
+/* Errores debajo de inputs (exclusivos de esta página) */
+.inventario-page .field-error {
+  color: #dc3545 !important; /* rojo Bootstrap */
+  font-weight: 500 !important;
+  line-height: .8rem; /* espaciado de líneas reducido */
+  font-size: 0.875rem;
+}
+
+/* ===================== */
+/* Modal exclusivo (compra) */
+/* ===================== */
+.confirm-compra-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 16px;
+  margin: 0 !important;
+}
+
+.confirm-compra-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 75%;
+  height: 70vh; /* consistente con otros modales pero exclusivo */
+  max-width: none;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.confirm-compra-header {
+  padding: 10px 15px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.confirm-compra-body {
+  padding: 10px 20px;
+  overflow-y: auto; /* scroll interno para listas largas */
+  flex: 1;
+}
+
+.confirm-compra-proveedor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background-color: #E2EDFF;
+  color: #0D6EFD;
+  border: 1px solid #ADCDFF;
+}
+
+.confirm-compra-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.confirm-compra-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background-color: #E2EDFF;
+  color: #0D6EFD;
+  border: 1px solid #ADCDFF;
+}
+
+/* Botón cancelar: esquema rojo/blanco exclusivo */
+.confirm-compra-footer .confirm-compra-btn-cancel {
+  background-color: #ffffff;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.confirm-compra-footer .confirm-compra-btn-cancel:hover,
+.confirm-compra-footer .confirm-compra-btn-cancel:focus {
+  background-color: #dc3545;
+  color: #ffffff;
+  border-color: #dc3545;
+}
+.confirm-compra-footer .confirm-compra-btn-cancel:active {
+  background-color: #bb2d3b;
+  border-color: #b02a37;
+  color: #ffffff;
+}
+.confirm-compra-footer .confirm-compra-btn-cancel:disabled {
+  opacity: .65;
+  cursor: not-allowed !important;
+}
+
+.lote-existente-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.lote-chip-success {
+  background-color: #e9f7ef;
+  color: #0f5132;
+  border-color: #badbcc;
+}
+.lote-chip-warning {
+  background-color: #fff4e6;
+  color: #a45d00;
+  border-color: #f8d3a4;
+}
+
+
+/* ===================== */
+/* Exclusivo: modales de resumen */
+/* ===================== */
+.resumen-modal .inventory-modal-body {
+  /* Evitar scroll heredado del body del modal; el DataTable maneja el scroll */
+  overflow-y: visible;
+}
+
+/* Chip visual para cabecera de modales del resumen */
+.resumen-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.resumen-chip i { font-size: .95em; line-height: 1; }
+
+/* Variantes por tipo */
+.resumen-chip-primary {
+  background-color: #E2EDFF;
+  color: #0D6EFD;
+  border-color: #ADCDFF;
+}
+.resumen-chip-warning {
+  background-color: #FFF3CD;
+  color: #664d03;
+  border-color: #FFECB5;
+}
+.resumen-chip-danger {
+  background-color: rgba(220,53,69,0.08);
+  color: #dc3545;
+  border-color: rgba(220,53,69,0.35);
+}
+.resumen-chip-success {
+  background-color: rgba(25,135,84,0.1);
+  color: #198754;
+  border-color: rgba(25,135,84,0.35);
+}
+
+
+

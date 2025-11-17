@@ -29,7 +29,6 @@ export default function ProductosPage() {
     CategoriaID: "",
     UnidadMedidaEmpaqueID: "",
     UnidadMedidaMinimaID: "",
-    CantidadUnidadMinimaXEmpaque: "1",
     StockMinimo: 1,
     Activo: true,
   });
@@ -71,7 +70,6 @@ export default function ProductosPage() {
       CategoriaID: String(p.CategoriaID || ""),
       UnidadMedidaEmpaqueID: String(p.UnidadMedidaEmpaqueID || ""),
       UnidadMedidaMinimaID: String(p.UnidadMedidaMinimaID || ""),
-      CantidadUnidadMinimaXEmpaque: String((p.CantidadUnidadMinimaXEmpaque ?? 1) || 1),
       StockMinimo: Number((p.StockMinimo ?? 1) || 1),
       Activo: !!p.Activo,
     });
@@ -86,7 +84,6 @@ export default function ProductosPage() {
     CategoriaID: "",
     UnidadMedidaEmpaqueID: "",
     UnidadMedidaMinimaID: "",
-    CantidadUnidadMinimaXEmpaque: "1",
     StockMinimo: 1,
     Activo: true,
   });
@@ -116,11 +113,6 @@ export default function ProductosPage() {
       case "UnidadMedidaMinimaID":
         if (!value) err.UnidadMedidaMinimaID = "Seleccione una unidad";
         break;
-      case "CantidadUnidadMinimaXEmpaque": {
-        const n = Number(value);
-        if (!Number.isFinite(n) || n < 1) err.CantidadUnidadMinimaXEmpaque = "Ingrese una cantidad valida.";
-        break;
-      }
       case "StockMinimo": {
         const n = Number(value);
         if (!Number.isFinite(n) || n < 1) err.StockMinimo = "Ingrese una cantidad valida.";
@@ -162,7 +154,6 @@ export default function ProductosPage() {
         CategoriaID: Number(form.CategoriaID),
         UnidadMedidaEmpaqueID: Number(form.UnidadMedidaEmpaqueID),
         UnidadMedidaMinimaID: Number(form.UnidadMedidaMinimaID),
-        CantidadUnidadMinimaXEmpaque: Number(form.CantidadUnidadMinimaXEmpaque),
         StockMinimo: Number(form.StockMinimo),
         Activo: !!form.Activo,
       };
@@ -204,7 +195,6 @@ export default function ProductosPage() {
     { name: 'Presentación', selector: (r) => r.Presentacion || '', sortable: true, width: '160px', wrap: true },
     { name: 'UM Empaque', selector: (r) => r.UnidadMedidaEmpaque || '', sortable: true, width: '140px' },
     { name: 'UM Mínima', selector: (r) => r.UnidadMedidaMinima || '', sortable: true, width: '140px' },
-    { name: 'Cant. por Empaque', selector: (r) => r.CantidadUnidadMinimaXEmpaque, sortable: true, width: '160px' },
     { name: 'Stock', selector: (r) => r.Stock, sortable: true, width: '100px' },
     { name: 'Stock Mín.', selector: (r) => r.StockMinimo, sortable: true, width: '120px' },
     {
@@ -294,11 +284,6 @@ export default function ProductosPage() {
                   </select>
                   {errors.UnidadMedidaMinimaID && <div className="invalid-feedback">{errors.UnidadMedidaMinimaID}</div>}
                 </div>
-                <div className="col-4">
-                  <label className="form-label">Unidades por empaque <span className="obligatorio">*</span></label>
-                  <input name="CantidadUnidadMinimaXEmpaque" type="number" min={1} className={`form-control ${errors.CantidadUnidadMinimaXEmpaque ? 'is-invalid' : ''}`} value={form.CantidadUnidadMinimaXEmpaque} onChange={handleChange} onBlur={handleBlur} placeholder="Ej. 10" />
-                  {errors.CantidadUnidadMinimaXEmpaque && <div className="invalid-feedback">{errors.CantidadUnidadMinimaXEmpaque}</div>}
-                </div>
                 <div className="col-12 col-md-6 d-flex">
                   <div className="toggle-container">
                     <label className="toggle-switch">
@@ -338,7 +323,7 @@ export default function ProductosPage() {
                 noWrap={false}
                 paginationComponentOptions={{ rowsPerPageText: 'Filas:', rangeSeparatorText: 'de' }}
                 paginationPerPage={5}
-                paginationRowsPerPageOptions={[5, 10, 20, 50]}
+                paginationRowsPerPageOptions={[5, 10, 30, 50]}
                 conditionalRowStyles={[{ when: (row) => !row.Activo, style: { opacity: 0.5 } }]}
                 noDataComponent="No se encontraron productos que coincidan con la búsqueda"
                 customStyles={{ cells: { style: { whiteSpace: 'normal !important', overflow: 'visible !important', wordWrap: 'break-word !important', textOverflow: 'initial !important' } }, headCells: { style: { whiteSpace: 'normal !important' } } }}

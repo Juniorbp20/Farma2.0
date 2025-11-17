@@ -11,10 +11,16 @@ import ProveedoresPage from "./pages/ProveedoresPage";
 import LoginPage from "./pages/LoginPage";
 import CustomButton from "./components/recursos/CustomButton";
 import AyudaModal from "./components/AyudaModal";
+import ConfigModal from "./components/ConfigModal";
 import { getToken, getUser, logout } from "./services/authService";
+import { getParametrosSistema } from "./services/configService";
+import { resolveLogoSrc } from "./utils/logo";
 
 function App() {
   const [user, setUser] = useState(null);
+  const [currencySymbol, setCurrencySymbol] = useState(
+    () => sessionStorage.getItem('currencySymbol') || 'RD$'
+  );
 
   const [view, setView] = useState(() => {
     const savedView = sessionStorage.getItem("lastView");
@@ -23,11 +29,32 @@ function App() {
 
   const [ayudaAbierto, setAyudaAbierto] = useState(false);
   const [inventoryInitialTab, setInventoryInitialTab] = useState('resumen');
+  const [configAbierto, setConfigAbierto] = useState(false);
+  const [logoPath, setLogoPath] = useState(
+    () => sessionStorage.getItem('logoPath') || ""
+  );
 
   useEffect(() => {
     const token = getToken();
     const u = getUser();
     if (token && u) setUser(u);
+    getParametrosSistema()
+      .then((data) => {
+        if (data?.logoPath) {
+          setLogoPath(data.logoPath);
+          sessionStorage.setItem("logoPath", data.logoPath);
+        }
+        if (data?.monedaSimbolo) {
+          setCurrencySymbol(data.monedaSimbolo);
+          sessionStorage.setItem("currencySymbol", data.monedaSimbolo);
+        }
+      })
+      .catch(() => {
+        const stored = sessionStorage.getItem("logoPath");
+        if (stored) setLogoPath(stored);
+        const storedSymbol = sessionStorage.getItem("currencySymbol");
+        if (storedSymbol) setCurrencySymbol(storedSymbol);
+      });
   }, []);
 
   useEffect(() => {
@@ -42,9 +69,12 @@ function App() {
     logout();
     setUser(null);
     setInventoryInitialTab('resumen');
+    setConfigAbierto(false);
     setView("clientes");
     sessionStorage.removeItem("lastView");
   };
+
+  const isAdmin = user?.rol === "admin" || String(user?.rolId) === "1";
 
   const handleNavigate = (target) => {
     if (typeof target === 'string') {
@@ -66,6 +96,17 @@ function App() {
     }
   };
 
+  const handleConfigUpdated = (data) => {
+    if (data?.logoPath !== undefined) {
+      setLogoPath(data.logoPath || "");
+      if (data.logoPath) sessionStorage.setItem("logoPath", data.logoPath);
+    }
+    if (data?.monedaSimbolo) {
+      setCurrencySymbol(data.monedaSimbolo);
+      sessionStorage.setItem("currencySymbol", data.monedaSimbolo);
+    }
+  };
+
   if (!user) return <LoginPage onLogin={handleLogin} />;
 
   return (
@@ -73,9 +114,9 @@ function App() {
       {/* Navbar superior fijo */}
       <nav className="navbar navbar-expand-lg navbar-light bg-light fixed-top">
         <div className="container-fluid px-4 nav-top-container">
-          <span className="navbar-brand" onClick={() => handleNavigate("home")}>
+                  <span className="navbar-brand" onClick={() => handleNavigate("home")}>
             <img
-              src="/logo-horizontal.svg"
+              src={resolveLogoSrc(logoPath) || "/logo-horizontal.svg"}
               alt="Farmacia Logo"
               style={{ height: "40px" }}
             />
@@ -92,6 +133,15 @@ function App() {
                 icon="bi-question-lg"
               />
             </div>
+            {isAdmin && (
+              <div className="wrapper-btn-config">
+                <CustomButton
+                  onClick={() => setConfigAbierto(true)}
+                  text=""
+                  icon="bi-gear"
+                />
+              </div>
+            )}
             <CustomButton
               onClick={handleLogout}
               text="Cerrar Sesion"
@@ -156,7 +206,7 @@ function App() {
               <i className="bi bi-person-badge"></i>
               <span className="nav-menu-text">Clientes</span>
             </button>
-            {user?.rol === "admin" && (
+            {isAdmin && (
               <button
                 className={`btn nav-menu-btn ${
                   view === "usuarios" ? "active" : ""
@@ -171,13 +221,18 @@ function App() {
 
           {/* Contenido principal a la derecha */}
           <div className="app-main">
-            {view === "home" && <HomePage user={user} onNavigate={handleNavigate} />}
+            {view === "home" && (
+              <HomePage
+                user={user}
+                onNavigate={handleNavigate}
+              />
+            )}
             {view === "pos" && <PuntoVentaPage user={user} onNavigate={handleNavigate} />}
             {view === "productos" && <ProductosPage />}
             {view === "clientes" && <ClientesPage user={user} />}
             {view === "inventario" && <InventarioPage initialTab={inventoryInitialTab} />}
             {view === "proveedores" && <ProveedoresPage />}
-            {view === "usuarios" && user?.rol === "admin" && <UsersPage />}
+            {view === "usuarios" && isAdmin && <UsersPage />}
             {view === "devoluciones" && <DevolucionesPage user={user} onNavigate={handleNavigate} />}
           </div>
         </div>
@@ -187,6 +242,14 @@ function App() {
         isOpen={ayudaAbierto}
         onClose={() => setAyudaAbierto(false)}
       />
+      {isAdmin && (
+        <ConfigModal
+          isOpen={configAbierto}
+          onClose={() => setConfigAbierto(false)}
+          user={user}
+          onUpdated={handleConfigUpdated}
+        />
+      )}
     </div>
   );
 }

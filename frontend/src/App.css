@@ -275,6 +275,20 @@ table.table-hover tbody tr:hover {
   font-size: 1.5rem !important;
 }
 
+.wrapper-btn-config .btn-personalizado {
+  padding: 0 !important;
+  width: 37px !important;
+  height: 37px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+}
+
+.wrapper-btn-config .btn-personalizado i {
+  font-size: 1.2rem !important;
+}
+
 .invalid-feedback{
     font-weight: 500 !important;
 }

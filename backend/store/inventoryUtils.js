@@ -43,13 +43,15 @@ function parseDecimal(value, fractionDigits = 2, fallback = 0) {
 }
 
 function getCantidadExpressions(meta, options = {}) {
-  const { alias = 'l', productAlias = 'p' } = options;
-  const factorExpr = `CASE WHEN COALESCE(${productAlias}.CantidadUnidadMinimaXEmpaque,0)=0 THEN 1 ELSE ${productAlias}.CantidadUnidadMinimaXEmpaque END`;
+  const { alias = 'l' } = options;
+  const factorExpr = meta.hasCantidadUnidades
+    ? `CASE WHEN COALESCE(${alias}.CantidadUnidadesMinimas,0) <= 0 THEN 1 ELSE ${alias}.CantidadUnidadesMinimas END`
+    : '1';
   const empaquesExpr = meta.hasCantidadEmpaques ? `COALESCE(${alias}.CantidadEmpaques,0)` : '0';
-  const unidadesExpr = meta.hasCantidadUnidades ? `COALESCE(${alias}.CantidadUnidadesMinimas,0)` : '0';
+  const unidadesExpr = factorExpr;
   const cantidadExpr = meta.hasCantidad
     ? `COALESCE(${alias}.Cantidad,0)`
-    : `(${empaquesExpr} * ${factorExpr}) + ${unidadesExpr}`;
+    : `(${empaquesExpr} * ${factorExpr})`;
   return { factorExpr, empaquesExpr, unidadesExpr, cantidadExpr };
 }
 
@@ -59,7 +61,10 @@ function computeUnitsFromCounts({ empaques = 0, unidades = 0, cantidad = 0 }, fa
     return ensurePositiveNumber(cantidad, 0);
   }
   const empaquesUnits = ensurePositiveNumber(empaques, 0) * safeFactor;
-  return empaquesUnits + ensurePositiveNumber(unidades, 0);
+  if (!meta.hasCantidadEmpaques && meta.hasCantidadUnidades) {
+    return ensurePositiveNumber(unidades, 0);
+  }
+  return empaquesUnits;
 }
 
 function splitUnitsToCounts(totalUnits, factor = 1, meta = {}) {
@@ -68,11 +73,10 @@ function splitUnitsToCounts(totalUnits, factor = 1, meta = {}) {
   if (meta.hasCantidad && !meta.hasCantidadEmpaques && !meta.hasCantidadUnidades) {
     return { cantidad: units, empaques: 0, unidades: 0 };
   }
-  const empaques = Math.floor(units / safeFactor);
-  const unidades = units - (empaques * safeFactor);
+  const empaques = safeFactor > 0 ? Math.round(units / safeFactor) : 0;
   const result = {
     empaques,
-    unidades,
+    unidades: safeFactor,
   };
   if (meta.hasCantidad) result.cantidad = units;
   return result;

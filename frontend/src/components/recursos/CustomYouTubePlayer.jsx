@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 import "./CustomYouTubePlayer.css";
 
 let youTubeApiReadyPromise = null;
@@ -57,8 +57,8 @@ export default function CustomYouTubePlayer({ videoId }) {
   const scheduleHide = (delay = 3000) => {
     clearHideTimer();
     hideTimerRef.current = setTimeout(() => {
-      // Si estÃ¡ reproduciendo, ocultar siempre tras el delay
-      // Si estÃ¡ pausado, ocultar solo cuando no hay hover
+      // Si está reproduciendo, ocultar siempre tras el delay
+      // Si está pausado, ocultar solo cuando no hay hover
       if (playingRef.current) setShowControls(false);
       else if (!hoveredRef.current) setShowControls(false);
     }, delay);
@@ -147,7 +147,7 @@ export default function CustomYouTubePlayer({ videoId }) {
             } else {
               setPlaying(false);
               playingRef.current = false;
-              // En pausa o buffer/ended: mostrar controles si el puntero estÃ¡ encima, en otro caso ocultar tras 3s
+              // En pausa o buffer/ended: mostrar controles si el puntero está encima, en otro caso ocultar tras 3s
               if (hoveredRef.current) setShowControls(true);
               else scheduleHideLocal();
               if (intervalRef.current) {

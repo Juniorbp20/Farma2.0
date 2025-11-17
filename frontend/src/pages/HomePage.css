@@ -93,3 +93,18 @@
     transform: translateY(-3px) scale(1) !important;
     box-shadow: 0 8px 18px rgba(44, 44, 44, 0.15) !important;
 }
+
+.home-hero-row {
+    margin-bottom: 0.75rem;
+}
+
+.home-welcome-title {
+    font-size: clamp(2.25rem, 4vw, 3.25rem);
+    letter-spacing: 0rem;
+    line-height: .85;
+    margin-bottom: 0.35rem;
+}
+
+.status-block--ghost {
+    visibility: hidden;
+}

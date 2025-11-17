@@ -1,12 +1,18 @@
 // src/utils/formatters.js
 
+const currencyNumberFormatter = new Intl.NumberFormat('es-DO', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const numberFormatterIntl = new Intl.NumberFormat('es-DO');
+
+export const getCurrencySymbol = () =>
+  (typeof window !== 'undefined' && window.sessionStorage.getItem('currencySymbol')) || 'RD$';
+
 export const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  }).format(amount || 0);
+  const symbol = getCurrencySymbol();
+  return `${symbol}${currencyNumberFormatter.format(Number(amount || 0))}`;
 };
 
 export const formatDate = (dateString) => {
@@ -22,7 +28,7 @@ export const formatDateTime = (dateString) => {
 export const formatNumber = (number, decimals = 0) => {
   return new Intl.NumberFormat('es-CO', {
     minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
+    maximumFractionDigits: decimals,
   }).format(number || 0);
 };
 

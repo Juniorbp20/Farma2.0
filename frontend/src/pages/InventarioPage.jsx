@@ -4,6 +4,7 @@ import StatsCard from '../components/StatsCard';
 import ProductSelector from '../components/ProductSelector';
 import ExportMenuButton, { EXPORT_MENU_DEFAULT_OPTIONS } from '../components/recursos/ExportMenuButton';
 import DataTable from 'react-data-table-component';
+import Toast from '../components/recursos/Toast';
 import {
   getInventarioResumen,
   getLotes,
@@ -17,11 +18,10 @@ import {
 } from '../services/inventoryService';
 import { getProveedores } from '../services/proveedoresService';
 import { getUser } from '../services/authService';
+import { formatCurrency } from '../utils/formatters';
 
-const currencyFormatter = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
-const numberFormatter = new Intl.NumberFormat('es-PE');
+const numberFormatter = new Intl.NumberFormat('es-DO');
 
-const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
 const formatNumber = (value) => numberFormatter.format(Number(value || 0));
 const formatDate = (value) => {
   if (!value) return '—';
@@ -30,9 +30,20 @@ const formatDate = (value) => {
   return date.toLocaleDateString();
 };
 
+const lotesTableStyles = {
+  cells: {
+    style: {
+      paddingTop: '10px',
+      paddingBottom: '10px',
+      paddingLeft: '5px',
+      paddingRight: '5px',
+    },
+  },
+};
+
 const defaultLoteFilters = {
   buscar: '',
-  estado: 'activos',
+  estado: 'todos',
   proximos: false,
 };
 
@@ -55,7 +66,7 @@ const createEmptyCompraItem = (index) => ({
 
 function FieldError({ error }) {
   if (!error) return null;
-  return <div className="text-danger small mt-1">{error}</div>;
+  return <div className="field-error text-danger mt-1">{error}</div>;
 }
 
 export default function InventarioPage({ initialTab = 'resumen' }) {
@@ -72,20 +83,24 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
   const [lotes, setLotes] = useState([]);
   const [lotesLoading, setLotesLoading] = useState(false);
   const [lotesError, setLotesError] = useState('');
+  const [lotesPage, setLotesPage] = useState(1);
+  const [lotesPageSize, setLotesPageSize] = useState(10);
+  const [lotesPaginationReset, setLotesPaginationReset] = useState(false);
 
-  const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: null, loading: false, data: null, error: '' });
-  const [deactivateModal, setDeactivateModal] = useState({ open: false, lote: null, motivo: '', loading: false, error: '' });
+const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: null, loading: false, data: null, initialData: null, error: '' });
+  const [deactivateModal, setDeactivateModal] = useState({ open: false, lote: null, loading: false, error: '' });
 
   const [compras, setCompras] = useState([]);
   const [comprasLoading, setComprasLoading] = useState(false);
   const [comprasError, setComprasError] = useState('');
   const [comprasPage, setComprasPage] = useState(1);
-  const [comprasPageSize, setComprasPageSize] = useState(10);
+  const [comprasPageSize, setComprasPageSize] = useState(5);
   const [comprasTotal, setComprasTotal] = useState(0);
   const [comprasExporting, setComprasExporting] = useState(null);
   const [comprasExportFormats, setComprasExportFormats] = useState({ excel: true, pdf: false });
   const [comprasPaginationReset, setComprasPaginationReset] = useState(false);
   const [compraModal, setCompraModal] = useState({ open: false, compraId: null, loading: false, data: null, error: '' });
+  const [comprasSearch, setComprasSearch] = useState('');
 
   const [proveedores, setProveedores] = useState([]);
   const [proveedoresLoading, setProveedoresLoading] = useState(false);
@@ -94,22 +109,34 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
   const [selectedProveedor, setSelectedProveedor] = useState('');
   const [purchaseItems, setPurchaseItems] = useState([createEmptyCompraItem(0)]);
   const [purchaseErrors, setPurchaseErrors] = useState('');
+  const [purchaseItemErrors, setPurchaseItemErrors] = useState({});
+  const [purchaseFormErrors, setPurchaseFormErrors] = useState({ proveedor: '' });
   const [creatingCompra, setCreatingCompra] = useState(false);
   const [createCompraOk, setCreateCompraOk] = useState('');
+  // Modal de confirmacin de compra
+  const [confirmCompra, setConfirmCompra] = useState({ open: false, payload: null, proveedor: null, items: [] });
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastType, setToastType] = useState('success');
+  const [toastKey, setToastKey] = useState(Date.now());
+
+  const triggerToast = useCallback((type, message) => {
+    if (!message) return;
+    setToastType(type);
+    setToastMsg(message);
+    setToastKey(Date.now());
+  }, []);
 
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
 
   const [productSearch, setProductSearch] = useState('');
+  const [cardModalSearch, setCardModalSearch] = useState('');
+  const [productLotsSearch, setProductLotsSearch] = useState('');
 
   const comprasExportOptions = useMemo(
     () =>
-      EXPORT_MENU_DEFAULT_OPTIONS.filter((option) => {
-        if (option.value === 'excel') return !!comprasExportFormats.excel;
-        if (option.value === 'pdf') return !!comprasExportFormats.pdf;
-        return true;
-      }),
+      EXPORT_MENU_DEFAULT_OPTIONS.filter((option) => { if (option.value === 'excel') return !!comprasExportFormats.excel; return false; }),
     [comprasExportFormats]
   );
 
@@ -124,11 +151,13 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       const data = await getInventarioResumen();
       setDashboard(data);
     } catch (err) {
-      setDashboardError(err.message || 'No se pudo obtener el resumen.');
+      const message = err.message || 'No se pudo obtener el resumen.';
+      setDashboardError(message);
+      triggerToast('error', message);
     } finally {
       setDashboardLoading(false);
     }
-  }, []);
+  }, [selectedProveedor, triggerToast]);
 
   const loadLotes = useCallback(async (filters) => {
     const targetFilters = filters || loteFilters;
@@ -142,12 +171,35 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       if (targetFilters.proximos) params.proximos = true;
       const data = await getLotes(params);
       setLotes(data);
+      // Reset paginacin al cargar un nuevo set de lotes
+      setLotesPage(1);
+      setLotesPaginationReset((prev) => !prev);
     } catch (err) {
-      setLotesError(err.message || 'No se pudo obtener la lista de lotes.');
+      const message = err.message || 'No se pudo obtener la lista de lotes.';
+      setLotesError(message);
+      triggerToast('error', message);
     } finally {
       setLotesLoading(false);
     }
-  }, [loteFilters]);
+  }, [loteFilters, triggerToast]);
+
+  const handleLotesPageChange = (newPage) => {
+    const parsed = Number(newPage);
+    if (!Number.isFinite(parsed) || parsed < 1) return;
+    const normalized = Math.floor(parsed);
+    if (normalized === lotesPage) return;
+    setLotesPage(normalized);
+  };
+
+  const handleLotesPageSizeChange = (newSize) => {
+    const parsed = Number(newSize);
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    const normalized = Math.floor(parsed);
+    if (normalized === lotesPageSize) return;
+    setLotesPageSize(normalized);
+    setLotesPage(1);
+    setLotesPaginationReset((prev) => !prev);
+  };
 
   const loadCompras = useCallback(
     async (pageOverride, pageSizeOverride) => {
@@ -179,10 +231,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
         if (total !== comprasTotal) setComprasTotal(total);
 
         if (response?.exports) {
-          const nextFormats = {
-            excel: Boolean(response.exports.excel),
-            pdf: Boolean(response.exports.pdf),
-          };
+          const nextFormats = { excel: Boolean(response.exports?.excel), pdf: false };
           setComprasExportFormats((prev) =>
             prev.excel === nextFormats.excel && prev.pdf === nextFormats.pdf ? prev : nextFormats
           );
@@ -203,14 +252,16 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
             : safePageSize;
         if (responsePageSize !== comprasPageSize) setComprasPageSize(responsePageSize);
       } catch (err) {
+        const message = err.message || 'No se pudo obtener la lista de compras.';
         setCompras([]);
-        setComprasError(err.message || 'No se pudo obtener la lista de compras.');
+        setComprasError(message);
+        triggerToast('error', message);
         if (comprasTotal !== 0) setComprasTotal(0);
       } finally {
         setComprasLoading(false);
       }
     },
-    [comprasPage, comprasPageSize, comprasTotal]
+    [comprasPage, comprasPageSize, comprasTotal, triggerToast]
   );
 
   const handleComprasPageChange = (newPage) => {
@@ -249,7 +300,9 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setComprasError(err.message || 'No se pudo exportar el historial de compras.');
+      const message = err.message || 'No se pudo exportar el historial de compras.';
+      setComprasError(message);
+      triggerToast('error', message);
     } finally {
       setComprasExporting(null);
     }
@@ -260,13 +313,19 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
     setProveedoresError('');
     try {
       const data = await getProveedores();
-      setProveedores(data);
+      const activos = Array.isArray(data) ? data.filter((prov) => prov.Activo !== false && prov.Activo !== 0) : [];
+      setProveedores(activos);
+      if (selectedProveedor && !activos.some((prov) => String(prov.ProveedorID) === String(selectedProveedor))) {
+        setSelectedProveedor('');
+      }
     } catch (err) {
-      setProveedoresError(err.message || 'No se pudo obtener proveedores.');
+      const message = err.message || 'No se pudo obtener proveedores.';
+      setProveedoresError(message);
+      triggerToast('error', message);
     } finally {
       setProveedoresLoading(false);
     }
-  }, []);
+  }, [triggerToast]);
 
   useEffect(() => {
     if (activeTab === 'resumen') loadDashboard();
@@ -288,38 +347,43 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
 
   const handleChangeTab = (tab) => setActiveTab(tab);
 
-  const openCardModal = (type) => setCardModal({ type });
+  const openCardModal = (type) => { setCardModalSearch(''); setCardModal({ type }); };
   const closeCardModal = () => setCardModal({ type: null });
 
   const handleOpenProductLotsModal = useCallback(async (product) => {
+    setProductLotsSearch('');
     setProductLotsModal({ open: true, product, loading: true, error: '', lots: [] });
     try {
       const data = await getLotes({ productoId: product.productoId, estado: 'activos' });
       setProductLotsModal((prev) => ({ ...prev, loading: false, lots: data }));
     } catch (err) {
-      setProductLotsModal((prev) => ({ ...prev, loading: false, error: err.message || 'No se pudieron obtener los lotes.' }));
+      const message = err.message || 'No se pudieron obtener los lotes.';
+      setProductLotsModal((prev) => ({ ...prev, loading: false, error: message }));
+      triggerToast('error', message);
     }
-  }, []);
+  }, [triggerToast]);
 
   const closeProductLotsModal = () => setProductLotsModal({ open: false, product: null, loading: false, error: '', lots: [] });
 
   const openLoteModal = async (mode, lote) => {
-    setLoteModal({ open: true, mode, loteId: lote.loteId, loading: true, data: null, error: '' });
+    setLoteModal({ open: true, mode, loteId: lote.loteId, loading: true, data: null, initialData: null, error: '' });
     try {
       const detail = await getLoteDetalle(lote.loteId);
-      setLoteModal((prev) => ({ ...prev, loading: false, data: detail }));
+      setLoteModal((prev) => ({ ...prev, loading: false, data: detail, initialData: { ...detail } }));
     } catch (err) {
-      setLoteModal((prev) => ({ ...prev, loading: false, error: err.message || 'No se pudo obtener el detalle.' }));
+      const message = err.message || 'No se pudo obtener el detalle.';
+      setLoteModal((prev) => ({ ...prev, loading: false, error: message }));
+      triggerToast('error', message);
     }
   };
 
-  const closeLoteModal = () => setLoteModal({ open: false, mode: 'view', loteId: null, loading: false, data: null, error: '' });
+  const closeLoteModal = () => setLoteModal({ open: false, mode: 'view', loteId: null, loading: false, data: null, initialData: null, error: '' });
 
   const saveLoteChanges = async () => {
     if (!loteModal?.data?.loteId) return;
     setLoteModal((prev) => ({ ...prev, loading: true, error: '' }));
     const payload = {
-      NumeroLote: loteModal.data.numeroLote,
+      numeroLote: loteModal.data.numeroLote,
       FechaVencimiento: loteModal.data.fechaVencimiento,
       PrecioCosto: Number(loteModal.data.precioCosto),
       PrecioVenta: Number(loteModal.data.precioVenta),
@@ -331,27 +395,33 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       closeLoteModal();
       loadLotes();
       if (activeTab === 'resumen') loadDashboard();
+      triggerToast('success', 'Lote actualizado correctamente.');
     } catch (err) {
-      setLoteModal((prev) => ({ ...prev, loading: false, error: err.message || 'Error al actualizar lote.' }));
+      const message = err.message || 'Error al actualizar lote.';
+      setLoteModal((prev) => ({ ...prev, loading: false, error: message }));
+      triggerToast('error', message);
     }
   };
 
   const openDeactivateModal = (lote) => {
-    setDeactivateModal({ open: true, lote, motivo: '', loading: false, error: '' });
+    setDeactivateModal({ open: true, lote, loading: false, error: '' });
   };
 
-  const closeDeactivateModal = () => setDeactivateModal({ open: false, lote: null, motivo: '', loading: false, error: '' });
+  const closeDeactivateModal = () => setDeactivateModal({ open: false, lote: null, loading: false, error: '' });
 
   const confirmDeactivate = async () => {
     if (!deactivateModal.lote) return;
     setDeactivateModal((prev) => ({ ...prev, loading: true, error: '' }));
     try {
-      await deactivateLote(deactivateModal.lote.loteId, deactivateModal.motivo?.trim());
+      await deactivateLote(deactivateModal.lote.loteId);
       closeDeactivateModal();
       loadLotes();
       if (activeTab === 'resumen') loadDashboard();
+      triggerToast('success', 'Lote desactivado correctamente.');
     } catch (err) {
-      setDeactivateModal((prev) => ({ ...prev, loading: false, error: err.message || 'No se pudo desactivar el lote.' }));
+      const message = err.message || 'No se pudo desactivar el lote.';
+      setDeactivateModal((prev) => ({ ...prev, loading: false, error: message }));
+      triggerToast('error', message);
     }
   };
 
@@ -367,21 +437,25 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       const data = await getCompra(compraId);
       setCompraModal((prev) => ({ ...prev, loading: false, data }));
     } catch (err) {
-      setCompraModal((prev) => ({ ...prev, loading: false, error: err.message || 'No se pudo obtener la compra.' }));
+      const message = err.message || 'No se pudo obtener la compra.';
+      setCompraModal((prev) => ({ ...prev, loading: false, error: message }));
+      triggerToast('error', message);
     }
-  }, []);
+  }, [triggerToast]);
 
   const comprasColumns = useMemo(
     () => [
       {
         name: 'Fecha',
         selector: (row) => row.fechaOrden,
+        sortable: true,
         cell: (row) => formatDate(row.fechaOrden),
         minWidth: '110px',
       },
       {
         name: 'Proveedor',
         selector: (row) => row.proveedor,
+        sortable: true,
         cell: (row) => row.proveedor || 'Sin proveedor',
         wrap: true,
         minWidth: '200px',
@@ -389,6 +463,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       {
         name: 'Total',
         selector: (row) => row.total,
+        sortable: true,
         cell: (row) => formatCurrency(row.total),
         right: true,
         minWidth: '110px',
@@ -396,6 +471,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       {
         name: 'Items',
         selector: (row) => row.items,
+        sortable: true,
         cell: (row) => formatNumber(row.items),
         right: true,
         maxWidth: '90px',
@@ -409,16 +485,28 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
         cell: (row) => (
           <button
             type="button"
-            className="btn btn-sm btn-outline-primary"
+            className="btn btn-sm btn-outline-primary cursor-selectable"
             onClick={() => handleSelectCompra(row.ordenCompraId)}
           >
-            Detalle
+            <i className="bi bi-eye me-1" /> Detalle
           </button>
         ),
       },
     ],
     [handleSelectCompra]
   );
+
+  const filteredCompras = useMemo(() => {
+    const term = (comprasSearch || '').toString().trim().toLowerCase();
+    if (!term) return compras;
+    return compras.filter((c) => {
+      const bag = [c.proveedor, c.usuarioNombre, c.total, c.items]
+        .filter((v) => v !== undefined && v !== null)
+        .map((v) => String(v).toLowerCase())
+        .join(' ');
+      return bag.includes(term);
+    });
+  }, [compras, comprasSearch]);
 
   const closeCompraModal = () => setCompraModal({ open: false, compraId: null, loading: false, data: null, error: '' });
 
@@ -431,9 +519,16 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
   };
 
   const updateCompraItem = (id, updater) => {
-    setPurchaseItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...(typeof updater === 'function' ? updater(item) : updater) } : item))
-    );
+    const patch = typeof updater === 'function' ? updater((purchaseItems.find((i) => i.id === id)) || {}) : updater;
+    setPurchaseItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+    // Limpia errores del/los campos actualizados
+    if (patch && typeof patch === 'object') {
+      setPurchaseItemErrors((prev) => {
+        const current = { ...(prev[id] || {}) };
+        Object.keys(patch).forEach((k) => { if (current[k]) delete current[k]; });
+        return { ...prev, [id]: current };
+      });
+    }
   };
 
   const handleSelectProducto = async (id, producto) => {
@@ -456,7 +551,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       const lotesProducto = await getLotes({ productoId: producto.ProductoID, estado: 'activos' });
       updateCompraItem(id, { lotesDisponibles: lotesProducto });
     } catch (err) {
-      console.error('No se pudieron cargar lotes del producto', err);
+      triggerToast('error', err.message || 'No se pudieron cargar los lotes del producto.');
     }
   };
 
@@ -480,6 +575,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
         precioVenta: lote.precioVenta,
         impuesto: lote.impuesto,
         descuento: lote.descuento,
+        cantidadUnidadesMinimas: lote.cantidadUnidadesMinimas || '',
       };
     });
   };
@@ -488,23 +584,46 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
     event.preventDefault();
     setPurchaseErrors('');
     setCreateCompraOk('');
+    setPurchaseFormErrors({ proveedor: '' });
 
+    let hasErrors = false;
     if (!selectedProveedor) {
-      setPurchaseErrors('Seleccione un proveedor.');
-      return;
+      setPurchaseFormErrors({ proveedor: 'Seleccione un proveedor.' });
+      hasErrors = true;
     }
 
     const itemsPayload = [];
+    const nextItemErrors = {};
     for (const item of purchaseItems) {
+      const errs = {};
       if (!item.productoId) {
-        setPurchaseErrors('Cada item debe tener un producto seleccionado.');
-        return;
+        errs.producto = 'Seleccione un producto.'; hasErrors = true;
       }
       const isNuevo = item.loteSeleccion !== 'existente' || !item.loteId;
-      if (isNuevo && !item.numeroLote) {
-        setPurchaseErrors('Complete los datos de lote para cada producto.');
-        return;
+      if (isNuevo) {
+        if (!item.numeroLote || !String(item.numeroLote).trim()) { errs.numeroLote = 'Ingrese el número de lote.'; hasErrors = true; }
+        if (!item.fechaVencimiento) { errs.fechaVencimiento = 'Seleccione la fecha de vencimiento.'; hasErrors = true; }
+        // Precio costo y precio venta: requeridos, no negativos, y venta > costo
+        const hasPc = item.precioCosto !== '' && item.precioCosto !== null && item.precioCosto !== undefined;
+        const hasPv = item.precioVenta !== '' && item.precioVenta !== null && item.precioVenta !== undefined;
+        const pc = Number(item.precioCosto);
+        const pv = Number(item.precioVenta);
+        if (!hasPc || !Number.isFinite(pc) || pc < 0) { errs.precioCosto = !hasPc ? 'Ingrese el precio costo.' : 'Precio costo invlido.'; hasErrors = true; }
+        if (!hasPv || !Number.isFinite(pv) || pv < 0) { errs.precioVenta = !hasPv ? 'Ingrese el precio venta.' : 'Precio venta invlido.'; hasErrors = true; }
+        if (Number.isFinite(pc) && Number.isFinite(pv) && !(pv > pc)) { errs.precioVenta = 'Precio venta debe ser mayor que precio costo.'; hasErrors = true; }
+        const imp = Number(item.impuesto);
+        if (item.impuesto !== '' && (!Number.isFinite(imp) || imp < 0 || imp > 100)) { errs.impuesto = 'Impuesto 0 a 100.'; hasErrors = true; }
+        const desc = Number(item.descuento);
+        if (item.descuento !== '' && (!Number.isFinite(desc) || desc < 0 || desc > 100)) { errs.descuento = 'Descuento 0 a 100.'; hasErrors = true; }
       }
+      const empProvided = item.cantidadEmpaques !== '' && item.cantidadEmpaques !== null && item.cantidadEmpaques !== undefined;
+      const uniProvided = item.cantidadUnidadesMinimas !== '' && item.cantidadUnidadesMinimas !== null && item.cantidadUnidadesMinimas !== undefined;
+      const emp = Number(item.cantidadEmpaques);
+      const uni = Number(item.cantidadUnidadesMinimas);
+      if (!empProvided || !Number.isFinite(emp) || emp <= 0) { errs.cantidadEmpaques = 'Ingrese empaques (> 0).'; hasErrors = true; }
+      if (!uniProvided || !Number.isFinite(uni) || uni <= 0) { errs.cantidadUnidadesMinimas = 'Ingrese unidades mnimas (> 0).'; hasErrors = true; }
+
+      if (Object.keys(errs).length) nextItemErrors[item.id] = errs;
       itemsPayload.push({
         productoId: item.productoId,
         loteId: isNuevo ? null : Number(item.loteId),
@@ -520,14 +639,53 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       });
     }
 
+    if (hasErrors) {
+      setPurchaseItemErrors(nextItemErrors);
+      return;
+    }
+
+    // Preparar payload y vista previa para el modal de confirmacin
+    const payload = {
+      proveedorId: Number(selectedProveedor),
+      items: itemsPayload,
+    };
+
+    const proveedorObj = proveedores.find((p) => Number(p.ProveedorID) === Number(selectedProveedor));
+    const proveedorLabel = proveedorObj ? `${proveedorObj.NombreProveedor} (ID: ${proveedorObj.ProveedorID})` : String(selectedProveedor);
+
+    const previewItems = purchaseItems.map((it) => {
+      const isNuevo = it.loteSeleccion !== 'existente' || !it.loteId;
+      const factor = Number(it.cantidadUnidadesMinimas || 0);
+      const empaques = Number(it.cantidadEmpaques || 0);
+      const totalUnidades =
+        Number.isFinite(factor) && factor > 0 ? empaques * factor : empaques;
+      const subtotal = Number(empaques * Number(it.precioCosto || 0));
+      return {
+        productoNombre: it.producto ? `${it.producto.Nombre}${it.producto.Presentacion ? ` - ${it.producto.Presentacion}` : ''}` : `ID ${it.productoId}`,
+        productoId: it.productoId,
+        loteTipo: isNuevo ? 'Nuevo' : 'Existente',
+        loteNumero: it.numeroLote || (isNuevo ? '' : String(it.loteId || '')),
+        fechaVencimiento: it.fechaVencimiento || '',
+        precioCosto: it.precioCosto,
+        precioVenta: it.precioVenta,
+        impuesto: it.impuesto,
+        descuento: it.descuento,
+        empaques,
+        unidades: factor,
+        factor,
+        totalUnidades,
+        subtotal,
+      };
+    });
+
+    setConfirmCompra({ open: true, payload, proveedor: proveedorLabel, items: previewItems });
+  };
+
+  const doCreateCompra = async (payload) => {
     setCreatingCompra(true);
     try {
-      const payload = {
-        proveedorId: Number(selectedProveedor),
-        items: itemsPayload,
-      };
       await createCompra(payload);
-      setCreateCompraOk('Compra registrada correctamente.');
+      triggerToast('success', 'Compra registrada correctamente.');
       setPurchaseItems([createEmptyCompraItem(0)]);
       setSelectedProveedor('');
       if (comprasPage !== 1) setComprasPage(1);
@@ -536,7 +694,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       loadDashboard();
       loadLotes();
     } catch (err) {
-      setPurchaseErrors(err.message || 'No se pudo registrar la compra.');
+      triggerToast('error', err.message || 'No se pudo registrar la compra.');
     } finally {
       setCreatingCompra(false);
     }
@@ -546,6 +704,14 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
     if (!cardModal.type || !dashboard) return null;
     let title = '';
     let rows = [];
+    // Variantes de chip por tipo de modal (color e icono)
+    const chipMap = {
+      valor: { variant: 'primary', icon: 'bi-cash-stack' },
+      vencimientos: { variant: 'warning', icon: 'bi-exclamation-triangle' },
+      bajoStock: { variant: 'danger', icon: 'bi-arrow-down-short' },
+      activos: { variant: 'success', icon: 'bi-check-circle' },
+    };
+    const { variant: chipVariant = 'primary', icon: chipIcon = 'bi-info-circle' } = chipMap[cardModal.type] || {};
     if (cardModal.type === 'valor') {
       title = 'Detalle del valor de inventario';
       rows = dashboard.lists?.inventoryValue || [];
@@ -562,68 +728,221 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
 
     return (
       <div className="inventory-modal-backdrop" onClick={closeCardModal}>
-        <div className="inventory-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="inventory-modal resumen-modal" onClick={(e) => e.stopPropagation()}>
           <div className="inventory-modal-header">
-            <h5>{title}</h5>
-            <button className="btn-close" onClick={closeCardModal}></button>
+            <div className="d-flex align-items-center gap-2">
+              <div className={`resumen-chip resumen-chip-${chipVariant}`}>
+                <i className={`bi ${chipIcon}`} />
+                <span>{title}</span>
+              </div>
+            </div>
+            <button className="btn-close" onClick={closeCardModal}>
+              <i className="bi bi-x-lg"></i>
+            </button>
           </div>
           <div className="inventory-modal-body">
             {rows.length === 0 ? (
               <p className="text-muted mb-0">Sin datos disponibles.</p>
             ) : (
-              <div className="table-responsive">
-                <table className="table table-sm table-striped align-middle">
-                  <thead>
-                    <tr>
-                      <th>Producto</th>
-                      <th>Detalle</th>
-                      <th className="text-end">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr key={`${row.productoId || row.loteId || ''}-${row.numeroLote || ''}`}>
-                        <td>
-                          <div className="fw-semibold">{row.producto || row.nombre || '—'}</div>
-                          {row.categoria && <div className="text-muted small">{row.categoria}</div>}
-                        </td>
-                        <td>
-                          {cardModal.type === 'valor' && (
-                            <>
-                              <div>Lote: {row.numeroLote || '—'}</div>
-                              <div>{formatNumber(row.cantidadTotalMinima)} unidades totales</div>
-                              {row.fechaVencimiento && <div>Vence: {formatDate(row.fechaVencimiento)}</div>}
-                            </>
-                          )}
-                          {cardModal.type === 'vencimientos' && (
-                            <>
-                              <div>Lote: {row.numeroLote || '—'}</div>
-                              <div>Vence en {formatNumber(row.diasRestantes)} días</div>
-                            </>
-                          )}
-                          {cardModal.type === 'bajoStock' && (
-                            <>
-                              <div>Stock actual: {formatNumber(row.stockActual)}</div>
-                              <div>Mínimo: {formatNumber(row.stockMinimo)}</div>
-                              <div>Faltante: {formatNumber(row.deficit)}</div>
-                            </>
-                          )}
-                          {cardModal.type === 'activos' && (
-                            <>
-                              <div>Stock total: {formatNumber(row.stockTotalMinimo)}</div>
-                              <div>Mínimo: {formatNumber(row.stockMinimo)}</div>
-                            </>
-                          )}
-                        </td>
-                        <td className="text-end">
-                          {cardModal.type === 'valor' ? formatCurrency(row.valorTotal) : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              (() => {
+                const columns = [];
+                columns.push({
+                  name: 'Producto',
+                  selector: (r) => r.producto || r.nombre || '—',
+                  sortable: true,
+                  wrap: true,
+                  grow: 2,
+                  cell: (r) => (
+                    <div>
+                      <div className="fw-semibold">{r.producto || r.nombre || '—'}</div>
+                      {r.categoria && <div className="text-muted small">{r.categoria}</div>}
+                    </div>
+                  ),
+                });
+                columns.push({
+                  name: 'Detalle',
+                  grow: 2,
+                  cell: (r) => (
+                    <div>
+                      {cardModal.type === 'valor' && (
+                        <>
+                          <div>Lote: {r.numeroLote || '—'}</div>
+                          <div>{formatNumber(r.cantidadTotalMinima)} unidades totales</div>
+                          {r.fechaVencimiento && <div>Vence: {formatDate(r.fechaVencimiento)}</div>}
+                        </>
+                      )}
+                      {cardModal.type === 'vencimientos' && (
+                        <>
+                          <div>Lote: {r.numeroLote || '—'}</div>
+                          <div>Vence en {formatNumber(r.diasRestantes)} días</div>
+                        </>
+                      )}
+                      {cardModal.type === 'bajoStock' && (
+                        <>
+                          <div>Stock actual: {formatNumber(r.stockActual)}</div>
+                          <div>mínimo: {formatNumber(r.stockMinimo)}</div>
+                          <div>Faltante: {formatNumber(r.deficit)}</div>
+                        </>
+                      )}
+                      {cardModal.type === 'activos' && (
+                        <>
+                          <div>Stock total: {formatNumber(r.stockTotalMinimo)}</div>
+                          <div>mínimo: {formatNumber(r.stockMinimo)}</div>
+                        </>
+                      )}
+                    </div>
+                  ),
+                });
+                if (cardModal.type === 'valor') {
+                  columns.push({
+                    name: 'Valor',
+                    right: true,
+                    width: '140px',
+                    selector: (r) => r.valorTotal,
+                    sortable: true, cell: (r) => formatCurrency(r.valorTotal),
+                  });
+                }
+                const term = (cardModalSearch || '').toString().trim().toLowerCase();
+                const filteredRows = term
+                  ? rows.filter((r) => {
+                      const haystack = [
+                        r.producto, r.nombre, r.categoria, r.numeroLote,
+                        r.fechaVencimiento, r.diasRestantes,
+                      ]
+                        .filter(Boolean)
+                        .map((v) => String(v).toLowerCase())
+                        .join(' ');
+                      return haystack.includes(term);
+                    })
+                  : rows;
+
+                return (
+                  <>
+                    <div className="d-flex align-items-center justify-content-end flex-wrap gap-2 mb-2">
+                      <div className="inventory-search-wrapper">
+                        <input
+                          type="search"
+                          className="form-control"
+                          placeholder="Buscar..."
+                          value={cardModalSearch}
+                          onChange={(e) => setCardModalSearch(e.target.value)}
+                          style={{ maxWidth: '320px' }}
+                        />
+                      </div>
+                    </div>
+                    <DataTable
+                      columns={columns}
+                      data={filteredRows}
+                      pagination
+                      paginationPerPage={5}
+                      paginationRowsPerPageOptions={[5, 10, 30, 50]}
+                      highlightOnHover
+                      striped
+                      responsive
+                      fixedHeader
+                      fixedHeaderScrollHeight="40vh"
+                      persistTableHead
+                      noDataComponent="Sin datos disponibles."
+                      paginationComponentOptions={{
+                        rowsPerPageText: 'Filas:',
+                        rangeSeparatorText: 'de',
+                      }}
+                      customStyles={{
+                        cells: { style: { whiteSpace: 'normal' } },
+                        headCells: { style: { whiteSpace: 'normal', fontWeight: 600 } },
+                      }}
+                    />
+                  </>
+                );
+              })()
             )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderConfirmCompraModal = () => {
+    if (!confirmCompra.open) return null;
+    const columns = [
+      { name: 'Producto', selector: (r) => r.productoNombre, sortable: true, wrap: true },
+      { name: 'ID', selector: (r) => r.productoId, sortable: true, width: '90px' },
+      { name: 'Lote', selector: (r) => `${r.loteTipo}${r.loteNumero ? ` (${r.loteNumero})` : ''}`, sortable: true, wrap: true },
+      { name: 'Vence', selector: (r) => r.fechaVencimiento || '—', sortable: true, width: '120px' },
+      { name: 'Empaques', selector: (r) => formatNumber(r.empaques), sortable: true, right: true, width: '110px' },
+      { name: 'Unid. por emp.', selector: (r) => formatNumber(r.factor || r.unidades), sortable: true, right: true, width: '110px' },
+      { name: 'Factor', selector: (r) => formatNumber(r.factor || 0), sortable: true, right: true, width: '100px' },
+      { name: 'Costo', selector: (r) => formatCurrency(r.precioCosto || 0), sortable: true, right: true },
+      { name: 'Subtotal', selector: (r) => r.subtotal, sortable: true, cell: (r) => formatCurrency(r.subtotal || 0), right: true, width: '140px' },
+      { name: 'Venta', selector: (r) => formatCurrency(r.precioVenta || 0), sortable: true, right: true },
+      { name: 'Imp.%', selector: (r) => `${Number(r.impuesto || 0)}%`, right: true, width: '90px' },
+      { name: 'Desc.%', selector: (r) => `${Number(r.descuento || 0)}%`, right: true, width: '90px' },
+    ];
+
+    const totalItems = confirmCompra.items.length;
+    const totalCosto = confirmCompra.items.reduce((acc, it) => acc + (Number(it.subtotal) || 0), 0);
+
+    const close = () => setConfirmCompra({ open: false, payload: null, proveedor: null, items: [] });
+    const confirm = async () => {
+      const payload = confirmCompra.payload;
+      close();
+      await doCreateCompra(payload);
+    };
+
+    return (
+      <div className="confirm-compra-backdrop" onClick={close}>
+        <div className="confirm-compra-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="confirm-compra-header">
+            <h5>Confirmar registro de compra</h5>
+            <button className="btn-close" onClick={close}>
+              <i className="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div className="confirm-compra-body">
+            <div className="mb-3">
+              <div className="confirm-compra-proveedor-chip" title="Proveedor seleccionado">
+                <i className="bi bi-truck" />
+                <span>Proveedor: {confirmCompra.proveedor || '—'}</span>
+              </div>
+            </div>
+
+            <DataTable
+              columns={columns}
+              data={confirmCompra.items}
+              dense
+              highlightOnHover
+              striped
+              responsive
+              persistTableHead
+              noDataComponent="Sin items para registrar."
+            />
+
+          </div>
+          <div className="confirm-compra-footer">
+            <div className="confirm-compra-summary-chip">
+              <i className="bi bi-list-check me-2" />
+              <span>
+                {`Items: ${formatNumber(totalItems)} | Total: ${formatCurrency(totalCosto || 0)}`}
+              </span>
+            </div>
+            <div className="d-flex gap-2">
+              <button type="button" className="btn confirm-compra-btn-cancel cursor-selectable" onClick={close}>
+                Cancelar
+              </button>
+              <button type="button" className="btn btn-primary cursor-selectable" onClick={confirm} disabled={creatingCompra}>
+                {creatingCompra ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    Registrando...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-check2-circle me-1" />
+                    Confirmar y registrar
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -633,42 +952,81 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
   const renderProductLotsModal = () => {
     if (!productLotsModal.open) return null;
     const { product, lots, loading, error } = productLotsModal;
+    const lotsColumns = [
+      { name: 'Lote', selector: (r) => r.numeroLote, sortable: true, sortable: true, wrap: true },
+      { name: 'Vencimiento', selector: (r) => r.fechaVencimiento, sortable: true, width: '140px', cell: (r) => formatDate(r.fechaVencimiento) },
+      { name: 'Stock (unidades)', selector: (r) => r.cantidadTotalMinima, sortable: true, right: true, width: '160px', cell: (r) => formatNumber(r.cantidadTotalMinima) },
+      { name: 'Precio costo', selector: (r) => r.precioCosto, sortable: true, right: true, width: '140px', cell: (r) => formatCurrency(r.precioCosto) },
+      { name: 'Precio venta', selector: (r) => r.precioVenta, sortable: true, right: true, width: '140px', cell: (r) => formatCurrency(r.precioVenta) },
+    ];
+    const lotsFiltered = (() => {
+      const term = (productLotsSearch || '').toString().trim().toLowerCase();
+      if (!term) return lots;
+      return lots.filter((l) => {
+        const haystack = [
+          l.numeroLote,
+          l.fechaVencimiento,
+          l.cantidadTotalMinima,
+          l.precioCosto,
+          l.precioVenta,
+        ]
+          .filter(Boolean)
+          .map((v) => String(v).toLowerCase())
+          .join(' ');
+        return haystack.includes(term);
+      });
+    })();
     return (
       <div className="inventory-modal-backdrop" onClick={closeProductLotsModal}>
         <div className="inventory-modal inventory-modal-lg" onClick={(e) => e.stopPropagation()}>
           <div className="inventory-modal-header">
-            <h5>Lotes del producto {product?.nombre}</h5>
-            <button className="btn-close" onClick={closeProductLotsModal}></button>
+            <div className="d-flex align-items-center gap-2">
+              <h5 className="mb-0">Lotes del producto</h5>
+              <div className="producto-chip">
+                <i className="bi bi-box-seam" />
+                <span>{product?.nombre || '—'}</span>
+              </div>
+            </div>
+            <button className="btn-close" onClick={closeProductLotsModal}>
+              <i className="bi bi-x-lg"></i>
+            </button>
           </div>
           <div className="inventory-modal-body">
             {loading && <p>Cargando lotes...</p>}
             {error && <div className="alert alert-warning">{error}</div>}
-            {!loading && !error && lots.length === 0 && <p className="text-muted mb-0">Sin lotes activos para este producto.</p>}
+            {!loading && !error && lots.length === 0 && (
+              <p className="text-muted mb-0">Sin lotes activos para este producto.</p>
+            )}
             {!loading && !error && lots.length > 0 && (
-              <div className="table-responsive">
-                <table className="table table-sm table-striped align-middle">
-                  <thead>
-                    <tr>
-                      <th>Lote</th>
-                      <th>Vencimiento</th>
-                      <th className="text-end">Stock (unidades)</th>
-                      <th className="text-end">Precio costo</th>
-                      <th className="text-end">Precio venta</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lots.map((lote) => (
-                      <tr key={lote.loteId}>
-                        <td>{lote.numeroLote}</td>
-                        <td>{formatDate(lote.fechaVencimiento)}</td>
-                        <td className="text-end">{formatNumber(lote.cantidadTotalMinima)}</td>
-                        <td className="text-end">{formatCurrency(lote.precioCosto)}</td>
-                        <td className="text-end">{formatCurrency(lote.precioVenta)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="d-flex align-items-center justify-content-end flex-wrap gap-2 mb-2">
+                  <div className="inventory-search-wrapper">
+                    <input
+                      type="search"
+                      className="form-control"
+                      placeholder="Buscar..."
+                      value={productLotsSearch}
+                      onChange={(e) => setProductLotsSearch(e.target.value)}
+                      style={{ maxWidth: '320px' }}
+                    />
+                  </div>
+                </div>
+                <DataTable
+                  columns={lotsColumns}
+                  data={lotsFiltered}
+                  pagination
+                  paginationPerPage={5}
+                  paginationRowsPerPageOptions={[5, 10, 30, 50]}
+                  highlightOnHover
+                  striped
+                  responsive
+                  fixedHeader
+                  fixedHeaderScrollHeight="50vh"
+                  persistTableHead
+                  noDataComponent="Sin lotes para mostrar."
+                  paginationComponentOptions={{ rowsPerPageText: 'Filas:', rangeSeparatorText: 'de' }}
+                />
+              </>
             )}
           </div>
         </div>
@@ -688,30 +1046,53 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       }));
     };
 
+    const editableFields = ['numeroLote', 'fechaVencimiento', 'precioCosto', 'precioVenta', 'descuento'];
+    const normalizeFieldValue = (field, value) => {
+      if (value === null || value === undefined) return '';
+      if (field === 'fechaVencimiento') {
+        return String(value).slice(0, 10);
+      }
+      return String(value);
+    };
+    const hasChanges =
+      editable &&
+      data &&
+      loteModal.initialData &&
+      editableFields.some((field) => normalizeFieldValue(field, data[field]) !== normalizeFieldValue(field, loteModal.initialData[field]));
+
     return (
       <div className="inventory-modal-backdrop" onClick={closeLoteModal}>
         <div className="inventory-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="inventory-modal-header">
-            <h5>{editable ? 'Editar lote' : 'Detalle del lote'}</h5>
-            <button className="btn-close" onClick={closeLoteModal}></button>
-          </div>
-          <div className="inventory-modal-body">
-            {loading && <p>Cargando...</p>}
-            {error && <div className="alert alert-danger">{error}</div>}
-            {data && !loading && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (editable) saveLoteChanges();
-                }}
-              >
+          <form
+            className="inventory-lote-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (editable) saveLoteChanges();
+            }}
+          >
+            <div className="inventory-modal-header">
+              <div className="inventory-modal-title-badge">
+                <i className="bi bi-box-seam"></i>
+                <span>{editable ? 'Editar lote' : 'Detalle del lote'}</span>
+              </div>
+              <button type="button" className="btn-close" onClick={closeLoteModal}>
+                <i className="bi bi-x-lg"></i>
+              </button>
+            </div>
+            <div className="inventory-modal-body">
+              {loading && <p>Cargando...</p>}
+              {error && <div className="alert alert-danger">{error}</div>}
+              {data && !loading && (
                 <div className="row g-3">
-                  <div className="col-12">
-                    <label className="form-label">Producto</label>
-                    <div className="form-control-plaintext">{data.producto}</div>
+                  <div className="col-5 lote-inline-field">
+                    <label className="form-label lote-detail-label mb-0">Producto</label>
+                    <span className="estado-chip chip-strong ms-2 lote-product-chip">
+                      <i className="bi bi-box-seam me-2" />
+                      {data.producto}
+                    </span>
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Número de lote</label>
+                  <div className="col-md-7">
+                    <label className="form-label lote-detail-label">número de lote</label>
                     {editable ? (
                       <input
                         className="form-control"
@@ -723,8 +1104,8 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                       <div className="form-control-plaintext">{data.numeroLote || '—'}</div>
                     )}
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Fecha de vencimiento</label>
+                  <div className="col-md-4">
+                    <label className="form-label lote-detail-label">Fecha de vencimiento</label>
                     {editable ? (
                       <input
                         type="date"
@@ -733,11 +1114,11 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                         onChange={(e) => updateLocalField('fechaVencimiento', e.target.value)}
                       />
                     ) : (
-                      <div className="form-control-plaintext">{formatDate(data.fechaVencimiento)}</div>
+                      <div className="estado-chip chip-soft ms-2">{formatDate(data.fechaVencimiento)}</div>
                     )}
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Precio costo</label>
+                  <div className="col-md-4">
+                    <label className="form-label lote-detail-label">Precio costo</label>
                     {editable ? (
                       <input
                         type="number"
@@ -747,11 +1128,11 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                         onChange={(e) => updateLocalField('precioCosto', e.target.value)}
                       />
                     ) : (
-                      <div className="form-control-plaintext">{formatCurrency(data.precioCosto)}</div>
+                      <div className="estado-chip chip-soft ms-2">{formatCurrency(data.precioCosto)}</div>
                     )}
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Precio venta</label>
+                  <div className="col-md-4">
+                    <label className="form-label lote-detail-label">Precio venta</label>
                     {editable ? (
                       <input
                         type="number"
@@ -761,25 +1142,11 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                         onChange={(e) => updateLocalField('precioVenta', e.target.value)}
                       />
                     ) : (
-                      <div className="form-control-plaintext">{formatCurrency(data.precioVenta)}</div>
+                      <div className="estado-chip chip-soft ms-2">{formatCurrency(data.precioVenta)}</div>
                     )}
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Impuesto (%)</label>
-                    {editable ? (
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="form-control"
-                        value={data.impuesto ?? 0}
-                        onChange={(e) => updateLocalField('impuesto', e.target.value)}
-                      />
-                    ) : (
-                      <div className="form-control-plaintext">{formatNumber(data.impuesto ?? 0)}%</div>
-                    )}
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Descuento (%)</label>
+                  <div className="col-md-4">
+                    <label className="form-label lote-detail-label">Descuento (%)</label>
                     {editable ? (
                       <input
                         type="number"
@@ -789,37 +1156,33 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                         onChange={(e) => updateLocalField('descuento', e.target.value)}
                       />
                     ) : (
-                      <div className="form-control-plaintext">{formatNumber(data.descuento ?? 0)}%</div>
+                      <div className="estado-chip chip-soft ms-2">{formatNumber(data.descuento ?? 0)}%</div>
                     )}
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Stock disponible (unidades)</label>
-                    <div className="form-control-plaintext">{formatNumber(data.cantidadTotalMinima)}</div>
+                  <div className="col-md-4">
+                    <label className="form-label lote-detail-label">Stock disponible (Uds.)</label>
+                    <div className="estado-chip chip-soft ms-2">{formatNumber(data.cantidadTotalMinima)}</div>
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Estado</label>
-                    <div className="form-control-plaintext">{data.activo ? 'Activo' : 'Inactivo'}</div>
+                  <div className="col-md-4">
+                    <label className="form-label lote-detail-label">Estado</label>
+                    <div className={`estado-chip ${data.activo ? 'chip-soft' : 'chip-inactive'} ms-2`}>{data.activo ? 'Activo' : 'Inactivo'}</div>
                   </div>
-                  {data.motivoInactivacion && (
-                    <div className="col-12">
-                      <label className="form-label">Motivo de inactivación</label>
-                      <div className="form-control-plaintext">{data.motivoInactivacion}</div>
-                    </div>
-                  )}
                 </div>
-                {editable && (
-                  <div className="d-flex justify-content-end gap-2 mt-3">
-                    <button type="button" className="btn btn-outline-secondary" onClick={closeLoteModal}>
-                      Cancelar
-                    </button>
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
-                      Guardar cambios
-                    </button>
-                  </div>
-                )}
-              </form>
+              )}
+            </div>
+            {editable && data && hasChanges && (
+              <div className="inventory-modal-footer">
+                <button type="button" className="btn inventory-modal-cancel-btn" onClick={closeLoteModal}>
+                  <i className="bi bi-x-circle"></i>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary inventory-modal-save-btn" disabled={loading}>
+                  <i className="bi bi-check2-circle"></i>
+                  Guardar cambios
+                </button>
+              </div>
             )}
-          </div>
+          </form>
         </div>
       </div>
     );
@@ -830,34 +1193,49 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
     return (
       <div className="inventory-modal-backdrop" onClick={closeDeactivateModal}>
         <div className="inventory-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="inventory-modal-header">
-            <h5>Desactivar lote</h5>
-            <button className="btn-close" onClick={closeDeactivateModal}></button>
-          </div>
-          <div className="inventory-modal-body">
-            <p>
-              ¿Desea desactivar el lote <strong>{deactivateModal.lote?.numeroLote}</strong> del
-              producto <strong>{deactivateModal.lote?.producto}</strong>?
-            </p>
-            <div className="mb-3">
-              <label className="form-label">Motivo (opcional)</label>
-              <textarea
-                className="form-control"
-                rows={3}
-                value={deactivateModal.motivo}
-                onChange={(e) => setDeactivateModal((prev) => ({ ...prev, motivo: e.target.value }))}
-              ></textarea>
+          <form
+            className="inventory-lote-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              confirmDeactivate();
+            }}
+          >
+            <div className="inventory-modal-header">
+              <div className="inventory-modal-title-badge">
+                <i className="bi bi-exclamation-octagon"></i>
+                <span>Desactivar lote</span>
+              </div>
+              <button type="button" className="btn-close" onClick={closeDeactivateModal}>
+                <i className="bi bi-x-lg"></i>
+              </button>
             </div>
-            {deactivateModal.error && <div className="alert alert-danger">{deactivateModal.error}</div>}
-            <div className="d-flex justify-content-end gap-2">
-              <button className="btn btn-outline-secondary" onClick={closeDeactivateModal} disabled={deactivateModal.loading}>
+            <div className="inventory-modal-body">
+              <p>
+                Desea desactivar el lote <strong>{deactivateModal.lote?.numeroLote}</strong> del producto{' '}
+                <strong>{deactivateModal.lote?.producto}</strong>?
+              </p>
+              {deactivateModal.error && <div className="alert alert-danger">{deactivateModal.error}</div>}
+            </div>
+            <div className="inventory-modal-footer">
+              <button
+                type="button"
+                className="btn inventory-modal-cancel-btn"
+                onClick={closeDeactivateModal}
+                disabled={deactivateModal.loading}
+              >
+                <i className="bi bi-x-circle"></i>
                 Cancelar
               </button>
-              <button className="btn btn-danger" onClick={confirmDeactivate} disabled={deactivateModal.loading}>
-                {deactivateModal.loading ? 'Desactivando...' : 'Desactivar'}
+              <button type="submit" className="btn btn-danger inventory-modal-save-btn" disabled={deactivateModal.loading}>
+                {deactivateModal.loading ? 'Desactivando...' : (
+                  <>
+                    <i className="bi bi-shield-exclamation"></i>
+                    Desactivar
+                  </>
+                )}
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     );
@@ -871,7 +1249,9 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
         <div className="inventory-modal inventory-modal-lg" onClick={(e) => e.stopPropagation()}>
           <div className="inventory-modal-header">
             <h5>Detalle de compra</h5>
-            <button className="btn-close" onClick={closeCompraModal}></button>
+            <button className="btn-close" onClick={closeCompraModal}>
+              <i className="bi bi-x-lg"></i>
+            </button>
           </div>
           <div className="inventory-modal-body">
             {loading && <p>Cargando...</p>}
@@ -896,32 +1276,41 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                     <div className="info-value">{data.usuarioNombre || '—'}</div>
                   </div>
                 </div>
-                <div className="table-responsive">
-                  <table className="table table-sm table-striped align-middle">
-                    <thead>
-                      <tr>
-                        <th>Producto</th>
-                        <th>Lote</th>
-                        <th>Vencimiento</th>
-                        <th className="text-end">Empaques</th>
-                        <th className="text-end">Unidades mín.</th>
-                        <th className="text-end">Precio costo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.items?.map((item) => (
-                        <tr key={item.detalleCompraId}>
-                          <td>{item.producto}</td>
-                          <td>{item.numeroLote || '—'}</td>
-                          <td>{formatDate(item.fechaVencimiento)}</td>
-                          <td className="text-end">{formatNumber(item.cantidadEmpaques)}</td>
-                          <td className="text-end">{formatNumber(item.cantidadUnidadesMinimas)}</td>
-                          <td className="text-end">{formatCurrency(item.precioCosto)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {(() => {
+                  const items = Array.isArray(data.items) ? data.items : [];
+                  const columns = [
+                    {
+                      name: 'Producto',
+                      selector: (r) => r.producto,
+                      sortable: true,
+                  wrap: true,
+                      grow: 2,
+                    },
+                    { name: 'Lote', selector: (r) => r.numeroLote || '—', sortable: true, wrap: true },
+                    { name: 'Vencimiento', selector: (r) => r.fechaVencimiento, sortable: true, cell: (r) => formatDate(r.fechaVencimiento), width: '140px' },
+                    { name: 'Empaques', selector: (r) => r.cantidadEmpaques, sortable: true, cell: (r) => formatNumber(r.cantidadEmpaques), right: true, width: '120px' },
+                    { name: 'Unid. por emp.', selector: (r) => r.factorUnidad ?? r.cantidadUnidadesMinimas, sortable: true, cell: (r) => formatNumber(r.factorUnidad ?? r.cantidadUnidadesMinimas), right: true, width: '130px' },
+                    { name: 'Precio costo', selector: (r) => r.precioCosto, sortable: true, cell: (r) => formatCurrency(r.precioCosto), right: true, width: '140px' },
+                    { name: 'Subtotal', selector: (r) => r.cantidadEmpaques * r.precioCosto, sortable: true, cell: (r) => formatCurrency((r.cantidadEmpaques || 0) * (r.precioCosto || 0)), right: true, width: '140px' },
+                  ];
+                  return (
+                    <div className="lista-compra-detalle-scroll">
+                      <DataTable
+                        columns={columns}
+                        data={items}
+                        highlightOnHover
+                        striped
+                        responsive
+                        persistTableHead
+                        noDataComponent="Sin items en la compra."
+                        customStyles={{
+                          cells: { style: { whiteSpace: 'normal' } },
+                          headCells: { style: { whiteSpace: 'normal', fontWeight: 600 } },
+                        }}
+                      />
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -953,20 +1342,19 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       selector: (row) => row.nombre,
       sortable: true,
       grow: 2,
+      wrap: true,
       cell: (row) => (
         <div>
           <div className="fw-semibold">{row.nombre}</div>
-          <div className="text-muted small">
-            Empaques: {formatNumber(row.stockEmpaques)} / Unidades mín.: {formatNumber(row.stockUnidadesMinimas)}
-          </div>
         </div>
       ),
     },
     {
-      name: 'Categoría',
+      name: 'Categora',
       selector: (row) => row.categoria || '—',
       sortable: true,
       grow: 1,
+      wrap: true,
     },
     {
       name: 'Stock total (unidades)',
@@ -991,7 +1379,8 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       selector: (row) => row.estado,
       sortable: true,
       cell: (row) => (
-        <span className={`badge ${row.activo ? 'bg-success' : 'bg-secondary'}`}>
+        <span className={`estado-chip ${row.activo ? 'chip-success' : 'chip-inactive'}`}>
+          <i className={`bi ${row.activo ? 'bi-check-circle-fill' : 'bi-dash-circle'}`} />
           {row.estado}
         </span>
       ),
@@ -1001,7 +1390,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       button: true,
       cell: (row) => (
         <button
-          className="btn btn-sm btn-outline-primary"
+          className="btn btn-sm btn-outline-primary cursor-selectable"
           onClick={() => handleOpenProductLotsModal(row)}
         >
           <i className="bi bi-eye me-1" />
@@ -1011,28 +1400,139 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
     },
   ], [handleOpenProductLotsModal]);
 
+  const lotesColumns = useMemo(() => [
+    {
+      name: 'Producto',
+      selector: (row) => row.producto,
+      sortable: true,
+      grow: 2,
+      wrap: true,
+      cell: (row) => (
+        <div>
+          <div className="fw-semibold">{row.producto}</div>
+          {row.categoria && <div className="text-muted small">{row.categoria}</div>}
+        </div>
+      ),
+    },
+    { name: 'Lote', selector: (row) => row.numeroLote, sortable: true, wrap: true },
+    {
+      name: 'Vencimiento',
+      selector: (row) => row.fechaVencimiento,
+      sortable: true,
+      width: '180px',
+      cell: (row) => (
+        <div className="d-flex align-items-center justify-content-between flex-nowrap" style={{ gap: 5 }}>
+          <span>{formatDate(row.fechaVencimiento)}</span>
+          {row.alertaVencimiento && (
+            <span
+              className={`estado-chip ms-2 ${
+                row.alertaVencimiento === 'critico'
+                  ? 'chip-danger'
+                  : row.alertaVencimiento === 'aviso'
+                  ? 'chip-warning'
+                  : 'chip-danger'
+              }`}
+              title={row.alertaVencimiento === 'vencido' ? 'Vencido' : (row.alertaVencimiento === 'critico' ? 'Próximo a vencer (<=30 días)' : 'Próximo a vencer (<=60 días)')}
+            >
+              {row.alertaVencimiento === 'vencido' ? (
+                <>
+                  <i className="bi bi-x-octagon-fill" />
+                  Vencido
+                </>
+              ) : row.alertaVencimiento === 'critico' ? (
+                <>
+                  <i className="bi bi-exclamation-triangle-fill" />
+                  30d
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-exclamation-circle-fill" />
+                  60d
+                </>
+              )}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      name: 'Stock (unidades)',
+      selector: (row) => row.cantidadTotalMinima,
+      sortable: true,
+      right: true,
+      width: '170px',
+      cell: (row) => <span>{formatNumber(row.cantidadTotalMinima)}</span>,
+    },
+    {
+      name: 'Precio venta',
+      selector: (row) => row.precioVenta,
+      sortable: true,
+      right: true,
+      width: '150px',
+      cell: (row) => <span>{formatCurrency(row.precioVenta)}</span>,
+    },
+    {
+      name: 'Estado',
+      selector: (row) => row.estado,
+      sortable: true,
+      width: '140px',
+      cell: (row) => (
+        row.activo ? (
+          <span className="estado-chip chip-success" title="Activo">
+            <i className="bi bi-check-circle-fill" />
+            Activo
+          </span>
+        ) : (
+          <span className="estado-chip chip-inactive" title="Inactivo">
+            <i className="bi bi-x-circle-fill" />
+            Inactivo
+          </span>
+        )
+      ),
+    },
+    {
+      name: 'Acciones',
+      button: true,
+      allowOverflow: true,
+      width: '160px',
+      cell: (row) => (
+        <div className="btn-group btn-group-sm cursor-selectable">
+          <button className="btn btn-outline-secondary cursor-selectable" onClick={() => openLoteModal('view', row)}>
+            <i className="bi bi-eye" />
+          </button>
+          <button className="btn btn-outline-primary cursor-selectable" onClick={() => openLoteModal('edit', row)}>
+            <i className="bi bi-pencil" />
+          </button>
+          <button className="btn btn-outline-danger cursor-selectable" onClick={() => openDeactivateModal(row)} disabled={!row.activo}>
+            <i className="bi bi-dash-circle" />
+          </button>
+        </div>
+      ),
+    },
+  ], [openLoteModal, openDeactivateModal]);
+
   return (
     <div className="inventario-page container-fluid py-3">
-      <div className="d-flex align-items-center flex-wrap gap-2 mb-4">
-        <h3 className="mb-0"><i className="bi bi-box-seam me-2" />Inventario</h3>
+      <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
+        <h3 className="visually-hidden"><i className="bi bi-box-seam me-2" />Inventario</h3>
         <div className="ms-auto btn-group">
           <button
-            className={`btn btn-outline-primary ${activeTab === 'resumen' ? 'active' : ''}`}
+            className={`btn btn-outline-primary cursor-selectable ${activeTab === 'resumen' ? 'active' : ''}`}
             onClick={() => handleChangeTab('resumen')}
           >
-            Resumen
+            <i className="bi bi-speedometer2 me-2"/>Resumen
           </button>
           <button
-            className={`btn btn-outline-primary ${activeTab === 'compras' ? 'active' : ''}`}
+            className={`btn btn-outline-primary cursor-selectable ${activeTab === 'compras' ? 'active' : ''}`}
             onClick={() => handleChangeTab('compras')}
           >
-            Compras
+            <i className="bi bi-bag-check me-2"/>Compras
           </button>
           <button
-            className={`btn btn-outline-primary ${activeTab === 'lotes' ? 'active' : ''}`}
+            className={`btn btn-outline-primary cursor-selectable ${activeTab === 'lotes' ? 'active' : ''}`}
             onClick={() => handleChangeTab('lotes')}
           >
-            Lotes
+            <i className="bi bi-clipboard-data me-2"/>Lotes
           </button>
         </div>
       </div>
@@ -1042,10 +1542,11 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
           {dashboardLoading && <div className="alert alert-info">Cargando resumen...</div>}
           {dashboardError && <div className="alert alert-danger">{dashboardError}</div>}
           {dashboard && (
-            <>
+            <div className="row g-3">
+              <div className="col-lg-4 col-md-12">
               <div className="row g-3 mb-4">
-                <div className="col-sm-6 col-xl-3">
-                  <button className="inventory-card-button w-100" onClick={() => openCardModal('valor')}>
+                <div className="col-12 col-sm-6">
+                  <button className="inventory-card-button w-100 h-100 cursor-selectable" onClick={() => openCardModal('valor')}>
                     <StatsCard
                       title="Valor inventario"
                       value={formatCurrency(resumenMetrics?.inventoryValue?.total || 0)}
@@ -1054,19 +1555,28 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                     />
                   </button>
                 </div>
-                <div className="col-sm-6 col-xl-3">
-                  <button className="inventory-card-button w-100" onClick={() => openCardModal('vencimientos')}>
+                <div className="col-12 col-sm-6">
+                  <button className="inventory-card-button w-100 h-100 cursor-selectable" onClick={() => openCardModal('vencimientos')}>
                     <StatsCard
                       title="Próximos a vencer"
                       value={formatNumber(resumenMetrics?.expiringLots?.total || 0)}
                       icon="bi-exclamation-triangle"
                       color="warning"
-                      subtitle={`<30d: ${formatNumber(resumenMetrics?.expiringLots?.lessThan30 || 0)} / 31-60d: ${formatNumber(resumenMetrics?.expiringLots?.between31And60 || 0)}`}
+                      subtitle={
+                        <span className="stats-card-chip stats-card-chip-warning">
+                          <i className="bi bi-clock-fill" aria-hidden="true"></i>
+                          <span className="stats-card-chip-text">
+                            <strong>&lt;30d:</strong> {formatNumber(resumenMetrics?.expiringLots?.lessThan30 || 0)}
+                            <span className="mx-1 text-muted">/</span>
+                            <strong>31-60d:</strong> {formatNumber(resumenMetrics?.expiringLots?.between31And60 || 0)}
+                          </span>
+                        </span>
+                      }
                     />
                   </button>
                 </div>
-                <div className="col-sm-6 col-xl-3">
-                  <button className="inventory-card-button w-100" onClick={() => openCardModal('bajoStock')}>
+                <div className="col-12 col-sm-6">
+                  <button className="inventory-card-button w-100 h-100 cursor-selectable" onClick={() => openCardModal('bajoStock')}>
                     <StatsCard
                       title="Productos con stock bajo"
                       value={formatNumber(resumenMetrics?.lowStock?.total || 0)}
@@ -1075,8 +1585,8 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                     />
                   </button>
                 </div>
-                <div className="col-sm-6 col-xl-3">
-                  <button className="inventory-card-button w-100" onClick={() => openCardModal('activos')}>
+                <div className="col-12 col-sm-6">
+                  <button className="inventory-card-button w-100 h-100 cursor-selectable" onClick={() => openCardModal('activos')}>
                     <StatsCard
                       title="Productos activos"
                       value={formatNumber(resumenMetrics?.activeProducts?.total || 0)}
@@ -1086,10 +1596,11 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                   </button>
                 </div>
               </div>
-
+              </div>
+              <div className="col-lg-8 col-md-12">
               <div className="card shadow-sm">
                 <div className="card-body">
-                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                     <h5 className="mb-0">Productos</h5>
                     <div className="inventory-search-wrapper">
                       <input
@@ -1102,15 +1613,18 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                       />
                     </div>
                   </div>
-                  <DataTable
+                  <div className="lista-productos-scroll">
+                    <DataTable
                     columns={productColumns}
                     data={filteredProducts}
                     pagination
-                    paginationPerPage={20}
-                    paginationRowsPerPageOptions={[10, 20, 30, 40, 50]}
+                    paginationPerPage={5}
+                    paginationRowsPerPageOptions={[5, 10, 30, 50]}
                     highlightOnHover
                     striped
                     responsive
+                    fixedHeader
+                    fixedHeaderScrollHeight="50vh"
                     persistTableHead
                     noDataComponent="No se encontraron productos."
                     paginationComponentOptions={{
@@ -1134,10 +1648,12 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                         },
                       },
                     }}
-                  />
+                    />
+                  </div>
                 </div>
               </div>
-            </>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -1145,11 +1661,11 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       {activeTab === 'lotes' && (
         <div className="card shadow-sm">
           <div className="card-body">
-            <div className="d-flex flex-wrap align-items-center gap-3 mb-3">
-              <div className="flex-grow-1">
+            <div className="d-flex flex-wrap align-items-center gap-3 mb-2 lotes-toolbar">
+              <div className="w-auto">
                 <input
                   type="search"
-                  className="form-control"
+                  className="form-control form-control-sm lotes-search-input"
                   placeholder="Buscar por producto o lote..."
                   value={loteFilters.buscar}
                   onChange={(e) => handleChangeFilters('buscar', e.target.value)}
@@ -1157,15 +1673,15 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
               </div>
               <div className="d-flex gap-2 align-items-center">
                 <select
-                  className="form-select"
+                  className="form-select form-select-sm lotes-estado-select"
                   value={loteFilters.estado}
                   onChange={(e) => handleChangeFilters('estado', e.target.value)}
                 >
-                  <option value="activos">Solo activos</option>
-                  <option value="inactivos">Solo inactivos</option>
+                  <option value="activos">Activos</option>
+                  <option value="inactivos">Inactivos</option>
                   <option value="todos">Todos</option>
                 </select>
-                <div className="form-check">
+                <div className="form-check lotes-chip-wrapper">
                   <input
                     className="form-check-input"
                     type="checkbox"
@@ -1173,104 +1689,72 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                     checked={loteFilters.proximos}
                     onChange={(e) => handleChangeFilters('proximos', e.target.checked)}
                   />
-                  <label className="form-check-label" htmlFor="filterProximos">
-                    Próximos a vencer (≤60 días)
+                  <label className="form-check-label cursor-selectable" htmlFor="filterProximos">
+                    Próximos a vencer
                   </label>
+                  <span className="lotes-chip-badge cursor-selectable">≤60 días</span>
                 </div>
               </div>
             </div>
             {lotesLoading && <div className="alert alert-info">Cargando lotes...</div>}
             {lotesError && <div className="alert alert-danger">{lotesError}</div>}
-            <div className="table-responsive">
-              <table className="table table-striped align-middle">
-                <thead>
-                  <tr>
-                    <th>Producto</th>
-                    <th>Lote</th>
-                    <th>Vencimiento</th>
-                    <th className="text-end">Stock (unidades)</th>
-                    <th className="text-end">Precio venta</th>
-                    <th>Estado</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lotes.map((lote) => (
-                    <tr key={lote.loteId}>
-                      <td>
-                        <div className="fw-semibold">{lote.producto}</div>
-                        <div className="text-muted small">{lote.categoria}</div>
-                      </td>
-                      <td>{lote.numeroLote}</td>
-                      <td>
-                        {formatDate(lote.fechaVencimiento)}
-                        {lote.alertaVencimiento && (
-                          <span className={`badge ms-2 ${lote.alertaVencimiento === 'critico' ? 'bg-danger' : lote.alertaVencimiento === 'aviso' ? 'bg-warning text-dark' : 'bg-secondary'}`}>
-                            {lote.alertaVencimiento === 'vencido'
-                              ? 'Vencido'
-                              : lote.alertaVencimiento === 'critico'
-                              ? '<= 30d'
-                              : '<= 60d'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="text-end">{formatNumber(lote.cantidadTotalMinima)}</td>
-                      <td className="text-end">{formatCurrency(lote.precioVenta)}</td>
-                      <td>
-                        <span className={`badge ${lote.activo ? 'bg-success' : 'bg-secondary'}`}>
-                          {lote.estado}
-                        </span>
-                      </td>
-                      <td className="text-end">
-                        <div className="btn-group btn-group-sm">
-                          <button className="btn btn-outline-secondary" onClick={() => openLoteModal('view', lote)}>
-                            <i className="bi bi-eye" />
-                          </button>
-                          <button className="btn btn-outline-primary" onClick={() => openLoteModal('edit', lote)}>
-                            <i className="bi bi-pencil" />
-                          </button>
-                          <button
-                            className="btn btn-outline-danger"
-                            onClick={() => openDeactivateModal(lote)}
-                            disabled={!lote.activo}
-                          >
-                            <i className="bi bi-dash-circle" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {lotes.length === 0 && !lotesLoading && (
-                    <tr>
-                      <td colSpan={7} className="text-center text-muted">
-                        No hay lotes que coincidan con los filtros.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={lotesColumns}
+              data={lotes}
+              pagination
+              paginationServer={false}
+              paginationTotalRows={lotes.length}
+              paginationPerPage={lotesPageSize}
+              paginationDefaultPage={lotesPage}
+              paginationResetDefaultPage={lotesPaginationReset}
+              onChangePage={handleLotesPageChange}
+              onChangeRowsPerPage={(newPerPage) => handleLotesPageSizeChange(newPerPage)}
+              paginationRowsPerPageOptions={[5, 10, 30, 50]}
+              paginationComponentOptions={{ rowsPerPageText: 'Filas:', rangeSeparatorText: 'de' }}
+              highlightOnHover
+              striped
+              responsive
+              persistTableHead
+              fixedHeader
+              fixedHeaderScrollHeight="50vh"
+              progressPending={lotesLoading}
+              progressComponent={<div className="py-3 text-center mb-0">Cargando lotes...</div>}
+              noDataComponent="No hay lotes que coincidan con los filtros."
+              customStyles={lotesTableStyles}
+            />
           </div>
         </div>
       )}
 
       {activeTab === 'compras' && (
         <div className="row g-3">
+          {renderConfirmCompraModal()}
           <div className="col-12 col-xxl-7">
-            <div className="card shadow-sm h-100">
-              <div className="card-body">
-                <h5 className="mb-3">Registrar compra / ingreso</h5>
-                <form onSubmit={handleSubmitCompra}>
+            <div className="card shadow-sm compras-form-card mx-auto">
+              <div className="card-body compras-form-panel">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0">Registrar compra</h5>
+                  <div className="registrado-chip" title={user ? `${user.username}` : ''}>
+                    <i className="bi bi-person-check-fill" />
+                    <span>
+                      Registrado por: {user ? (([user.nombres, user.apellidos].filter(Boolean).join(' ') || user.username) +
+                        (user.username && (([user.nombres, user.apellidos].filter(Boolean).join(' ') || user.username) !== user.username) ? ` (${user.username})` : '')) : '—'}
+                    </span>
+                  </div>
+                </div>
+                <form onSubmit={handleSubmitCompra} noValidate>
                   <div className="row g-3 mb-3">
                     <div className="col-md-6">
                       <label className="form-label">
                         Proveedor <span className="text-danger">*</span>
                       </label>
                       <select
-                        className="form-select"
+                        className={`form-select ${purchaseFormErrors.proveedor ? 'is-invalid' : ''}`}
                         value={selectedProveedor}
-                        onChange={(e) => setSelectedProveedor(e.target.value)}
-                        required
+                        onChange={(e) => {
+                          setSelectedProveedor(e.target.value);
+                          if (purchaseFormErrors.proveedor) setPurchaseFormErrors((prev) => ({ ...prev, proveedor: '' }));
+                        }}
                       >
                         <option value="">Seleccione proveedor...</option>
                         {proveedores.map((prov) => (
@@ -1281,44 +1765,51 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                       </select>
                       {proveedoresLoading && <small className="text-muted">Cargando proveedores...</small>}
                       {proveedoresError && <FieldError error={proveedoresError} />}
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">Registrado por</label>
-                      <div className="form-control-plaintext">
-                        {user ? `${user.nombres || ''} ${user.apellidos || ''}`.trim() || user.username : '—'}
-                      </div>
+                      <FieldError error={purchaseFormErrors.proveedor} />
                     </div>
                   </div>
 
                   <div className="purchase-items">
                     {purchaseItems.map((item, index) => (
-                      <div className="card mb-3 border-0 shadow-sm purchase-item-card" key={item.id}>
+                      <div className="card mt-3 border-0 shadow-sm purchase-item-card" key={item.id}>
                         <div className="card-body">
-                          <div className="d-flex justify-content-between align-items-center mb-3">
-                            <h6 className="mb-0">Producto #{index + 1}</h6>
+                          <div className="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                              <div className="producto-chip">
+                                <i className="bi bi-box-seam" />
+                                <span>Producto #{index + 1}</span>
+                              </div>
+                              {item.loteSeleccion === 'existente' && item.loteId && (
+                                <span className="lote-existente-chip lote-chip-success">
+                                  Lote: <strong className="ms-1">{item.numeroLote}</strong>
+                                </span>
+                              )}
+                            </div>
                             {purchaseItems.length > 1 && (
                               <button
                                 type="button"
-                                className="btn btn-sm btn-outline-danger"
+                                className="btn btn-sm btn-outline-danger cursor-selectable"
+                                title="Quitar producto"
+                                aria-label="Quitar producto"
                                 onClick={() => handleRemoveCompraItem(item.id)}
                               >
-                                <i className="bi bi-trash me-1" />
-                                Quitar
+                                <i className="bi bi-trash" />
                               </button>
                             )}
                           </div>
 
-                          <div className="row g-3">
-                            <div className="col-md-8">
+                          <div className="row g-1">
+                            <div className="col-md-4">
                               <label className="form-label">
                                 Buscar producto <span className="text-danger">*</span>
                               </label>
                               <ProductSelector
                                 onSelect={(producto) => handleSelectProducto(item.id, producto)}
                               />
+                              <FieldError error={(purchaseItemErrors[item.id]||{}).producto} />
                             </div>
-                            <div className="col-md-4">
-                              <label className="form-label">Lote existente</label>
+                            <div className="col-md-8">
+                              <label className="form-label">Lote</label>
                               <select
                                 className="form-select"
                                 value={item.loteSeleccion === 'existente' ? item.loteId : ''}
@@ -1337,7 +1828,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                                 }}
                                 disabled={!item.productoId || item.lotesDisponibles.length === 0}
                               >
-                                <option value="">Crear nuevo lote</option>
+                                <option value="">Nuevo lote</option>
                                 {item.lotesDisponibles.map((lote) => (
                                   <option key={lote.loteId} value={lote.loteId}>
                                     {lote.numeroLote} — vence {formatDate(lote.fechaVencimiento)}
@@ -1349,103 +1840,102 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                               )}
                             </div>
 
-                            {item.loteSeleccion === 'existente' && item.loteId ? (
-                              <div className="col-12">
-                                <div className="alert alert-light border">
-                                  Utilizando lote existente <strong>{item.numeroLote}</strong>. Precios y fechas se mantienen.
-                                </div>
-                              </div>
-                            ) : (
+                            {item.loteSeleccion !== 'existente' || !item.loteId ? (
                               <>
-                                <div className="col-md-6">
-                                  <label className="form-label">Numero de lote <span className="text-danger">*</span></label>
+                                <div className="col-md-4">
+                                  <label className="form-label">Número de lote <span className="text-danger">*</span></label>
                                   <input
-                                    className="form-control"
+                                    className={`form-control ${((purchaseItemErrors[item.id]||{}).numeroLote ? 'is-invalid' : '')}`}
                                     value={item.numeroLote}
                                     onChange={(e) => updateCompraItem(item.id, { numeroLote: e.target.value })}
-                                    required
                                   />
+                                  <FieldError error={(purchaseItemErrors[item.id]||{}).numeroLote} />
                                 </div>
-                                <div className="col-md-6">
+                                <div className="col-md-4">
                                   <label className="form-label">Fecha de vencimiento <span className="text-danger">*</span></label>
                                   <input
                                     type="date"
-                                    className="form-control"
+                                    className={`form-control ${((purchaseItemErrors[item.id]||{}).fechaVencimiento ? 'is-invalid' : '')}`}
                                     value={item.fechaVencimiento}
                                     onChange={(e) => updateCompraItem(item.id, { fechaVencimiento: e.target.value })}
-                                    required
                                   />
+                                  <FieldError error={(purchaseItemErrors[item.id]||{}).fechaVencimiento} />
                                 </div>
                               </>
-                            )}
+                            ) : null}
 
-                            <div className="col-md-3">
+                            <div className="col-md-2">
                               <label className="form-label">Precio costo <span className="text-danger">*</span></label>
                               <input
                                 type="number"
                                 step="0.01"
-                                className="form-control"
+                                className={`form-control ${((purchaseItemErrors[item.id]||{}).precioCosto ? 'is-invalid' : '')}`}
                                 value={item.precioCosto}
                                 onChange={(e) => updateCompraItem(item.id, { precioCosto: e.target.value })}
-                                required
                                 disabled={item.loteSeleccion === 'existente' && item.loteId}
                               />
+                              <FieldError error={(purchaseItemErrors[item.id]||{}).precioCosto} />
                             </div>
-                            <div className="col-md-3">
+                            <div className="col-md-2">
                               <label className="form-label">Precio venta <span className="text-danger">*</span></label>
                               <input
                                 type="number"
                                 step="0.01"
-                                className="form-control"
+                                className={`form-control ${((purchaseItemErrors[item.id]||{}).precioVenta ? 'is-invalid' : '')}`}
                                 value={item.precioVenta}
                                 onChange={(e) => updateCompraItem(item.id, { precioVenta: e.target.value })}
-                                required
                                 disabled={item.loteSeleccion === 'existente' && item.loteId}
                               />
+                              <FieldError error={(purchaseItemErrors[item.id]||{}).precioVenta} />
                             </div>
-                            <div className="col-md-3">
+                            <div className="col-md-2">
                               <label className="form-label">Impuesto (%)</label>
                               <input
                                 type="number"
                                 step="0.01"
-                                className="form-control"
+                                className={`form-control ${((purchaseItemErrors[item.id]||{}).impuesto ? 'is-invalid' : '')}`}
                                 value={item.impuesto}
                                 onChange={(e) => updateCompraItem(item.id, { impuesto: e.target.value })}
                                 disabled={item.loteSeleccion === 'existente' && item.loteId}
                               />
+                              <FieldError error={(purchaseItemErrors[item.id]||{}).impuesto} />
                             </div>
-                            <div className="col-md-3">
+                            <div className="col-md-2">
                               <label className="form-label">Descuento (%)</label>
                               <input
                                 type="number"
                                 step="0.01"
-                                className="form-control"
+                                className={`form-control ${((purchaseItemErrors[item.id]||{}).descuento ? 'is-invalid' : '')}`}
                                 value={item.descuento}
                                 onChange={(e) => updateCompraItem(item.id, { descuento: e.target.value })}
                                 disabled={item.loteSeleccion === 'existente' && item.loteId}
                               />
+                              <FieldError error={(purchaseItemErrors[item.id]||{}).descuento} />
                             </div>
-                            <div className="col-md-3">
+                            <div className="col-md-2">
                               <label className="form-label">Empaques</label>
                               <input
                                 type="number"
                                 step="1"
                                 min="0"
-                                className="form-control"
+                                className={`form-control ${((purchaseItemErrors[item.id]||{}).cantidadEmpaques ? 'is-invalid' : '')}`}
                                 value={item.cantidadEmpaques}
                                 onChange={(e) => updateCompraItem(item.id, { cantidadEmpaques: e.target.value })}
                               />
+                              <FieldError error={(purchaseItemErrors[item.id]||{}).cantidadEmpaques} />
                             </div>
-                            <div className="col-md-3">
-                              <label className="form-label">Unidades mínimas</label>
+                            <div className="col-md-2">
+                              <label className="form-label">Uds. mínimas</label>
                               <input
                                 type="number"
                                 step="1"
                                 min="0"
-                                className="form-control"
+                                className={`form-control ${((purchaseItemErrors[item.id]||{}).cantidadUnidadesMinimas ? 'is-invalid' : '')}`}
                                 value={item.cantidadUnidadesMinimas}
                                 onChange={(e) => updateCompraItem(item.id, { cantidadUnidadesMinimas: e.target.value })}
+                                disabled={item.loteSeleccion === 'existente'}
                               />
+                              <FieldError error={(purchaseItemErrors[item.id]||{}).cantidadUnidadesMinimas} />
                             </div>
                           </div>
                         </div>
@@ -1453,16 +1943,29 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                     ))}
                   </div>
 
-                  {purchaseErrors && <div className="alert alert-danger">{purchaseErrors}</div>}
-                  {createCompraOk && <div className="alert alert-success">{createCompraOk}</div>}
+                  {/* Mensajes globales reemplazados por Toast */}
 
                   <div className="d-flex justify-content-between align-items-center">
-                    <button type="button" className="btn btn-outline-secondary" onClick={handleAddCompraItem}>
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary cursor-selectable"
+                      onClick={handleAddCompraItem}
+                    >
                       <i className="bi bi-plus-lg me-1" />
                       Agregar producto
                     </button>
-                    <button type="submit" className="btn btn-primary" disabled={creatingCompra}>
-                      {creatingCompra ? 'Guardando...' : 'Registrar compra'}
+                    <button type="submit" className="btn btn-primary cursor-selectable" disabled={creatingCompra}>
+                      {creatingCompra ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                          Guardando...
+                        </>
+                      ) : (
+                        <>
+                          <i className="bi bi-save me-1" />
+                          Registrar compra
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
@@ -1470,7 +1973,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
             </div>
           </div>
           <div className="col-12 col-xxl-5">
-            <div className="card shadow-sm h-100">
+            <div className="card compras-panel shadow-sm">
               <div className="card-body">
                 <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                   <h5 className="mb-0">Historial de compras</h5>
@@ -1479,34 +1982,51 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                     options={comprasExportOptions}
                     disabled={comprasLoading || comprasExportButtonDisabled}
                     loading={Boolean(comprasExporting)}
-                    className="ms-auto"
+                    className="ms-auto export-brand"
+                    menuAlign="end"
                   />
                 </div>
+                <div className="d-flex align-items-center justify-content-end flex-wrap gap-2 mb-3">
+                  <div className="inventory-search-wrapper">
+                    <input
+                      type="search"
+                      className="form-control"
+                      placeholder="Buscar..."
+                      value={comprasSearch}
+                      onChange={(e) => setComprasSearch(e.target.value)}
+                      style={{ maxWidth: '320px' }}
+                    />
+                  </div>
+                </div>
                 {comprasError && <div className="alert alert-danger">{comprasError}</div>}
-                <DataTable
-                  columns={comprasColumns}
-                  data={compras}
-                  pagination
-                  paginationServer
-                  paginationTotalRows={comprasTotal}
-                  paginationPerPage={comprasPageSize}
-                  paginationDefaultPage={comprasPage}
-                  paginationResetDefaultPage={comprasPaginationReset}
-                  onChangePage={handleComprasPageChange}
-                  onChangeRowsPerPage={(newPerPage) => handleComprasPageSizeChange(newPerPage)}
-                  paginationRowsPerPageOptions={[5, 10, 20, 50]}
-                  paginationComponentOptions={{ rowsPerPageText: 'Filas:', rangeSeparatorText: 'de' }}
-                  highlightOnHover
-                  striped
-                  responsive
-                  persistTableHead
-                  progressPending={comprasLoading}
-                  progressComponent={<div className="py-3 text-center mb-0">Cargando compras...</div>}
-                  noDataComponent="Aun no hay compras registradas."
-                />
+                <div>
+                  <DataTable
+                    columns={comprasColumns}
+                    data={filteredCompras}
+                    pagination
+                    paginationServer={false}
+                    paginationTotalRows={filteredCompras.length}
+                    paginationPerPage={comprasPageSize}
+                    paginationDefaultPage={comprasPage}
+                    paginationResetDefaultPage={comprasPaginationReset}
+                    onChangePage={handleComprasPageChange}
+                    onChangeRowsPerPage={(newPerPage) => handleComprasPageSizeChange(newPerPage)}
+                    paginationRowsPerPageOptions={[5, 10, 30, 50]}
+                    paginationComponentOptions={{ rowsPerPageText: 'Filas:', rangeSeparatorText: 'de' }}
+                    highlightOnHover
+                    striped
+                    responsive
+                    persistTableHead
+                    fixedHeader
+                    fixedHeaderScrollHeight="50vh"
+                    progressPending={comprasLoading}
+                    progressComponent={<div className="py-3 text-center mb-0">Cargando compras...</div>}
+                    noDataComponent="An no hay compras registradas."
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
       </div>
     )}
 
@@ -1515,6 +2035,9 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       {renderLoteModal()}
       {renderDeactivateModal()}
       {renderCompraModal()}
+      <Toast key={toastKey} message={toastMsg} type={toastType} />
     </div>
   );
 }
+
+

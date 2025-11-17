@@ -18,7 +18,6 @@ function mapProductoRow(r) {
     // IDs para formularios
     UnidadMedidaEmpaqueID: r.UnidadMedidaEmpaqueID || null,
     UnidadMedidaMinimaID: r.UnidadMedidaMinimaID || null,
-    CantidadUnidadMinimaXEmpaque: Number(r.CantidadUnidadMinimaXEmpaque || 0),
     Activo: r.Activo,
   };
 }
@@ -28,7 +27,7 @@ const getProductos = async (req, res) => {
     const pool = await poolPromise;
     const q = await pool.request().query(`
       SELECT p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
-             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.CantidadUnidadMinimaXEmpaque,
+             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID,
              ume.Nombre AS UnidadMedidaEmpaqueNombre,
              umm.Nombre AS UnidadMedidaMinimaNombre
       FROM Productos p
@@ -54,7 +53,7 @@ const buscarProductos = async (req, res) => {
       .input('term', sql.NVarChar(200), `%${term}%`);
     let query = `
       SELECT TOP 25 p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
-             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.CantidadUnidadMinimaXEmpaque,
+             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID,
              ume.Nombre AS UnidadMedidaEmpaqueNombre,
              umm.Nombre AS UnidadMedidaMinimaNombre
       FROM dbo.Productos p
@@ -94,7 +93,7 @@ const getProductoByBarcode = async (req, res) => {
 
 const createProducto = async (req, res) => {
   try {
-    let { Nombre, Presentacion, StockMinimo, CategoriaID, UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, CantidadUnidadMinimaXEmpaque, Activo, UnidadMedidaEmpaque, UnidadMedidaMinima } = req.body || {};
+    let { Nombre, Presentacion, StockMinimo, CategoriaID, UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, Activo, UnidadMedidaEmpaque, UnidadMedidaMinima } = req.body || {};
     if (!Nombre) return res.status(400).json({ message: 'Falta Nombre' });
     // Permitir compatibilidad: si no vienen IDs pero sí nombres, resolver IDs por nombre
     const pool = await poolPromise;
@@ -112,11 +111,8 @@ const createProducto = async (req, res) => {
     }
     if (UnidadMedidaEmpaqueID == null) return res.status(400).json({ message: 'Falta UnidadMedidaEmpaqueID' });
     if (UnidadMedidaMinimaID == null) return res.status(400).json({ message: 'Falta UnidadMedidaMinimaID' });
-    if (CantidadUnidadMinimaXEmpaque == null) return res.status(400).json({ message: 'Falta CantidadUnidadMinimaXEmpaque' });
     const stockMin = Number(StockMinimo || 0);
-    const cantMin = Number(CantidadUnidadMinimaXEmpaque || 0);
     if (!Number.isFinite(stockMin) || stockMin < 1) return res.status(400).json({ message: 'StockMinimo debe ser al menos 1' });
-    if (!Number.isFinite(cantMin) || cantMin < 1) return res.status(400).json({ message: 'CantidadUnidadMinimaXEmpaque debe ser al menos 1' });
     // pool ya disponible como conexión
     let categoria = CategoriaID != null ? Number(CategoriaID) : null;
     if (categoria == null) {
@@ -136,18 +132,17 @@ const createProducto = async (req, res) => {
       .input('Activo', sql.Bit, Activo != null ? (Activo ? 1 : 0) : 1)
       .input('UnidadMedidaEmpaqueID', sql.Int, Number(UnidadMedidaEmpaqueID))
       .input('UnidadMedidaMinimaID', sql.Int, Number(UnidadMedidaMinimaID))
-      .input('CantidadUnidadMinimaXEmpaque', sql.Int, cantMin)
       .query(`
         INSERT INTO Productos (NombreProducto, Presentacion, StockActual, StockMinimo, CategoriaID, Activo, FechaCreacion,
-                               UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, CantidadUnidadMinimaXEmpaque)
+                               UnidadMedidaEmpaqueID, UnidadMedidaMinimaID)
         VALUES (@NombreProducto, @Presentacion, 0, @StockMinimo, @CategoriaID, @Activo, GETDATE(),
-                @UnidadMedidaEmpaqueID, @UnidadMedidaMinimaID, @CantidadUnidadMinimaXEmpaque);
+                @UnidadMedidaEmpaqueID, @UnidadMedidaMinimaID);
         SELECT SCOPE_IDENTITY() AS id;
       `);
     const id = Number(r.recordset[0].id);
     const sel = await pool.request().input('id', sql.Int, id).query(`
       SELECT p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
-             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.CantidadUnidadMinimaXEmpaque,
+             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID,
              ume.Nombre AS UnidadMedidaEmpaqueNombre,
              umm.Nombre AS UnidadMedidaMinimaNombre
       FROM Productos p
@@ -167,9 +162,8 @@ const createProducto = async (req, res) => {
 const updateProducto = async (req, res) => {
   try {
     const { id } = req.params;
-    let { Nombre, Presentacion, StockMinimo, CategoriaID, Activo, UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, CantidadUnidadMinimaXEmpaque, UnidadMedidaEmpaque, UnidadMedidaMinima } = req.body || {};
+    let { Nombre, Presentacion, StockMinimo, CategoriaID, Activo, UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, UnidadMedidaEmpaque, UnidadMedidaMinima } = req.body || {};
     if (StockMinimo != null && Number(StockMinimo) < 1) return res.status(400).json({ message: 'StockMinimo debe ser al menos 1' });
-    if (CantidadUnidadMinimaXEmpaque != null && Number(CantidadUnidadMinimaXEmpaque) < 1) return res.status(400).json({ message: 'CantidadUnidadMinimaXEmpaque debe ser al menos 1' });
     const pool = await poolPromise;
     // Compat: si vienen nombres y no IDs, resolver por nombre
     if (UnidadMedidaEmpaqueID == null && UnidadMedidaEmpaque) {
@@ -195,7 +189,6 @@ const updateProducto = async (req, res) => {
       .input('Activo', sql.Bit, Activo != null ? (Activo ? 1 : 0) : null)
       .input('UnidadMedidaEmpaqueID', sql.Int, UnidadMedidaEmpaqueID != null ? Number(UnidadMedidaEmpaqueID) : null)
       .input('UnidadMedidaMinimaID', sql.Int, UnidadMedidaMinimaID != null ? Number(UnidadMedidaMinimaID) : null)
-      .input('CantidadUnidadMinimaXEmpaque', sql.Int, CantidadUnidadMinimaXEmpaque != null ? Number(CantidadUnidadMinimaXEmpaque) : null)
       .query(`
         UPDATE Productos SET
           NombreProducto = COALESCE(@NombreProducto, NombreProducto),
@@ -204,7 +197,6 @@ const updateProducto = async (req, res) => {
           CategoriaID    = COALESCE(@CategoriaID, CategoriaID),
           UnidadMedidaEmpaqueID = COALESCE(@UnidadMedidaEmpaqueID, UnidadMedidaEmpaqueID),
           UnidadMedidaMinimaID = COALESCE(@UnidadMedidaMinimaID, UnidadMedidaMinimaID),
-          CantidadUnidadMinimaXEmpaque = COALESCE(@CantidadUnidadMinimaXEmpaque, CantidadUnidadMinimaXEmpaque),
           Activo         = COALESCE(@Activo, Activo),
           FechaModificacion = GETDATE()
         WHERE ProductoID = @id;
@@ -213,7 +205,7 @@ const updateProducto = async (req, res) => {
     if (!r.recordset[0].affected) return res.status(404).json({ message: 'Producto no encontrado' });
     const sel = await pool.request().input('id', sql.Int, Number(id)).query(`
       SELECT p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
-             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.CantidadUnidadMinimaXEmpaque,
+             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID,
              ume.Nombre AS UnidadMedidaEmpaqueNombre,
              umm.Nombre AS UnidadMedidaMinimaNombre
       FROM Productos p

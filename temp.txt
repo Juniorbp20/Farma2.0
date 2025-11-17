@@ -1,0 +1,81 @@
+        right: true,
+        cell: (row) => <span>{formatNumber(row.stockTotalMinimo)}</span>,
+      },
+      {
+        name: 'Stock mínimo',
+        selector: (row) => row.stockMinimo,
+        sortable: true,
+        right: true,
+        cell: (row) => (
+          <span className={row.stockTotalMinimo < row.stockMinimo ? 'text-danger fw-semibold' : ''}>
+            {formatNumber(row.stockMinimo)}
+          </span>
+        ),
+      },
+      {
+        name: 'Estado',
+        selector: (row) => row.estado,
+        sortable: true,
+        cell: (row) => (
+          <span className={`estado-chip ${row.activo ? 'chip-success' : 'chip-inactive'}`}>
+            <i className={`bi ${row.activo ? 'bi-check-circle-fill' : 'bi-dash-circle'}`} />
+            {row.estado}
+          </span>
+        ),
+      },
+      {
+        name: 'Acciones',
+        button: true,
+        cell: (row) => (
+          <button
+            className="btn btn-sm btn-outline-primary cursor-selectable"
+            onClick={() => handleOpenProductLotsModal(row)}
+          >
+            <i className="bi bi-eye me-1" />
+            Ver lotes
+          </button>
+        ),
+      },
+    ], [handleOpenProductLotsModal]);
+  
+>   const lotesColumns = useMemo(() => [
+      {
+        name: 'Producto',
+        selector: (row) => row.producto,
+        sortable: true,
+        grow: 2,
+        wrap: true,
+        cell: (row) => (
+          <div>
+            <div className="fw-semibold">{row.producto}</div>
+            {row.categoria && <div className="text-muted small">{row.categoria}</div>}
+          </div>
+        ),
+      },
+      { name: 'Lote', selector: (row) => row.numeroLote, sortable: true, wrap: true },
+      {
+        name: 'Vencimiento',
+        selector: (row) => row.fechaVencimiento,
+        sortable: true,
+        width: '180px',
+        cell: (row) => (
+          <div className="d-flex align-items-center justify-content-between flex-nowrap" style={{ gap: 5 }}>
+            <span>{formatDate(row.fechaVencimiento)}</span>
+            {row.alertaVencimiento && (
+              <span
+                className={`estado-chip ms-2 ${
+                  row.alertaVencimiento === 'critico'
+                    ? 'chip-danger'
+                    : row.alertaVencimiento === 'aviso'
+                    ? 'chip-warning'
+                    : 'chip-danger'
+                }`}
+                title={row.alertaVencimiento === 'vencido' ? 'Vencido' : (row.alertaVencimiento === 'critico' ? 'Próximo a vencer (<=30 días)' : 'Próximo a vencer (<=60 días)')}
+              >
+                {row.alertaVencimiento === 'vencido' ? (
+                  <>
+                    <i className="bi bi-x-octagon-fill" />
+                    Vencido
+                  </>
+                ) : row.alertaVencimiento === 'critico' ? (
+                  <>

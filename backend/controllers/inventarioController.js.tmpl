@@ -636,6 +636,7 @@ async function updateLote(req, res) {
       Impuesto,
       Descuento,
       NumeroLote,
+      Motivo,
     } = req.body || {};
 
     if (
@@ -774,9 +775,10 @@ async function updateLote(req, res) {
       inputDefs.forEach((def) => reqTx.input(def.name, def.type, def.value));
       await reqTx.query(`UPDATE dbo.Lotes SET ${updates.join(', ')} WHERE LoteID = @LoteID;`);
 
-      if (cambios.length) {
+      if (cambios.length || Motivo) {
         await ensureHistorialTable(pool);
         const detalleHistorial = [...cambios];
+        if (Motivo) detalleHistorial.push(`Motivo: ${Motivo}`);
         await new sql.Request(tx)
           .input('LoteID', sql.Int, Number(id))
           .input('UsuarioID', sql.Int, req.user?.sub ? Number(req.user.sub) : null)
@@ -804,6 +806,7 @@ async function desactivarLote(req, res) {
     const { id } = req.params;
     if (!id) return res.status(400).json({ message: 'LoteID requerido' });
 
+    const { motivo } = req.body || {};
     const pool = await poolPromise;
     const meta = await getLotesColumnInfo();
 
@@ -847,6 +850,10 @@ async function desactivarLote(req, res) {
     try {
       const updateParts = ['Activo = 0'];
       const reqTx = new sql.Request(tx).input('LoteID', sql.Int, Number(id));
+      if (meta.hasMotivoInactivacion) {
+        updateParts.push('MotivoInactivacion = @Motivo');
+        reqTx.input('Motivo', sql.NVarChar(400), motivo || null);
+      }
       await reqTx.query(`UPDATE dbo.Lotes SET ${updateParts.join(', ')} WHERE LoteID = @LoteID;`);
 
       await new sql.Request(tx)
@@ -868,7 +875,11 @@ async function desactivarLote(req, res) {
         .input('LoteID', sql.Int, Number(id))
         .input('UsuarioID', sql.Int, req.user?.sub ? Number(req.user.sub) : null)
         .input('Accion', sql.NVarChar(50), 'desactivacion')
-        .input('Detalle', sql.NVarChar(4000), 'Desactivado manualmente.')
+        .input(
+          'Detalle',
+          sql.NVarChar(4000),
+          `Desactivado. ${motivo ? `Motivo: ${motivo}` : 'Sin motivo proporcionado.'}`
+        )
         .query(`
           INSERT INTO dbo.InventarioLoteHistorial (LoteID, UsuarioID, Accion, Detalle)
           VALUES (@LoteID, @UsuarioID, @Accion, @Detalle);
@@ -982,7 +993,7 @@ async function consumirDesdeLotes(scope, productoId, unidadesSolicitadas) {
 
 async function ajustarStock(req, res) {
   try {
-    const { ProductoID, Cantidad } = req.body || {};
+    const { ProductoID, Cantidad, Motivo = 'Ajuste' } = req.body || {};
     const cantidadNum = Number(Cantidad);
     if (!ProductoID || !Number.isFinite(cantidadNum) || cantidadNum === 0) {
       return res.status(400).json({ message: 'Datos inválidos para ajuste' });
@@ -1089,7 +1100,11 @@ async function ajustarStock(req, res) {
         .input('LoteID', sql.Int, null)
         .input('UsuarioID', sql.Int, req.user?.sub ? Number(req.user.sub) : null)
         .input('Accion', sql.NVarChar(50), 'ajuste')
-        .input('Detalle', sql.NVarChar(4000), `Ajuste manual producto ${ProductoID}: ${cantidadNum}`)
+        .input(
+          'Detalle',
+          sql.NVarChar(4000),
+          `Ajuste manual producto ${ProductoID}: ${cantidadNum} (${Motivo || 'Sin motivo'})`
+        )
         .query(`
           INSERT INTO dbo.InventarioLoteHistorial (LoteID, UsuarioID, Accion, Detalle)
           VALUES (@LoteID, @UsuarioID, @Accion, @Detalle);
@@ -1117,3 +1132,5 @@ module.exports = {
   ajustarStock,
   consumirDesdeLotes,
 };
+ 
+

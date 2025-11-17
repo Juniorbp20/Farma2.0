@@ -4,6 +4,7 @@ import { tutorials } from "./tutorialsData";
 import CustomYouTubePlayer from "../components/recursos/CustomYouTubePlayer";
 import { gsap } from "gsap";
 import "./AyudaPage.css";
+import { getParametrosSistema } from "../services/configService";
 
 function HelpMenu({ options = [], active, onSelect }) {
   return (
@@ -88,7 +89,11 @@ function DocsAccordion({ items = [] }) {
   );
 }
 
-function SupportPanel() {
+function normalizeSupportValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function SupportPanel({ contactInfo, loadingContact }) {
   const boxRef = useRef(null);
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -109,7 +114,52 @@ function SupportPanel() {
     { icon: "bi-lightbulb", title: "Sugerencias de mejora" },
   ];
 
-  const whatsappHref = "https://wa.me/18296407836?text=Hola,+necesito+ayuda+con...";
+  const phoneRaw = normalizeSupportValue(contactInfo?.telefonoSoporte);
+  const emailRaw = normalizeSupportValue(contactInfo?.emailSoporte);
+  const sanitizedPhone = phoneRaw.replace(/\D/g, "");
+  const whatsappHref = sanitizedPhone ? `https://wa.me/${sanitizedPhone}` : null;
+  const emailGmailHref = emailRaw
+    ? `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${encodeURIComponent(
+        emailRaw
+      )}`
+    : null;
+  const emailMailtoHref = emailRaw ? `mailto:${emailRaw}` : null;
+
+  const contacts = [
+    {
+      key: "whatsapp",
+      label: "WhatsApp",
+      icon: "bi-whatsapp",
+      href: whatsappHref,
+      target: "_blank",
+      rel: "noreferrer",
+      value: phoneRaw,
+    },
+    {
+      key: "email",
+      label: "Correo",
+      icon: "bi-envelope",
+      href: emailMailtoHref,
+      gmailHref: emailGmailHref,
+      target: "_blank",
+      rel: "noreferrer",
+      value: emailRaw,
+    },
+  ];
+
+  const handleContactClick = (event, contact, disabled) => {
+    if (disabled) {
+      event.preventDefault();
+      return;
+    }
+    if (contact.key === "email" && contact.gmailHref) {
+      event.preventDefault();
+      const opened = window.open(contact.gmailHref, "_blank", "noopener,noreferrer");
+      if (!opened && contact.href) {
+        window.location.href = contact.href;
+      }
+    }
+  };
 
   return (
     <div ref={boxRef} className="support-panel card border-0">
@@ -133,11 +183,33 @@ function SupportPanel() {
           </div>
         </div>
 
-        <div className="text-center">
-          <a href={whatsappHref} target="_blank" rel="noreferrer" className="support-whatsapp-btn">
-            <i className="bi bi-whatsapp" />
-            Contactar por WhatsApp
-          </a>
+        <div className="support-contact-actions">
+          {contacts.map((contact) => {
+            const disabled = !contact.href;
+            return (
+              <a
+                key={contact.key}
+                href={contact.href || "#"}
+                target={contact.target}
+                rel={contact.rel}
+                className={`support-contact-btn ${disabled ? "disabled" : ""}`}
+                aria-disabled={disabled}
+                onClick={disabled ? (e) => e.preventDefault() : undefined}
+                onClick={(event) =>
+                  handleContactClick(event, contact, disabled)
+                }
+              >
+                <i className={`bi ${contact.icon}`} aria-hidden="true" />
+                <div className="contact-texts">
+                  <span className="contact-label">{contact.label}</span>
+                  <span className="contact-value">
+                    {contact.value ||
+                      (loadingContact ? "Cargando..." : "No configurado")}
+                  </span>
+                </div>
+              </a>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -147,12 +219,40 @@ function SupportPanel() {
 function AyudaPage() {
   const [userRoleId, setUserRoleId] = useState(1);
   const [activeTab, setActiveTab] = useState("support");
+  const [supportInfo, setSupportInfo] = useState({
+    telefonoSoporte: "",
+    emailSoporte: "",
+  });
+  const [loadingSupport, setLoadingSupport] = useState(false);
   const data = tutorials;
 
   useEffect(() => {
     const u = getUser();
     const rid = Number(u?.rolId ?? u?.rolID ?? 1) || 1;
     setUserRoleId(rid);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingSupport(true);
+    getParametrosSistema()
+      .then((config) => {
+        if (!isMounted) return;
+        setSupportInfo({
+          telefonoSoporte: normalizeSupportValue(config?.telefonoSoporte),
+          emailSoporte: normalizeSupportValue(config?.emailSoporte),
+        });
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setSupportInfo({ telefonoSoporte: "", emailSoporte: "" });
+      })
+      .finally(() => {
+        if (isMounted) setLoadingSupport(false);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const roleFiltered = useMemo(() => data.filter((t) => Array.isArray(t.roleAccess) && t.roleAccess.includes(Number(userRoleId))), [data, userRoleId]);
@@ -171,7 +271,12 @@ function AyudaPage() {
       <div className="mb-4">
         {activeTab === "video" && <TutorialsGrid items={videoItems} />}
         {activeTab === "docs" && <DocsAccordion items={textItems} />}
-        {activeTab === "support" && <SupportPanel />}
+        {activeTab === "support" && (
+          <SupportPanel
+            contactInfo={supportInfo}
+            loadingContact={loadingSupport}
+          />
+        )}
       </div>
     </div>
   );

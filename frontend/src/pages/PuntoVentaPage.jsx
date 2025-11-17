@@ -14,24 +14,26 @@ function number(val, d = 2) {
 }
 
   function LineaItem({ item, onChange, onRemove }) {
-  const factor = item.factorUnidad || 1;
   const loteSel = item.lotes.find((l) => l.loteId === item.loteId) || null;
+  const factor = Number(item.factorUnidad || loteSel?.cantidadUnidadesMinimas || 1);
   const stockEmp = loteSel ? Number(loteSel.cantidadEmpaques || 0) : 0;
-  const stockUni = loteSel ? Number(loteSel.cantidadUnidadesMinimas || 0) : 0;
-  const precioMin = loteSel ? Number(loteSel.precioVenta || loteSel.precioUnitarioVenta || 0) : 0;
+  const stockTotal = loteSel
+    ? Number(loteSel.cantidadTotalMinima || (stockEmp * factor))
+    : 0;
+  const precioEmpaqueBase = loteSel ? Number(loteSel.precioVenta || loteSel.precioUnitarioVenta || 0) : 0;
+  const precioMin = factor > 0 ? precioEmpaqueBase / factor : precioEmpaqueBase;
   const impuesto = loteSel ? Number(loteSel.impuesto || loteSel.porcentajeImpuesto || 0) : 0;
   const descEmp = loteSel ? Number(loteSel.descuento || loteSel.porcentajeDescuentoEmpaque || 0) : 0;
 
   const modo = 'detalle';
   const cantUni = Number(item.cantUnidadesMinimas || 0);
   const unidades = cantUni;
-  const precioEmpaque = (precioMin * factor) * (1 - descEmp);
   const precioUnidadAplicada = precioMin;
   const subtotal = number(unidades * precioUnidadAplicada, 2);
   const imp = number(subtotal * (impuesto / 100), 2);
   const total = number(subtotal + imp, 2);
 
-  const maxUni = stockUni + stockEmp * factor;
+  const maxUni = stockTotal;
 
   return (
     <tr>
@@ -41,7 +43,15 @@ function number(val, d = 2) {
       </td>
       <td>
         <select className="form-select form-select-sm" value={item.loteId || ''}
-          onChange={(e) => onChange({ ...item, loteId: Number(e.target.value) })}>
+          onChange={(e) => {
+            const loteId = Number(e.target.value);
+            const seleccionado = item.lotes.find((l) => l.loteId === loteId);
+            onChange({
+              ...item,
+              loteId,
+              factorUnidad: seleccionado ? Number(seleccionado.cantidadUnidadesMinimas || 1) : item.factorUnidad,
+            });
+          }}>
           {item.lotes.map((l) => (
             <option key={l.loteId} value={l.loteId}>
               {(l.numeroLote || `Lote ${l.loteId}`)}{l.fechaVencimiento ? ` - vence ${new Date(l.fechaVencimiento).toLocaleDateString()}` : ''}
@@ -149,11 +159,12 @@ export default function PuntoVentaPage({ user, onNavigate }) {
       const factor = it.factorUnidad || 1;
       const loteSel = it.lotes.find((l) => l.loteId === it.loteId);
       if (!loteSel) return;
-      const precioMin = Number(loteSel.precioVenta || loteSel.precioUnitarioVenta || 0);
+      const precioEmpaqueBase = Number(loteSel.precioVenta || loteSel.precioUnitarioVenta || 0);
+      const precioMin = factor > 0 ? precioEmpaqueBase / factor : precioEmpaqueBase;
       const impuesto = Number(loteSel.impuesto || loteSel.porcentajeImpuesto || 0);
       const descEmp = Number(loteSel.descuento || loteSel.porcentajeDescuentoEmpaque || 0);
       const unidades = it.modo === 'empaque' ? Number(it.cantEmpaques || 0) * factor : Number(it.cantUnidadesMinimas || 0);
-      const precioEmpaque = (precioMin * factor) * (1 - descEmp);
+      const precioEmpaque = precioEmpaqueBase * (1 - descEmp);
       const precioUnidadAplicada = it.modo === 'empaque' && factor > 0 ? (precioEmpaque / factor) : precioMin;
       const sub = number(unidades * precioUnidadAplicada, 2);
       const imp = number(sub * (impuesto / 100), 2);
@@ -172,7 +183,7 @@ export default function PuntoVentaPage({ user, onNavigate }) {
     try {
       const lots = await getLotes({ productoId: prod.ProductoID, estado: 'activos' });
       const disponibles = lots.filter(l => (l.diasRestantes == null || l.diasRestantes >= 0) && (l.cantidadEmpaques > 0 || l.cantidadUnidadesMinimas > 0 || l.cantidadTotalMinima > 0));
-      const factor = Number(prod.CantidadUnidadMinimaXEmpaque || 1);
+      const factor = Number(disponibles[0]?.cantidadUnidadesMinimas || 1);
       const nuevo = {
         productoId: prod.ProductoID,
         nombre: prod.Nombre,
@@ -184,6 +195,7 @@ export default function PuntoVentaPage({ user, onNavigate }) {
           fechaVencimiento: l.fechaVencimiento,
           cantidadEmpaques: l.cantidadEmpaques,
           cantidadUnidadesMinimas: l.cantidadUnidadesMinimas,
+          cantidadTotalMinima: l.cantidadTotalMinima,
           precioUnitarioVenta: l.precioVenta,
           precioVenta: l.precioVenta,
           impuesto: l.impuesto,
@@ -493,7 +505,8 @@ export default function PuntoVentaPage({ user, onNavigate }) {
                     <tbody>
                       {items.map((it) => {
                         const loteSel = it.lotes.find((l) => l.loteId === it.loteId);
-                        const precioMin = Number(loteSel?.precioVenta || loteSel?.precioUnitarioVenta || 0);
+                        const precioEmpaqueBase = Number(loteSel?.precioVenta || loteSel?.precioUnitarioVenta || 0);
+                        const precioMin = it.factorUnidad > 0 ? precioEmpaqueBase / it.factorUnidad : precioEmpaqueBase;
                         const impuesto = Number(loteSel?.impuesto || 0);
                         const unidades = Number(it.cantUnidadesMinimas || 0);
                         const sub = number(unidades * precioMin, 2);
