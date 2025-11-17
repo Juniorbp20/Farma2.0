@@ -126,7 +126,7 @@ function HomePage({ user, onNavigate }) {
           icon="bi-graph-up"
           title="Reportes"
           desc="Reportes de ventas, stock, vencimientos y más."
-          action={() => alert('Módulo de reportes próximamente')}
+          action={() => onNavigate('reportes')}
         />
         <Card
           icon="bi-truck"

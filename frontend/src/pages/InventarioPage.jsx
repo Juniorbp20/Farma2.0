@@ -58,7 +58,6 @@ const createEmptyCompraItem = (index) => ({
   fechaVencimiento: '',
   precioCosto: '',
   precioVenta: '',
-  impuesto: 0,
   descuento: 0,
   cantidadEmpaques: '',
   cantidadUnidadesMinimas: '',
@@ -387,7 +386,6 @@ const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: 
       FechaVencimiento: loteModal.data.fechaVencimiento,
       PrecioCosto: Number(loteModal.data.precioCosto),
       PrecioVenta: Number(loteModal.data.precioVenta),
-      Impuesto: Number(loteModal.data.impuesto),
       Descuento: Number(loteModal.data.descuento),
     };
     try {
@@ -542,7 +540,6 @@ const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: 
       fechaVencimiento: '',
       precioCosto: producto.PrecioCosto ?? '',
       precioVenta: producto.PrecioVenta ?? '',
-      impuesto: 0,
       descuento: 0,
       cantidadEmpaques: '',
       cantidadUnidadesMinimas: '',
@@ -573,7 +570,6 @@ const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: 
         fechaVencimiento: lote.fechaVencimiento || '',
         precioCosto: lote.precioCosto,
         precioVenta: lote.precioVenta,
-        impuesto: lote.impuesto,
         descuento: lote.descuento,
         cantidadUnidadesMinimas: lote.cantidadUnidadesMinimas || '',
       };
@@ -605,14 +601,12 @@ const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: 
         if (!item.fechaVencimiento) { errs.fechaVencimiento = 'Seleccione la fecha de vencimiento.'; hasErrors = true; }
         // Precio costo y precio venta: requeridos, no negativos, y venta > costo
         const hasPc = item.precioCosto !== '' && item.precioCosto !== null && item.precioCosto !== undefined;
-        const hasPv = item.precioVenta !== '' && item.precioVenta !== null && item.precioVenta !== undefined;
-        const pc = Number(item.precioCosto);
-        const pv = Number(item.precioVenta);
-        if (!hasPc || !Number.isFinite(pc) || pc < 0) { errs.precioCosto = !hasPc ? 'Ingrese el precio costo.' : 'Precio costo invlido.'; hasErrors = true; }
-        if (!hasPv || !Number.isFinite(pv) || pv < 0) { errs.precioVenta = !hasPv ? 'Ingrese el precio venta.' : 'Precio venta invlido.'; hasErrors = true; }
-        if (Number.isFinite(pc) && Number.isFinite(pv) && !(pv > pc)) { errs.precioVenta = 'Precio venta debe ser mayor que precio costo.'; hasErrors = true; }
-        const imp = Number(item.impuesto);
-        if (item.impuesto !== '' && (!Number.isFinite(imp) || imp < 0 || imp > 100)) { errs.impuesto = 'Impuesto 0 a 100.'; hasErrors = true; }
+       const hasPv = item.precioVenta !== '' && item.precioVenta !== null && item.precioVenta !== undefined;
+       const pc = Number(item.precioCosto);
+       const pv = Number(item.precioVenta);
+       if (!hasPc || !Number.isFinite(pc) || pc < 0) { errs.precioCosto = !hasPc ? 'Ingrese el precio costo.' : 'Precio costo invlido.'; hasErrors = true; }
+       if (!hasPv || !Number.isFinite(pv) || pv < 0) { errs.precioVenta = !hasPv ? 'Ingrese el precio venta.' : 'Precio venta invlido.'; hasErrors = true; }
+       if (Number.isFinite(pc) && Number.isFinite(pv) && !(pv > pc)) { errs.precioVenta = 'Precio venta debe ser mayor que precio costo.'; hasErrors = true; }
         const desc = Number(item.descuento);
         if (item.descuento !== '' && (!Number.isFinite(desc) || desc < 0 || desc > 100)) { errs.descuento = 'Descuento 0 a 100.'; hasErrors = true; }
       }
@@ -632,7 +626,6 @@ const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: 
         fechaVencimiento: item.fechaVencimiento,
         precioCosto: Number(item.precioCosto),
         precioVenta: Number(item.precioVenta),
-        impuesto: Number(item.impuesto),
         descuento: Number(item.descuento),
         cantidadEmpaques: Number(item.cantidadEmpaques || 0),
         cantidadUnidadesMinimas: Number(item.cantidadUnidadesMinimas || 0),
@@ -668,7 +661,6 @@ const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: 
         fechaVencimiento: it.fechaVencimiento || '',
         precioCosto: it.precioCosto,
         precioVenta: it.precioVenta,
-        impuesto: it.impuesto,
         descuento: it.descuento,
         empaques,
         unidades: factor,
@@ -875,8 +867,7 @@ const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: 
       { name: 'Costo', selector: (r) => formatCurrency(r.precioCosto || 0), sortable: true, right: true },
       { name: 'Subtotal', selector: (r) => r.subtotal, sortable: true, cell: (r) => formatCurrency(r.subtotal || 0), right: true, width: '140px' },
       { name: 'Venta', selector: (r) => formatCurrency(r.precioVenta || 0), sortable: true, right: true },
-      { name: 'Imp.%', selector: (r) => `${Number(r.impuesto || 0)}%`, right: true, width: '90px' },
-      { name: 'Desc.%', selector: (r) => `${Number(r.descuento || 0)}%`, right: true, width: '90px' },
+    { name: 'Desc.%', selector: (r) => `${Number(r.descuento || 0)}%`, right: true, width: '90px' },
     ];
 
     const totalItems = confirmCompra.items.length;
@@ -1887,18 +1878,6 @@ const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: 
                                 disabled={item.loteSeleccion === 'existente' && item.loteId}
                               />
                               <FieldError error={(purchaseItemErrors[item.id]||{}).precioVenta} />
-                            </div>
-                            <div className="col-md-2">
-                              <label className="form-label">Impuesto (%)</label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                className={`form-control ${((purchaseItemErrors[item.id]||{}).impuesto ? 'is-invalid' : '')}`}
-                                value={item.impuesto}
-                                onChange={(e) => updateCompraItem(item.id, { impuesto: e.target.value })}
-                                disabled={item.loteSeleccion === 'existente' && item.loteId}
-                              />
-                              <FieldError error={(purchaseItemErrors[item.id]||{}).impuesto} />
                             </div>
                             <div className="col-md-2">
                               <label className="form-label">Descuento (%)</label>

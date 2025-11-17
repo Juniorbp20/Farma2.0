@@ -382,7 +382,6 @@ async function obtenerCompra(req, res) {
           l.FechaVencimiento,
           l.PrecioCosto,
           l.PrecioUnitarioVenta,
-          l.PorcentajeImpuesto,
           l.PorcentajeDescuentoEmpaque,
           dc.PrecioUnitario,
           dc.CantidadEmpaquesRecibidos,
@@ -405,7 +404,6 @@ async function obtenerCompra(req, res) {
       fechaVencimiento: row.FechaVencimiento,
       precioCosto: parseDecimal(row.PrecioCosto),
       precioVenta: parseDecimal(row.PrecioUnitarioVenta),
-      impuesto: parseDecimal(row.PorcentajeImpuesto, 2),
       descuento: parseDecimal(row.PorcentajeDescuentoEmpaque, 4),
       precioUnitario: parseDecimal(row.PrecioUnitario),
       cantidadEmpaques: ensurePositiveNumber(row.CantidadEmpaquesRecibidos),
@@ -466,7 +464,6 @@ async function crearCompra(req, res) {
       fechaVencimiento: raw.fechaVencimiento ?? raw.FechaVencimiento ?? null,
       precioCosto: parseDecimal(raw.precioCosto ?? raw.PrecioCosto),
       precioVenta: parseDecimal(raw.precioVenta ?? raw.PrecioVenta),
-      impuesto: parseDecimal(raw.impuesto ?? raw.Impuesto, 2),
       descuento: parseDecimal(raw.descuento ?? raw.Descuento, 4),
       cantidadEmpaques: ensurePositiveNumber(raw.cantidadEmpaques ?? raw.CantidadEmpaques ?? 0),
       cantidadUnidadesMinimas: ensurePositiveNumber(
@@ -581,7 +578,6 @@ async function crearCompra(req, res) {
             'Activo',
             'PrecioCosto',
             'PrecioUnitarioVenta',
-            'PorcentajeImpuesto',
             'PorcentajeDescuentoEmpaque',
           ];
           const insertValues = [
@@ -592,7 +588,6 @@ async function crearCompra(req, res) {
             '1',
             '@PrecioCosto',
             '@PrecioVenta',
-            '@Impuesto',
             '@Descuento',
           ];
           const counts = splitUnitsToCounts(totalUnidades, factor, meta);
@@ -602,7 +597,6 @@ async function crearCompra(req, res) {
             .input('FechaVencimiento', sql.Date, item.fechaVencimientoDate || new Date(item.fechaVencimiento))
             .input('PrecioCosto', sql.Decimal(10, 2), item.precioCosto)
             .input('PrecioVenta', sql.Decimal(10, 2), item.precioVenta)
-            .input('Impuesto', sql.Decimal(5, 2), item.impuesto)
             .input('Descuento', sql.Decimal(5, 4), item.descuento);
           if (meta.hasCantidadEmpaques) {
             insertColumns.push('CantidadEmpaques');
@@ -633,7 +627,7 @@ async function crearCompra(req, res) {
                      ${meta.hasCantidadEmpaques ? 'COALESCE(CantidadEmpaques,0) AS CantidadEmpaques,' : '0 AS CantidadEmpaques,'}
                      ${meta.hasCantidadUnidades ? 'COALESCE(CantidadUnidadesMinimas,0) AS CantidadUnidadesMinimas,' : '0 AS CantidadUnidadesMinimas,'}
                      ${meta.hasCantidad ? 'COALESCE(Cantidad,0) AS Cantidad,' : '0 AS Cantidad,'}
-                     PrecioCosto, PrecioUnitarioVenta, PorcentajeImpuesto, PorcentajeDescuentoEmpaque, FechaVencimiento
+                     PrecioCosto, PrecioUnitarioVenta, PorcentajeDescuentoEmpaque, FechaVencimiento
               FROM dbo.Lotes
               WHERE LoteID = @LoteID
             `);
@@ -647,7 +641,6 @@ async function crearCompra(req, res) {
           if (
             (parseDecimal(loteActual.PrecioCosto) !== item.precioCosto ||
               parseDecimal(loteActual.PrecioUnitarioVenta) !== item.precioVenta ||
-              parseDecimal(loteActual.PorcentajeImpuesto, 2) !== item.impuesto ||
               parseDecimal(loteActual.PorcentajeDescuentoEmpaque, 4) !== item.descuento) &&
             !item.crearNuevoLote
           ) {
@@ -672,14 +665,12 @@ async function crearCompra(req, res) {
           const updateParts = [
             'PrecioCosto = @PrecioCosto',
             'PrecioUnitarioVenta = @PrecioVenta',
-            'PorcentajeImpuesto = @Impuesto',
             'PorcentajeDescuentoEmpaque = @Descuento',
           ];
           const reqUpdate = new sql.Request(tx)
             .input('LoteID', sql.Int, loteIdAsignado)
             .input('PrecioCosto', sql.Decimal(10, 2), item.precioCosto)
             .input('PrecioVenta', sql.Decimal(10, 2), item.precioVenta)
-            .input('Impuesto', sql.Decimal(5, 2), item.impuesto)
             .input('Descuento', sql.Decimal(5, 4), item.descuento);
           if (meta.hasCantidadEmpaques) {
             updateParts.push('CantidadEmpaques = @CantidadEmpaques');

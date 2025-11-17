@@ -404,7 +404,7 @@ function UsersPage() {
 
   return (
     <div className="container py-3 users-page-container">
-      <h1 className="page-title display-5 fw-bold text-center opacity-75 mb-5">
+      <h1 className="page-title display-5 fw-bold text-center opacity-75 mb-3">
         Gestión de Usuarios
       </h1>
 

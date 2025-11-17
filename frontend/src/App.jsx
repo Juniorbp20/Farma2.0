@@ -9,6 +9,7 @@ import InventarioPage from "./pages/InventarioPage";
 import ProductosPage from "./pages/ProductosPage";
 import ProveedoresPage from "./pages/ProveedoresPage";
 import LoginPage from "./pages/LoginPage";
+import ReportsPage from "./pages/ReportsPage";
 import CustomButton from "./components/recursos/CustomButton";
 import AyudaModal from "./components/AyudaModal";
 import ConfigModal from "./components/ConfigModal";
@@ -172,15 +173,6 @@ function App() {
             </button>
             <button
               className={`btn nav-menu-btn ${
-                view === "productos" ? "active" : ""
-              }`}
-              onClick={() => handleNavigate("productos")}
-            >
-              <i className="bi bi-box-seam"></i>
-              <span className="nav-menu-text">Productos</span>
-            </button>
-            <button
-              className={`btn nav-menu-btn ${
                 view === "inventario" ? "active" : ""
               }`}
               onClick={() => handleNavigate("inventario")}
@@ -190,12 +182,30 @@ function App() {
             </button>
             <button
               className={`btn nav-menu-btn ${
+                view === "reportes" ? "active" : ""
+              }`}
+              onClick={() => handleNavigate("reportes")}
+            >
+              <i className="bi bi-graph-up"></i>
+              <span className="nav-menu-text">Reportes</span>
+            </button>
+            <button
+              className={`btn nav-menu-btn ${
                 view === "proveedores" ? "active" : ""
               }`}
               onClick={() => handleNavigate("proveedores")}
             >
               <i className="bi bi-truck"></i>
               <span className="nav-menu-text">Proveedores</span>
+            </button>
+              <button
+              className={`btn nav-menu-btn ${
+                view === "productos" ? "active" : ""
+              }`}
+              onClick={() => handleNavigate("productos")}
+            >
+              <i className="bi bi-box-seam"></i>
+              <span className="nav-menu-text">Productos</span>
             </button>
             <button
               className={`btn nav-menu-btn ${
@@ -232,6 +242,7 @@ function App() {
             {view === "clientes" && <ClientesPage user={user} />}
             {view === "inventario" && <InventarioPage initialTab={inventoryInitialTab} />}
             {view === "proveedores" && <ProveedoresPage />}
+            {view === "reportes" && <ReportsPage />}
             {view === "usuarios" && isAdmin && <UsersPage />}
             {view === "devoluciones" && <DevolucionesPage user={user} onNavigate={handleNavigate} />}
           </div>

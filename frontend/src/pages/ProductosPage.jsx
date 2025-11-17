@@ -30,6 +30,7 @@ export default function ProductosPage() {
     UnidadMedidaEmpaqueID: "",
     UnidadMedidaMinimaID: "",
     StockMinimo: 1,
+    Impuesto: 0,
     Activo: true,
   });
   const [errors, setErrors] = useState({});
@@ -71,6 +72,7 @@ export default function ProductosPage() {
       UnidadMedidaEmpaqueID: String(p.UnidadMedidaEmpaqueID || ""),
       UnidadMedidaMinimaID: String(p.UnidadMedidaMinimaID || ""),
       StockMinimo: Number((p.StockMinimo ?? 1) || 1),
+      Impuesto: Number(p.Impuesto ?? 0),
       Activo: !!p.Activo,
     });
     setErrors({});
@@ -85,6 +87,7 @@ export default function ProductosPage() {
     UnidadMedidaEmpaqueID: "",
     UnidadMedidaMinimaID: "",
     StockMinimo: 1,
+    Impuesto: 0,
     Activo: true,
   });
   setErrors({});
@@ -116,6 +119,11 @@ export default function ProductosPage() {
       case "StockMinimo": {
         const n = Number(value);
         if (!Number.isFinite(n) || n < 1) err.StockMinimo = "Ingrese una cantidad valida.";
+        break;
+      }
+      case "Impuesto": {
+        const n = Number(value);
+        if (!Number.isFinite(n) || n < 0 || n > 100) err.Impuesto = "Impuesto 0 a 100.";
         break;
       }
       default:
@@ -150,16 +158,17 @@ export default function ProductosPage() {
     try {
       const payload = {
         Nombre: form.Nombre,
-        Presentacion: form.Presentacion,
-        CategoriaID: Number(form.CategoriaID),
-        UnidadMedidaEmpaqueID: Number(form.UnidadMedidaEmpaqueID),
-        UnidadMedidaMinimaID: Number(form.UnidadMedidaMinimaID),
-        StockMinimo: Number(form.StockMinimo),
-        Activo: !!form.Activo,
-      };
-      if (editando) {
-        await updateProducto(editando.ProductoID, payload);
-        setMensaje("Producto actualizado");
+      Presentacion: form.Presentacion,
+      CategoriaID: Number(form.CategoriaID),
+      UnidadMedidaEmpaqueID: Number(form.UnidadMedidaEmpaqueID),
+      UnidadMedidaMinimaID: Number(form.UnidadMedidaMinimaID),
+      StockMinimo: Number(form.StockMinimo),
+      Impuesto: Number(form.Impuesto ?? 0),
+      Activo: !!form.Activo,
+    };
+    if (editando) {
+      await updateProducto(editando.ProductoID, payload);
+      setMensaje("Producto actualizado");
       } else {
         await createProducto(payload);
         setMensaje("Producto creado");
@@ -197,6 +206,9 @@ export default function ProductosPage() {
     { name: 'UM Mínima', selector: (r) => r.UnidadMedidaMinima || '', sortable: true, width: '140px' },
     { name: 'Stock', selector: (r) => r.Stock, sortable: true, width: '100px' },
     { name: 'Stock Mín.', selector: (r) => r.StockMinimo, sortable: true, width: '120px' },
+    { name: 'Imp. %', selector: (r) => Number(r.Impuesto ?? 0), sortable: true, width: '100px', right: true,
+      cell: (r) => <span className="fw-semibold">{Number(r.Impuesto ?? 0).toFixed(2)}%</span>
+    },
     {
       name: 'Activo', selector: (r) => (r.Activo ? 'Sí' : 'No'), sortable: true, width: '100px'
     },
@@ -226,6 +238,7 @@ export default function ProductosPage() {
     return items.filter((p) =>
       (p.Nombre || '').toLowerCase().includes(q) ||
       (p.Presentacion || '').toLowerCase().includes(q) ||
+      String(p.Impuesto ?? '').toLowerCase().includes(q) ||
       (p.UnidadMedidaEmpaque || '').toLowerCase().includes(q) ||
       (p.UnidadMedidaMinima || '').toLowerCase().includes(q)
     );
@@ -253,7 +266,7 @@ export default function ProductosPage() {
                   <textarea name="Presentacion" rows={1} value={form.Presentacion} onChange={handleChange} onBlur={handleBlur} className={`form-control ${errors.Presentacion ? 'is-invalid' : ''}`} placeholder="500 mg x 10 tabletas" />
                   {errors.Presentacion && <div className="invalid-feedback">{errors.Presentacion}</div>}
                 </div>
-                <div className="col-8">
+                <div className="col-4">
                   <label className="form-label">Categoría <span className="obligatorio">*</span></label>
                   <select name="CategoriaID" className={`form-select ${errors.CategoriaID ? 'is-invalid' : ''}`} value={form.CategoriaID} onChange={handleChange}>
                     <option value="">Seleccionar</option>
@@ -267,6 +280,22 @@ export default function ProductosPage() {
                   <label className="form-label">Stock mínimo <span className="obligatorio">*</span></label>
                   <input name="StockMinimo" type="number" min={1} className={`form-control ${errors.StockMinimo ? 'is-invalid' : ''}`} value={form.StockMinimo} onChange={handleChange} onBlur={handleBlur} placeholder="Ej. 5" />
                   {errors.StockMinimo && <div className="invalid-feedback">{errors.StockMinimo}</div>}
+                </div>
+                <div className="col-4">
+                  <label className="form-label">Impuesto (%)</label>
+                  <input
+                    name="Impuesto"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    className={`form-control ${errors.Impuesto ? 'is-invalid' : ''}`}
+                    value={form.Impuesto}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="Ej. 18"
+                  />
+                  {errors.Impuesto && <div className="invalid-feedback">{errors.Impuesto}</div>}
                 </div>
                 <div className="col-4">
                   <label className="form-label">Unidad medida empaque <span className="obligatorio">*</span></label>

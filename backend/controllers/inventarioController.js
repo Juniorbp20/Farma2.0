@@ -57,7 +57,6 @@ async function getResumen(req, res) {
         ${cantidadExpr} AS CantidadTotalMinima,
         l.PrecioCosto,
         l.PrecioUnitarioVenta,
-        l.PorcentajeImpuesto,
         l.PorcentajeDescuentoEmpaque,
         p.NombreProducto,
         p.StockMinimo,
@@ -98,7 +97,6 @@ async function getResumen(req, res) {
       cantidadTotalMinima: ensurePositiveNumber(row.CantidadTotalMinima),
       precioCosto: parseDecimal(row.PrecioCosto),
       precioVenta: parseDecimal(row.PrecioUnitarioVenta),
-      impuesto: parseDecimal(row.PorcentajeImpuesto, 4),
       descuento: parseDecimal(row.PorcentajeDescuentoEmpaque, 4),
       productoNombre: row.NombreProducto,
       stockMinimoProducto: ensurePositiveNumber(row.StockMinimo),
@@ -311,7 +309,6 @@ async function getLotes(req, res) {
         ${cantidadExpr} AS CantidadTotalMinima,
         l.PrecioCosto,
         l.PrecioUnitarioVenta,
-        l.PorcentajeImpuesto,
         l.PorcentajeDescuentoEmpaque,
         p.NombreProducto,
         p.StockMinimo,
@@ -356,7 +353,6 @@ async function getLotes(req, res) {
         cantidadTotalMinima: ensurePositiveNumber(row.CantidadTotalMinima),
         precioCosto: parseDecimal(row.PrecioCosto),
         precioVenta: parseDecimal(row.PrecioUnitarioVenta),
-        impuesto: parseDecimal(row.PorcentajeImpuesto, 4),
         descuento: parseDecimal(row.PorcentajeDescuentoEmpaque, 4),
         stockMinimoProducto: ensurePositiveNumber(row.StockMinimo),
         stockActualProducto: ensurePositiveNumber(row.StockActual),
@@ -396,7 +392,6 @@ async function getLoteDetalle(req, res) {
         ${cantidadExpr} AS CantidadTotalMinima,
         l.PrecioCosto,
         l.PrecioUnitarioVenta,
-        l.PorcentajeImpuesto,
         l.PorcentajeDescuentoEmpaque,
         p.NombreProducto,
         p.StockMinimo,
@@ -450,7 +445,6 @@ async function getLoteDetalle(req, res) {
       cantidadTotalMinima: ensurePositiveNumber(row.CantidadTotalMinima),
       precioCosto: parseDecimal(row.PrecioCosto),
       precioVenta: parseDecimal(row.PrecioUnitarioVenta),
-      impuesto: parseDecimal(row.PorcentajeImpuesto, 4),
       descuento: parseDecimal(row.PorcentajeDescuentoEmpaque, 4),
       stockMinimoProducto: ensurePositiveNumber(row.StockMinimo),
       stockActualProducto: ensurePositiveNumber(row.StockActual),
@@ -475,7 +469,6 @@ async function addLote(req, res) {
       CantidadTotal,
       PrecioCosto,
       PrecioVenta,
-      Impuesto = 0,
       Descuento = 0,
     } = req.body || {};
 
@@ -552,7 +545,6 @@ async function addLote(req, res) {
         'Activo',
         'PrecioCosto',
         'PrecioUnitarioVenta',
-        'PorcentajeImpuesto',
         'PorcentajeDescuentoEmpaque',
       ];
       const insertValues = [
@@ -563,7 +555,6 @@ async function addLote(req, res) {
         '1',
         '@PrecioCosto',
         '@PrecioVenta',
-        '@Impuesto',
         '@Descuento',
       ];
 
@@ -581,7 +572,6 @@ async function addLote(req, res) {
         .input('FechaVencimiento', sql.Date, fechaVenc)
         .input('PrecioCosto', sql.Decimal(10, 2), costo)
         .input('PrecioVenta', sql.Decimal(10, 2), venta)
-        .input('Impuesto', sql.Decimal(5, 2), parseDecimal(Impuesto, 2))
         .input('Descuento', sql.Decimal(5, 4), parseDecimal(Descuento, 4));
 
       if (meta.hasCantidadEmpaques) {
@@ -633,7 +623,6 @@ async function updateLote(req, res) {
       FechaVencimiento,
       PrecioCosto,
       PrecioVenta,
-      Impuesto,
       Descuento,
       NumeroLote,
     } = req.body || {};
@@ -642,7 +631,6 @@ async function updateLote(req, res) {
       FechaVencimiento === undefined &&
       PrecioCosto === undefined &&
       PrecioVenta === undefined &&
-      Impuesto === undefined &&
       Descuento === undefined &&
       NumeroLote === undefined
     ) {
@@ -661,7 +649,6 @@ async function updateLote(req, res) {
           l.FechaVencimiento,
           l.PrecioCosto,
           l.PrecioUnitarioVenta,
-          l.PorcentajeImpuesto,
           l.PorcentajeDescuentoEmpaque
         FROM dbo.Lotes l
         WHERE l.LoteID = @id
@@ -737,17 +724,6 @@ async function updateLote(req, res) {
       if (parseDecimal(loteActual.PrecioUnitarioVenta) !== nuevoVenta) {
         cambios.push(
           `Precio venta: ${parseDecimal(loteActual.PrecioUnitarioVenta)} -> ${nuevoVenta}`
-        );
-      }
-    }
-
-    if (Impuesto !== undefined) {
-      const nuevoImp = parseDecimal(Impuesto, 2);
-      updates.push('PorcentajeImpuesto = @Impuesto');
-      inputDefs.push({ name: 'Impuesto', type: sql.Decimal(5, 2), value: nuevoImp });
-      if (parseDecimal(loteActual.PorcentajeImpuesto, 2) !== nuevoImp) {
-        cambios.push(
-          `Impuesto: ${parseDecimal(loteActual.PorcentajeImpuesto, 2)} -> ${nuevoImp}`
         );
       }
     }
@@ -1026,7 +1002,6 @@ async function ajustarStock(req, res) {
           'Activo',
           'PrecioCosto',
           'PrecioUnitarioVenta',
-          'PorcentajeImpuesto',
           'PorcentajeDescuentoEmpaque',
         ];
         const insertValues = [
@@ -1035,7 +1010,6 @@ async function ajustarStock(req, res) {
           'NULL',
           'GETDATE()',
           '1',
-          '0',
           '0',
           '0',
           '0',

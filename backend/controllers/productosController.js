@@ -12,6 +12,7 @@ function mapProductoRow(r) {
     CategoriaID: r.CategoriaID,
     Stock: Number(r.StockActual || 0),
     StockMinimo: Number(r.StockMinimo || 0),
+    Impuesto: Number(r.Impuesto ?? 0),
     // Nombres desde JOIN de UnidadesMedida
     UnidadMedidaEmpaque: r.UnidadMedidaEmpaqueNombre || '',
     UnidadMedidaMinima: r.UnidadMedidaMinimaNombre || '',
@@ -27,7 +28,7 @@ const getProductos = async (req, res) => {
     const pool = await poolPromise;
     const q = await pool.request().query(`
       SELECT p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
-             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID,
+             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.Impuesto,
              ume.Nombre AS UnidadMedidaEmpaqueNombre,
              umm.Nombre AS UnidadMedidaMinimaNombre
       FROM Productos p
@@ -53,7 +54,7 @@ const buscarProductos = async (req, res) => {
       .input('term', sql.NVarChar(200), `%${term}%`);
     let query = `
       SELECT TOP 25 p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
-             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID,
+             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.Impuesto,
              ume.Nombre AS UnidadMedidaEmpaqueNombre,
              umm.Nombre AS UnidadMedidaMinimaNombre
       FROM dbo.Productos p
@@ -93,8 +94,12 @@ const getProductoByBarcode = async (req, res) => {
 
 const createProducto = async (req, res) => {
   try {
-    let { Nombre, Presentacion, StockMinimo, CategoriaID, UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, Activo, UnidadMedidaEmpaque, UnidadMedidaMinima } = req.body || {};
+    let { Nombre, Presentacion, StockMinimo, CategoriaID, UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, Activo, UnidadMedidaEmpaque, UnidadMedidaMinima, Impuesto } = req.body || {};
     if (!Nombre) return res.status(400).json({ message: 'Falta Nombre' });
+    const impuestoVal = Number(Impuesto ?? 0);
+    if (!Number.isFinite(impuestoVal) || impuestoVal < 0 || impuestoVal > 100) {
+      return res.status(400).json({ message: 'Impuesto debe estar entre 0 y 100' });
+    }
     // Permitir compatibilidad: si no vienen IDs pero sí nombres, resolver IDs por nombre
     const pool = await poolPromise;
     if (UnidadMedidaEmpaqueID == null && UnidadMedidaEmpaque) {
@@ -130,19 +135,20 @@ const createProducto = async (req, res) => {
       .input('StockMinimo', sql.Int, stockMin)
       .input('CategoriaID', sql.Int, categoria)
       .input('Activo', sql.Bit, Activo != null ? (Activo ? 1 : 0) : 1)
+      .input('Impuesto', sql.Decimal(5, 2), impuestoVal)
       .input('UnidadMedidaEmpaqueID', sql.Int, Number(UnidadMedidaEmpaqueID))
       .input('UnidadMedidaMinimaID', sql.Int, Number(UnidadMedidaMinimaID))
       .query(`
         INSERT INTO Productos (NombreProducto, Presentacion, StockActual, StockMinimo, CategoriaID, Activo, FechaCreacion,
-                               UnidadMedidaEmpaqueID, UnidadMedidaMinimaID)
+                               UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, Impuesto)
         VALUES (@NombreProducto, @Presentacion, 0, @StockMinimo, @CategoriaID, @Activo, GETDATE(),
-                @UnidadMedidaEmpaqueID, @UnidadMedidaMinimaID);
+                @UnidadMedidaEmpaqueID, @UnidadMedidaMinimaID, @Impuesto);
         SELECT SCOPE_IDENTITY() AS id;
       `);
     const id = Number(r.recordset[0].id);
     const sel = await pool.request().input('id', sql.Int, id).query(`
       SELECT p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
-             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID,
+             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.Impuesto,
              ume.Nombre AS UnidadMedidaEmpaqueNombre,
              umm.Nombre AS UnidadMedidaMinimaNombre
       FROM Productos p
@@ -162,8 +168,14 @@ const createProducto = async (req, res) => {
 const updateProducto = async (req, res) => {
   try {
     const { id } = req.params;
-    let { Nombre, Presentacion, StockMinimo, CategoriaID, Activo, UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, UnidadMedidaEmpaque, UnidadMedidaMinima } = req.body || {};
+    let { Nombre, Presentacion, StockMinimo, CategoriaID, Activo, UnidadMedidaEmpaqueID, UnidadMedidaMinimaID, UnidadMedidaEmpaque, UnidadMedidaMinima, Impuesto } = req.body || {};
     if (StockMinimo != null && Number(StockMinimo) < 1) return res.status(400).json({ message: 'StockMinimo debe ser al menos 1' });
+    if (Impuesto != null) {
+      const imp = Number(Impuesto);
+      if (!Number.isFinite(imp) || imp < 0 || imp > 100) {
+        return res.status(400).json({ message: 'Impuesto debe estar entre 0 y 100' });
+      }
+    }
     const pool = await poolPromise;
     // Compat: si vienen nombres y no IDs, resolver por nombre
     if (UnidadMedidaEmpaqueID == null && UnidadMedidaEmpaque) {
@@ -189,6 +201,7 @@ const updateProducto = async (req, res) => {
       .input('Activo', sql.Bit, Activo != null ? (Activo ? 1 : 0) : null)
       .input('UnidadMedidaEmpaqueID', sql.Int, UnidadMedidaEmpaqueID != null ? Number(UnidadMedidaEmpaqueID) : null)
       .input('UnidadMedidaMinimaID', sql.Int, UnidadMedidaMinimaID != null ? Number(UnidadMedidaMinimaID) : null)
+      .input('Impuesto', sql.Decimal(5, 2), Impuesto != null ? Number(Impuesto) : null)
       .query(`
         UPDATE Productos SET
           NombreProducto = COALESCE(@NombreProducto, NombreProducto),
@@ -197,6 +210,7 @@ const updateProducto = async (req, res) => {
           CategoriaID    = COALESCE(@CategoriaID, CategoriaID),
           UnidadMedidaEmpaqueID = COALESCE(@UnidadMedidaEmpaqueID, UnidadMedidaEmpaqueID),
           UnidadMedidaMinimaID = COALESCE(@UnidadMedidaMinimaID, UnidadMedidaMinimaID),
+          Impuesto       = COALESCE(@Impuesto, Impuesto),
           Activo         = COALESCE(@Activo, Activo),
           FechaModificacion = GETDATE()
         WHERE ProductoID = @id;
@@ -205,7 +219,7 @@ const updateProducto = async (req, res) => {
     if (!r.recordset[0].affected) return res.status(404).json({ message: 'Producto no encontrado' });
     const sel = await pool.request().input('id', sql.Int, Number(id)).query(`
       SELECT p.ProductoID, p.NombreProducto, p.Presentacion, p.StockActual, p.StockMinimo, p.CategoriaID, p.Activo,
-             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID,
+             p.UnidadMedidaEmpaqueID, p.UnidadMedidaMinimaID, p.Impuesto,
              ume.Nombre AS UnidadMedidaEmpaqueNombre,
              umm.Nombre AS UnidadMedidaMinimaNombre
       FROM Productos p
