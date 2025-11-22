@@ -59,11 +59,11 @@ export async function updateLote(id, payload) {
   return res.json();
 }
 
-export async function deactivateLote(id) {
+export async function deactivateLote(id, payload = {}) {
   const res = await fetch(`${API_URL}/inventario/lotes/${id}/desactivar`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({}),
+    body: JSON.stringify(payload),
   });
   await handleErrors(res, 'Error al desactivar lote.');
   return res.json();
@@ -104,30 +104,11 @@ export async function createCompra(payload) {
   return res.json();
 }
 
-export async function exportCompras(format = 'excel', params = {}) {
-  const url = new URL(`${API_URL}/inventario/compras/export`);
-  if (format) url.searchParams.set('format', format);
-  if (params.page != null) url.searchParams.set('page', params.page);
-  if (params.pageSize != null) url.searchParams.set('pageSize', params.pageSize);
-
+export async function getMarcas(params = {}) {
+  const url = new URL(`${API_URL}/inventario/marcas`);
+  if (params.incluirInactivas) url.searchParams.set('incluirInactivas', 'true');
   const res = await fetch(url, { headers: { ...authHeader() } });
-
-  if (!res.ok) {
-    let message = 'Error al exportar el historial de compras.';
-    try {
-      const errorBody = await res.json();
-      message = errorBody?.message || message;
-    } catch (err) {
-      // ignore parse errors
-    }
-    throw new Error(message);
-  }
-
-  const contentDisposition = res.headers.get('Content-Disposition') || '';
-  let filename = format === 'pdf' ? 'historial_compras.pdf' : 'historial_compras.xlsx';
-  const match = contentDisposition.match(/filename="?([^"]+)"?/i);
-  if (match?.[1]) filename = match[1];
-
-  const blob = await res.blob();
-  return { blob, filename };
+  await handleErrors(res, 'Error al obtener las marcas.');
+  return res.json();
 }
+

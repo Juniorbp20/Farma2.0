@@ -1,5 +1,5 @@
 // controllers/inventarioController.js
-// Gestión de inventario: resumen, lotes y operaciones auxiliares
+// GestiA³n de inventario: resumen, lotes y operaciones auxiliares
 const sql = require('mssql');
 const poolPromise = require('../db');
 const {
@@ -42,7 +42,7 @@ async function getResumen(req, res) {
   try {
     const pool = await poolPromise;
     const meta = await getLotesColumnInfo();
-    const { factorExpr, empaquesExpr, unidadesExpr, cantidadExpr } = getCantidadExpressions(meta);
+    const { factorExpr, empaquesExpr, unidadesExpr, cantidadExpr, totalExpr } = getCantidadExpressions(meta);
 
     const lotesQuery = await pool.request().query(`
       SELECT
@@ -54,10 +54,12 @@ async function getResumen(req, res) {
         COALESCE(l.Activo,1) AS Activo,
         ${meta.hasCantidadEmpaques ? `${empaquesExpr} AS CantidadEmpaques,` : '0 AS CantidadEmpaques,'}
         ${meta.hasCantidadUnidades ? `${unidadesExpr} AS CantidadUnidadesMinimas,` : '0 AS CantidadUnidadesMinimas,'}
-        ${cantidadExpr} AS CantidadTotalMinima,
+        ${totalExpr} AS CantidadTotalMinima,
         l.PrecioCosto,
         l.PrecioUnitarioVenta,
         l.PorcentajeDescuentoEmpaque,
+        l.MarcaID,
+        m.Nombre AS MarcaNombre,
         p.NombreProducto,
         p.StockMinimo,
         p.StockActual,
@@ -69,6 +71,7 @@ async function getResumen(req, res) {
       FROM dbo.Lotes l
       INNER JOIN dbo.Productos p ON p.ProductoID = l.ProductoID
       LEFT JOIN dbo.CategoriasProductos cat ON cat.CategoriaID = p.CategoriaID
+      LEFT JOIN dbo.Marcas m ON m.MarcaID = l.MarcaID
       WHERE COALESCE(l.Activo,1) = 1
     `);
 
@@ -97,6 +100,8 @@ async function getResumen(req, res) {
       cantidadTotalMinima: ensurePositiveNumber(row.CantidadTotalMinima),
       precioCosto: parseDecimal(row.PrecioCosto),
       precioVenta: parseDecimal(row.PrecioUnitarioVenta),
+      marcaId: row.MarcaID || null,
+      marcaNombre: row.MarcaNombre || null,
       descuento: parseDecimal(row.PorcentajeDescuentoEmpaque, 4),
       productoNombre: row.NombreProducto,
       stockMinimoProducto: ensurePositiveNumber(row.StockMinimo),
@@ -261,7 +266,7 @@ async function getLotes(req, res) {
   try {
     const pool = await poolPromise;
     const meta = await getLotesColumnInfo();
-    const { factorExpr, empaquesExpr, unidadesExpr, cantidadExpr } = getCantidadExpressions(meta);
+    const { factorExpr, empaquesExpr, unidadesExpr, cantidadExpr, totalExpr } = getCantidadExpressions(meta);
 
     const { productoId, estado, buscar, proximos, diasMax, incluirInactivos } = req.query || {};
     const conditions = [];
@@ -279,8 +284,13 @@ async function getLotes(req, res) {
 
     const estadosPermitidos = new Set(['activos', 'inactivos', 'todos']);
     const estadoNorm = (estado || '').toLowerCase();
-    if (estadoNorm && estadosPermitidos.has(estadoNorm) && estadoNorm !== 'todos') {
-      conditions.push(estadoNorm === 'activos' ? 'COALESCE(l.Activo,1) = 1' : 'COALESCE(l.Activo,1) = 0');
+    if (estadoNorm && estadosPermitidos.has(estadoNorm)) {
+      if (estadoNorm === 'activos') {
+        conditions.push('COALESCE(l.Activo,1) = 1');
+      } else if (estadoNorm === 'inactivos') {
+        conditions.push('COALESCE(l.Activo,1) = 0');
+      }
+      // estado "todos" no agrega condiciA³n para incluir ambos
     } else if (!incluirInactivos) {
       conditions.push('COALESCE(l.Activo,1) = 1');
     }
@@ -306,10 +316,12 @@ async function getLotes(req, res) {
         COALESCE(l.Activo,1) AS Activo,
         ${meta.hasCantidadEmpaques ? `${empaquesExpr} AS CantidadEmpaques,` : '0 AS CantidadEmpaques,'}
         ${meta.hasCantidadUnidades ? `${unidadesExpr} AS CantidadUnidadesMinimas,` : '0 AS CantidadUnidadesMinimas,'}
-        ${cantidadExpr} AS CantidadTotalMinima,
+        ${totalExpr} AS CantidadTotalMinima,
         l.PrecioCosto,
         l.PrecioUnitarioVenta,
         l.PorcentajeDescuentoEmpaque,
+        l.MarcaID,
+        m.Nombre AS MarcaNombre,
         p.NombreProducto,
         p.StockMinimo,
         p.StockActual,
@@ -321,6 +333,7 @@ async function getLotes(req, res) {
       FROM dbo.Lotes l
       INNER JOIN dbo.Productos p ON p.ProductoID = l.ProductoID
       LEFT JOIN dbo.CategoriasProductos cat ON cat.CategoriaID = p.CategoriaID
+      LEFT JOIN dbo.Marcas m ON m.MarcaID = l.MarcaID
       ${whereClause}
       ORDER BY COALESCE(l.Activo,1) DESC, l.FechaVencimiento, l.LoteID
     `;
@@ -348,6 +361,8 @@ async function getLotes(req, res) {
         diasRestantes,
         activo: Boolean(row.Activo),
         estado: Boolean(row.Activo) ? 'Activo' : 'Inactivo',
+        marcaId: row.MarcaID || null,
+        marcaNombre: row.MarcaNombre || null,
         cantidadEmpaques: ensurePositiveNumber(row.CantidadEmpaques),
         cantidadUnidadesMinimas: ensurePositiveNumber(row.CantidadUnidadesMinimas),
         cantidadTotalMinima: ensurePositiveNumber(row.CantidadTotalMinima),
@@ -376,7 +391,7 @@ async function getLoteDetalle(req, res) {
 
     const pool = await poolPromise;
     const meta = await getLotesColumnInfo();
-    const { factorExpr, empaquesExpr, unidadesExpr, cantidadExpr } = getCantidadExpressions(meta);
+    const { factorExpr, empaquesExpr, unidadesExpr, cantidadExpr, totalExpr } = getCantidadExpressions(meta);
 
     const request = pool.request().input('id', sql.Int, Number(id));
     const loteResult = await request.query(`
@@ -389,10 +404,12 @@ async function getLoteDetalle(req, res) {
         COALESCE(l.Activo,1) AS Activo,
         ${meta.hasCantidadEmpaques ? `${empaquesExpr} AS CantidadEmpaques,` : '0 AS CantidadEmpaques,'}
         ${meta.hasCantidadUnidades ? `${unidadesExpr} AS CantidadUnidadesMinimas,` : '0 AS CantidadUnidadesMinimas,'}
-        ${cantidadExpr} AS CantidadTotalMinima,
+        ${totalExpr} AS CantidadTotalMinima,
         l.PrecioCosto,
         l.PrecioUnitarioVenta,
         l.PorcentajeDescuentoEmpaque,
+        l.MarcaID,
+        m.Nombre AS MarcaNombre,
         p.NombreProducto,
         p.StockMinimo,
         p.StockActual,
@@ -402,6 +419,7 @@ async function getLoteDetalle(req, res) {
       FROM dbo.Lotes l
       INNER JOIN dbo.Productos p ON p.ProductoID = l.ProductoID
       LEFT JOIN dbo.CategoriasProductos cat ON cat.CategoriaID = p.CategoriaID
+      LEFT JOIN dbo.Marcas m ON m.MarcaID = l.MarcaID
       WHERE l.LoteID = @id
     `);
 
@@ -445,6 +463,8 @@ async function getLoteDetalle(req, res) {
       cantidadTotalMinima: ensurePositiveNumber(row.CantidadTotalMinima),
       precioCosto: parseDecimal(row.PrecioCosto),
       precioVenta: parseDecimal(row.PrecioUnitarioVenta),
+      marcaId: row.MarcaID || null,
+      marcaNombre: row.MarcaNombre || null,
       descuento: parseDecimal(row.PorcentajeDescuentoEmpaque, 4),
       stockMinimoProducto: ensurePositiveNumber(row.StockMinimo),
       stockActualProducto: ensurePositiveNumber(row.StockActual),
@@ -470,6 +490,7 @@ async function addLote(req, res) {
       PrecioCosto,
       PrecioVenta,
       Descuento = 0,
+      MarcaID,
     } = req.body || {};
 
     if (!ProductoID) return res.status(400).json({ message: 'ProductoID es requerido' });
@@ -480,7 +501,7 @@ async function addLote(req, res) {
 
     const fechaVenc = new Date(FechaVencimiento);
     if (Number.isNaN(fechaVenc.getTime())) {
-      return res.status(400).json({ message: 'Fecha de vencimiento inválida' });
+      return res.status(400).json({ message: 'Fecha de vencimiento invA¡lida' });
     }
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -511,7 +532,27 @@ async function addLote(req, res) {
     }
     const producto = productoQuery.recordset[0];
     if (!producto.Activo) {
-      return res.status(400).json({ message: 'El producto está inactivo' });
+      return res.status(400).json({ message: 'El producto estA¡ inactivo' });
+    }
+
+    const marcaIdRaw = MarcaID ?? req.body?.marcaId;
+    const marcaId = marcaIdRaw != null ? Number(marcaIdRaw) : null;
+    if (!marcaId) {
+      return res.status(400).json({ message: 'La marca es requerida' });
+    }
+    const marcaQuery = await pool
+      .request()
+      .input('MarcaID', sql.Int, marcaId)
+      .query(`
+        SELECT MarcaID, Activo
+        FROM dbo.Marcas
+        WHERE MarcaID = @MarcaID
+      `);
+    if (!marcaQuery.recordset.length) {
+      return res.status(404).json({ message: 'Marca no encontrada' });
+    }
+    if (marcaQuery.recordset[0].Activo === false || marcaQuery.recordset[0].Activo === 0) {
+      return res.status(400).json({ message: 'La marca estA¡ inactiva' });
     }
 
     const factor = meta.hasCantidadUnidades
@@ -546,6 +587,7 @@ async function addLote(req, res) {
         'PrecioCosto',
         'PrecioUnitarioVenta',
         'PorcentajeDescuentoEmpaque',
+        'MarcaID',
       ];
       const insertValues = [
         '@ProductoID',
@@ -556,6 +598,7 @@ async function addLote(req, res) {
         '@PrecioCosto',
         '@PrecioVenta',
         '@Descuento',
+        '@MarcaID',
       ];
 
       if (meta.hasCantidadEmpaques) insertColumns.push('CantidadEmpaques');
@@ -572,7 +615,8 @@ async function addLote(req, res) {
         .input('FechaVencimiento', sql.Date, fechaVenc)
         .input('PrecioCosto', sql.Decimal(10, 2), costo)
         .input('PrecioVenta', sql.Decimal(10, 2), venta)
-        .input('Descuento', sql.Decimal(5, 4), parseDecimal(Descuento, 4));
+        .input('Descuento', sql.Decimal(5, 4), parseDecimal(Descuento, 4))
+        .input('MarcaID', sql.Int, marcaId);
 
       if (meta.hasCantidadEmpaques) {
         reqTx.input('CantidadEmpaques', sql.Int, Math.round(ensurePositiveNumber(CantidadEmpaques)));
@@ -625,14 +669,18 @@ async function updateLote(req, res) {
       PrecioVenta,
       Descuento,
       NumeroLote,
+      MarcaID,
     } = req.body || {};
+
+    const marcaIdPayload = MarcaID ?? req.body?.marcaId;
 
     if (
       FechaVencimiento === undefined &&
       PrecioCosto === undefined &&
       PrecioVenta === undefined &&
       Descuento === undefined &&
-      NumeroLote === undefined
+      NumeroLote === undefined &&
+      marcaIdPayload === undefined
     ) {
       return res.status(400).json({ message: 'No hay cambios para aplicar' });
     }
@@ -649,7 +697,8 @@ async function updateLote(req, res) {
           l.FechaVencimiento,
           l.PrecioCosto,
           l.PrecioUnitarioVenta,
-          l.PorcentajeDescuentoEmpaque
+          l.PorcentajeDescuentoEmpaque,
+          l.MarcaID
         FROM dbo.Lotes l
         WHERE l.LoteID = @id
       `);
@@ -666,7 +715,7 @@ async function updateLote(req, res) {
     if (FechaVencimiento !== undefined) {
       const nuevaFecha = new Date(FechaVencimiento);
       if (Number.isNaN(nuevaFecha.getTime())) {
-        return res.status(400).json({ message: 'Fecha de vencimiento inválida' });
+        return res.status(400).json({ message: 'Fecha de vencimiento invA¡lida' });
       }
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
@@ -692,6 +741,45 @@ async function updateLote(req, res) {
       updates.push('NumeroLote = @NumeroLote');
       inputDefs.push({ name: 'NumeroLote', type: sql.NVarChar(100), value: String(NumeroLote) });
       cambios.push(`Numero lote: ${loteActual.NumeroLote || '-'} -> ${NumeroLote}`);
+    }
+
+    if (marcaIdPayload !== undefined) {
+      const marcaId = Number(marcaIdPayload);
+      if (!Number.isInteger(marcaId) || marcaId <= 0) {
+        return res.status(400).json({ message: 'Marca invA¡lida' });
+      }
+      const marcaQuery = await pool
+        .request()
+        .input('MarcaID', sql.Int, marcaId)
+        .query(`
+          SELECT MarcaID, Nombre, COALESCE(Activo,1) AS Activo
+          FROM dbo.Marcas
+          WHERE MarcaID = @MarcaID
+        `);
+      if (!marcaQuery.recordset.length) {
+        return res.status(404).json({ message: 'Marca no encontrada' });
+      }
+      const nuevaMarcaNombre = marcaQuery.recordset[0].Nombre || '';
+      if (!marcaQuery.recordset[0].Activo) {
+        return res.status(400).json({ message: 'La marca estA¡ inactiva' });
+      }
+      updates.push('MarcaID = @MarcaID');
+      inputDefs.push({ name: 'MarcaID', type: sql.Int, value: marcaId });
+      if (Number(loteActual.MarcaID || 0) !== marcaId) {
+        let marcaAnteriorNombre = '';
+        if (loteActual.MarcaID) {
+          const anteriorQuery = await pool
+            .request()
+            .input('MarcaID', sql.Int, Number(loteActual.MarcaID))
+            .query('SELECT Nombre FROM dbo.Marcas WHERE MarcaID = @MarcaID');
+          marcaAnteriorNombre = anteriorQuery.recordset[0]?.Nombre || '';
+        }
+        cambios.push(
+          `Marca: ${marcaAnteriorNombre || loteActual.MarcaID || '-'} -> ${
+            nuevaMarcaNombre || marcaId
+          }`
+        );
+      }
     }
 
     if (PrecioCosto !== undefined) {
@@ -779,6 +867,10 @@ async function desactivarLote(req, res) {
   try {
     const { id } = req.params;
     if (!id) return res.status(400).json({ message: 'LoteID requerido' });
+    const motivoInput = (req.body?.motivo ?? req.body?.Motivo ?? '').toString().trim();
+    if (!motivoInput) {
+      return res.status(400).json({ message: 'Motivo requerido para desactivar el lote' });
+    }
 
     const pool = await poolPromise;
     const meta = await getLotesColumnInfo();
@@ -804,7 +896,7 @@ async function desactivarLote(req, res) {
     }
     const lote = detalle.recordset[0];
     if (!lote.Activo) {
-      return res.status(200).json({ message: 'El lote ya está inactivo' });
+      return res.status(200).json({ message: 'El lote ya estA¡ inactivo' });
     }
 
     const factor = ensurePositiveNumber(lote.CantidadUnidadesMinimas, 1) || 1;
@@ -823,6 +915,10 @@ async function desactivarLote(req, res) {
     try {
       const updateParts = ['Activo = 0'];
       const reqTx = new sql.Request(tx).input('LoteID', sql.Int, Number(id));
+      if (meta.hasMotivoInactivacion) {
+        updateParts.push('MotivoInactivacion = @Motivo');
+        reqTx.input('Motivo', sql.NVarChar(400), motivoInput);
+      }
       await reqTx.query(`UPDATE dbo.Lotes SET ${updateParts.join(', ')} WHERE LoteID = @LoteID;`);
 
       await new sql.Request(tx)
@@ -844,7 +940,7 @@ async function desactivarLote(req, res) {
         .input('LoteID', sql.Int, Number(id))
         .input('UsuarioID', sql.Int, req.user?.sub ? Number(req.user.sub) : null)
         .input('Accion', sql.NVarChar(50), 'desactivacion')
-        .input('Detalle', sql.NVarChar(4000), 'Desactivado manualmente.')
+        .input('Detalle', sql.NVarChar(4000), `Desactivado manualmente. Motivo: ${motivoInput}`)
         .query(`
           INSERT INTO dbo.InventarioLoteHistorial (LoteID, UsuarioID, Accion, Detalle)
           VALUES (@LoteID, @UsuarioID, @Accion, @Detalle);
@@ -859,6 +955,32 @@ async function desactivarLote(req, res) {
   } catch (err) {
     console.error('desactivarLote error:', err);
     res.status(500).json({ message: 'Error al desactivar lote' });
+  }
+}
+
+async function getMarcasActivas(req, res) {
+  try {
+    const incluirInactivas =
+      req.query?.incluirInactivas === 'true' || req.query?.incluirInactivas === '1';
+    const pool = await poolPromise;
+    const query = `
+      SELECT MarcaID, Nombre, Laboratorio, COALESCE(Activo,1) AS Activo, FechaCreacion
+      FROM dbo.Marcas
+      ${incluirInactivas ? '' : 'WHERE COALESCE(Activo,1) = 1'}
+      ORDER BY Nombre ASC
+    `;
+    const result = await pool.request().query(query);
+    const marcas = result.recordset.map((row) => ({
+      marcaId: row.MarcaID,
+      nombre: row.Nombre,
+      laboratorio: row.Laboratorio,
+      activo: Boolean(row.Activo),
+      fechaCreacion: row.FechaCreacion,
+    }));
+    res.json(marcas);
+  } catch (err) {
+    console.error('getMarcasActivas error:', err);
+    res.status(500).json({ message: 'Error al obtener las marcas' });
   }
 }
 
@@ -961,7 +1083,7 @@ async function ajustarStock(req, res) {
     const { ProductoID, Cantidad } = req.body || {};
     const cantidadNum = Number(Cantidad);
     if (!ProductoID || !Number.isFinite(cantidadNum) || cantidadNum === 0) {
-      return res.status(400).json({ message: 'Datos inválidos para ajuste' });
+      return res.status(400).json({ message: 'Datos invA¡lidos para ajuste' });
     }
 
     const pool = await poolPromise;
@@ -981,7 +1103,7 @@ async function ajustarStock(req, res) {
     }
     const producto = productResult.recordset[0];
     if (!producto.Activo) {
-      return res.status(400).json({ message: 'El producto está inactivo' });
+      return res.status(400).json({ message: 'El producto estA¡ inactivo' });
     }
 
     const factor = DEFAULT_FACTOR_UNIDADES;
@@ -1090,4 +1212,5 @@ module.exports = {
   desactivarLote,
   ajustarStock,
   consumirDesdeLotes,
+  getMarcasActivas,
 };

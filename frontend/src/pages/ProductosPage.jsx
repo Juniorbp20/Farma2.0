@@ -1,8 +1,11 @@
-// src/pages/ProductosPage2.jsx
+// src/pages/ProductosPage.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import "./ProductosPage.css";
 import DataTable from "react-data-table-component";
+import ConfirmModal from "../components/ConfirmModal";
+import TabBar from "../components/TabBar";
 import Toast from "../components/recursos/Toast";
+import ActionButton from "../components/ActionButton";
 import {
   getProductos,
   createProducto,
@@ -14,15 +17,16 @@ import {
 
 export default function ProductosPage() {
   const [items, setItems] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [unidadesEmpaque, setUnidadesEmpaque] = useState([]);
+  const [unidadesMinima, setUnidadesMinima] = useState([]);
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState("success");
   const [toastKey, setToastKey] = useState(Date.now());
   const [busqueda, setBusqueda] = useState("");
-  const [categorias, setCategorias] = useState([]);
-  const [unidadesEmpaque, setUnidadesEmpaque] = useState([]);
-  const [unidadesMinima, setUnidadesMinima] = useState([]);
-
   const [editando, setEditando] = useState(null);
+  const [vistaActual, setVistaActual] = useState("ver");
+
   const [form, setForm] = useState({
     Nombre: "",
     Presentacion: "",
@@ -40,58 +44,80 @@ export default function ProductosPage() {
   const [showModalActivar, setShowModalActivar] = useState(false);
   const [productoPorActivar, setProductoPorActivar] = useState(null);
 
+  const productsTabOptions = [
+    { value: "ver", label: "Ver Productos", icon: "bi bi-box-seam" },
+    { value: "gestionar", label: "Gestionar Productos", icon: "bi bi-plus-circle" },
+  ];
+
   useEffect(() => {
-    (async () => {
-      try {
-        const [data, cats, ume, umm] = await Promise.all([
-          getProductos(),
-          getCategoriasProductos(),
-          getUnidadesMedida("empaque"),
-          getUnidadesMedida("minima"),
-        ]);
-        setItems(data);
-        setCategorias(cats);
-        setUnidadesEmpaque(ume);
-        setUnidadesMinima(umm);
-      } catch {
-        setMensaje("Error cargando productos");
-        setTipoMensaje("error");
-        setToastKey(Date.now());
-      }
-    })();
+    cargarDatos();
   }, []);
 
-  useEffect(() => { if (mensaje) setToastKey(Date.now()); }, [mensaje]);
+  useEffect(() => {
+    if (mensaje) {
+      setToastKey(Date.now());
+    }
+  }, [mensaje]);
 
-  function onEdit(p) {
-    setEditando(p);
+  async function cargarDatos() {
+    try {
+      const [data, cats, ume, umm] = await Promise.all([
+        getProductos(),
+        getCategoriasProductos(),
+        getUnidadesMedida("empaque"),
+        getUnidadesMedida("minima"),
+      ]);
+      setItems(data);
+      setCategorias(cats);
+      setUnidadesEmpaque(ume);
+      setUnidadesMinima(umm);
+    } catch (e) {
+      setMensaje("Error cargando productos");
+      setTipoMensaje("error");
+    }
+  }
+
+  const refrescarProductos = async () => {
+    try {
+      const data = await getProductos();
+      setItems(data);
+    } catch {
+      setMensaje("No se pudo refrescar la lista");
+      setTipoMensaje("error");
+    }
+  };
+
+  function onEdit(prod) {
+    setEditando(prod);
+    setVistaActual("gestionar");
     setForm({
-      Nombre: p.Nombre || "",
-      Presentacion: p.Presentacion || "",
-      CategoriaID: String(p.CategoriaID || ""),
-      UnidadMedidaEmpaqueID: String(p.UnidadMedidaEmpaqueID || ""),
-      UnidadMedidaMinimaID: String(p.UnidadMedidaMinimaID || ""),
-      StockMinimo: Number((p.StockMinimo ?? 1) || 1),
-      Impuesto: Number(p.Impuesto ?? 0),
-      Activo: !!p.Activo,
+      Nombre: prod.Nombre || "",
+      Presentacion: prod.Presentacion || "",
+      CategoriaID: String(prod.CategoriaID || ""),
+      UnidadMedidaEmpaqueID: String(prod.UnidadMedidaEmpaqueID || ""),
+      UnidadMedidaMinimaID: String(prod.UnidadMedidaMinimaID || ""),
+      StockMinimo: Number((prod.StockMinimo ?? 1) || 1),
+      Impuesto: Number(prod.Impuesto ?? 0),
+      Activo: !!prod.Activo,
     });
     setErrors({});
   }
 
   function onCancel() {
-  setEditando(null);
-  setForm({
-    Nombre: "",
-    Presentacion: "",
-    CategoriaID: "",
-    UnidadMedidaEmpaqueID: "",
-    UnidadMedidaMinimaID: "",
-    StockMinimo: 1,
-    Impuesto: 0,
-    Activo: true,
-  });
-  setErrors({});
-}
+    setEditando(null);
+    setVistaActual("ver");
+    setForm({
+      Nombre: "",
+      Presentacion: "",
+      CategoriaID: "",
+      UnidadMedidaEmpaqueID: "",
+      UnidadMedidaMinimaID: "",
+      StockMinimo: 1,
+      Impuesto: 0,
+      Activo: true,
+    });
+    setErrors({});
+  }
 
   function validateField(name, value) {
     const err = {};
@@ -133,16 +159,18 @@ export default function ProductosPage() {
   }
 
   function handleChange(e) {
-  const { name, value, type, checked } = e.target;
-  const newValue = type === "checkbox" ? checked : value;
-  setForm((prev) => ({ ...prev, [name]: newValue }));
-  const fieldError = validateField(name, newValue);
-  setErrors((prev) => {
-    const next = { ...prev };
-    if (fieldError[name]) next[name] = fieldError[name]; else delete next[name];
-    return next;
-  });
+    const { name, value, type, checked } = e.target;
+    const newValue = type === "checkbox" ? checked : value;
+    setForm((prev) => ({ ...prev, [name]: newValue }));
+    const fieldError = validateField(name, newValue);
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (fieldError[name]) next[name] = fieldError[name];
+      else delete next[name];
+      return next;
+    });
   }
+
   function handleBlur(e) {
     const { name, value } = e.target;
     setErrors((prev) => ({ ...prev, ...validateField(name, value) }));
@@ -151,242 +179,441 @@ export default function ProductosPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     let v = {};
-    Object.entries(form).forEach(([k, val]) => { v = { ...v, ...validateField(k, val) }; });
+    Object.entries(form).forEach(([k, val]) => {
+      v = { ...v, ...validateField(k, val) };
+    });
     setErrors(v);
     if (Object.keys(v).length) return;
 
     try {
       const payload = {
         Nombre: form.Nombre,
-      Presentacion: form.Presentacion,
-      CategoriaID: Number(form.CategoriaID),
-      UnidadMedidaEmpaqueID: Number(form.UnidadMedidaEmpaqueID),
-      UnidadMedidaMinimaID: Number(form.UnidadMedidaMinimaID),
-      StockMinimo: Number(form.StockMinimo),
-      Impuesto: Number(form.Impuesto ?? 0),
-      Activo: !!form.Activo,
-    };
-    if (editando) {
-      await updateProducto(editando.ProductoID, payload);
-      setMensaje("Producto actualizado");
+        Presentacion: form.Presentacion,
+        CategoriaID: Number(form.CategoriaID),
+        UnidadMedidaEmpaqueID: Number(form.UnidadMedidaEmpaqueID),
+        UnidadMedidaMinimaID: Number(form.UnidadMedidaMinimaID),
+        StockMinimo: Number(form.StockMinimo),
+        Impuesto: Number(form.Impuesto ?? 0),
+        Activo: !!form.Activo,
+      };
+      if (editando) {
+        await updateProducto(editando.ProductoID, payload);
+        setMensaje("Producto actualizado");
       } else {
         await createProducto(payload);
         setMensaje("Producto creado");
       }
-      setTipoMensaje("success"); setToastKey(Date.now()); onCancel();
-      const data = await getProductos(); setItems(data);
+      setTipoMensaje("success");
+      setToastKey(Date.now());
+      onCancel();
+      await refrescarProductos();
     } catch (e) {
-      setMensaje(typeof e?.message === 'string' ? e.message : 'Error al guardar'); setTipoMensaje('error'); setToastKey(Date.now());
+      const msg = typeof e?.message === "string" ? e.message : "Error al guardar";
+      setMensaje(msg);
+      setTipoMensaje("error");
+      setToastKey(Date.now());
     }
   }
 
-  const abrirModalEliminar = (p) => { setProductoSeleccionado(p); setShowModalEliminar(true); };
+  const abrirModalEliminar = (p) => {
+    setProductoSeleccionado(p);
+    setShowModalEliminar(true);
+  };
+
   const confirmarEliminar = async () => {
     if (!productoSeleccionado) return;
-    try { await deleteProducto(productoSeleccionado.ProductoID); setMensaje('Producto desactivado'); setTipoMensaje('success'); setToastKey(Date.now()); const data = await getProductos(); setItems(data); }
-    catch (e) { setMensaje(typeof e?.message === 'string' ? e.message : 'No se pudo desactivar'); setTipoMensaje('error'); setToastKey(Date.now()); }
-    finally { setShowModalEliminar(false); setProductoSeleccionado(null); }
+    try {
+      await deleteProducto(productoSeleccionado.ProductoID);
+      setMensaje("Producto desactivado");
+      setTipoMensaje("success");
+      await refrescarProductos();
+    } catch (e) {
+      const msg = typeof e?.message === "string" ? e.message : "No se pudo desactivar";
+      setMensaje(msg);
+      setTipoMensaje("error");
+    } finally {
+      setToastKey(Date.now());
+      setShowModalEliminar(false);
+      setProductoSeleccionado(null);
+    }
   };
-  const cancelarEliminar = () => { setShowModalEliminar(false); setProductoSeleccionado(null); };
 
-  const abrirModalActivar = (p) => { setProductoPorActivar(p); setShowModalActivar(true); };
+  const cancelarEliminar = () => {
+    setShowModalEliminar(false);
+    setProductoSeleccionado(null);
+  };
+
+  const abrirModalActivar = (p) => {
+    setProductoPorActivar(p);
+    setShowModalActivar(true);
+  };
+
   const confirmarActivar = async () => {
     if (!productoPorActivar) return;
-    try { await updateProducto(productoPorActivar.ProductoID, { Activo: true }); setMensaje('Producto activado'); setTipoMensaje('success'); setToastKey(Date.now()); const data = await getProductos(); setItems(data); }
-    catch (e) { setMensaje(typeof e?.message === 'string' ? e.message : 'Error al activar'); setTipoMensaje('error'); setToastKey(Date.now()); }
-    finally { setShowModalActivar(false); setProductoPorActivar(null); }
+    try {
+      await updateProducto(productoPorActivar.ProductoID, { Activo: true });
+      setMensaje("Producto activado");
+      setTipoMensaje("success");
+      await refrescarProductos();
+    } catch (e) {
+      const msg = typeof e?.message === "string" ? e.message : "Error al activar";
+      setMensaje(msg);
+      setTipoMensaje("error");
+    } finally {
+      setToastKey(Date.now());
+      setShowModalActivar(false);
+      setProductoPorActivar(null);
+    }
   };
-  const cancelarActivar = () => { setShowModalActivar(false); setProductoPorActivar(null); };
+
+  const cancelarActivar = () => {
+    setShowModalActivar(false);
+    setProductoPorActivar(null);
+  };
 
   const columnas = [
-    { name: 'ID', selector: (r) => r.ProductoID, sortable: true, width: '80px' },
-    { name: 'Nombre', selector: (r) => r.Nombre, sortable: true, width: '160px', wrap: true },
-    { name: 'Presentación', selector: (r) => r.Presentacion || '', sortable: true, width: '160px', wrap: true },
-    { name: 'UM Empaque', selector: (r) => r.UnidadMedidaEmpaque || '', sortable: true, width: '140px' },
-    { name: 'UM Mínima', selector: (r) => r.UnidadMedidaMinima || '', sortable: true, width: '140px' },
-    { name: 'Stock', selector: (r) => r.Stock, sortable: true, width: '100px' },
-    { name: 'Stock Mín.', selector: (r) => r.StockMinimo, sortable: true, width: '120px' },
-    { name: 'Imp. %', selector: (r) => Number(r.Impuesto ?? 0), sortable: true, width: '100px', right: true,
-      cell: (r) => <span className="fw-semibold">{Number(r.Impuesto ?? 0).toFixed(2)}%</span>
-    },
+    { name: "ID", selector: (r) => r.ProductoID, sortable: true, width: "80px" },
+    { name: "Nombre", selector: (r) => r.Nombre, sortable: true, width: "160px", wrap: true },
+    { name: "Presentacion", selector: (r) => r.Presentacion || "", sortable: true, width: "160px", wrap: true },
+    { name: "UM Empaque", selector: (r) => r.UnidadMedidaEmpaque || "", sortable: true, width: "140px" },
+    { name: "UM Minima", selector: (r) => r.UnidadMedidaMinima || "", sortable: true, width: "140px" },
+    { name: "Stock", selector: (r) => r.Stock, sortable: true, width: "100px" },
+    { name: "Stock Min.", selector: (r) => r.StockMinimo, sortable: true, width: "120px" },
     {
-      name: 'Activo', selector: (r) => (r.Activo ? 'Sí' : 'No'), sortable: true, width: '100px'
+      name: "Imp. %",
+      selector: (r) => Number(r.Impuesto ?? 0),
+      sortable: true,
+      width: "100px",
+      right: true,
+      cell: (r) => (
+        <span className="fw-semibold">{Number(r.Impuesto ?? 0).toFixed(2)}%</span>
+      ),
     },
+    { name: "Activo", selector: (r) => (r.Activo ? "Si" : "No"), sortable: true, width: "100px" },
     {
-      name: 'Acciones', width: '120px',
+      name: "Acciones",
+      width: "120px",
       cell: (row) => (
-        <div className="btn-accion-contenedor">
-          <button className="btn btn-edit btn-sm me-1" onClick={() => onEdit(row)} title="Editar">
-            <i className="bi bi-pencil-fill"></i>
+        <div className="table-action-group btn-group btn-group-sm">
+          <button
+            className="btn btn-outline-primary"
+            onClick={() => onEdit(row)}
+            title="Editar"
+          >
+            <i className="bi bi-pencil"></i>
           </button>
           {row.Activo ? (
-            <button className="btn btn-delete btn-sm" onClick={() => abrirModalEliminar(row)} title="Desactivar">
-              <i className="bi bi-trash3-fill"></i>
+            <button
+              className="btn btn-outline-danger"
+              onClick={() => abrirModalEliminar(row)}
+              title="Desactivar"
+            >
+              <i className="bi bi-trash3"></i>
             </button>
           ) : (
-            <button className="btn btn-sm btn-success" onClick={() => abrirModalActivar(row)} title="Activar">
+            <button
+              className="btn btn-outline-success"
+              onClick={() => abrirModalActivar(row)}
+              title="Activar"
+            >
               <i className="bi bi-check-circle-fill"></i>
             </button>
           )}
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   const itemsFiltrados = useMemo(() => {
-    const q = (busqueda || '').toLowerCase(); if (!q) return items;
+    const q = (busqueda || "").toLowerCase();
+    if (!q) return items;
     return items.filter((p) =>
-      (p.Nombre || '').toLowerCase().includes(q) ||
-      (p.Presentacion || '').toLowerCase().includes(q) ||
-      String(p.Impuesto ?? '').toLowerCase().includes(q) ||
-      (p.UnidadMedidaEmpaque || '').toLowerCase().includes(q) ||
-      (p.UnidadMedidaMinima || '').toLowerCase().includes(q)
+      (p.Nombre || "").toLowerCase().includes(q) ||
+      (p.Presentacion || "").toLowerCase().includes(q) ||
+      String(p.Impuesto ?? "").toLowerCase().includes(q) ||
+      (p.UnidadMedidaEmpaque || "").toLowerCase().includes(q) ||
+      (p.UnidadMedidaMinima || "").toLowerCase().includes(q)
     );
   }, [items, busqueda]);
 
-  // paginación configurada inline en DataTable
+  const paginacionOpciones = {
+    rowsPerPageText: "Filas:",
+    rangeSeparatorText: "de",
+  };
+
+  const productosTableStyles = {
+    headCells: {
+      style: {
+        backgroundColor: "#fff",
+        fontWeight: 600,
+        whiteSpace: "normal !important",
+      },
+    },
+    cells: {
+      style: {
+        whiteSpace: "normal !important",
+        overflow: "visible !important",
+        wordWrap: "break-word !important",
+        textOverflow: "initial !important",
+      },
+    },
+  };
 
   return (
     <div className="container productos-page-container py-3">
-      <h1 className="page-title display-5 fw-bold text-center opacity-75 mb-3">Productos</h1>
+      <div className="d-flex justify-content-end pb-2 mb-3 productos-menu">
+        <TabBar
+          tabs={productsTabOptions}
+          active={vistaActual}
+          onSelect={setVistaActual}
+          ariaLabel="Secciones de productos"
+        />
+      </div>
       <Toast key={toastKey} message={mensaje} type={tipoMensaje} />
-      <div className="row g-3">
-        <div className="col-12 col-lg-5">
-          <div className="card shadow-sm">
-            <div className="card-body products-form-container">
-              <h5 className="card-title text-center">{editando ? 'Editar Producto' : 'Nuevo Producto'}</h5>
-              <form onSubmit={handleSubmit} noValidate className="row g-2">
-                <div className="col-12">
-                  <label className="form-label">Nombre <span className="obligatorio">*</span></label>
-                  <input name="Nombre" value={form.Nombre} onChange={handleChange} onBlur={handleBlur} className={`form-control ${errors.Nombre ? 'is-invalid' : ''}`} placeholder="Paracetamol" />
-                  {errors.Nombre && <div className="invalid-feedback">{errors.Nombre}</div>}
-                </div>
-                <div className="col-12">
-                  <label className="form-label">Presentación</label>
-                  <textarea name="Presentacion" rows={1} value={form.Presentacion} onChange={handleChange} onBlur={handleBlur} className={`form-control ${errors.Presentacion ? 'is-invalid' : ''}`} placeholder="500 mg x 10 tabletas" />
-                  {errors.Presentacion && <div className="invalid-feedback">{errors.Presentacion}</div>}
-                </div>
-                <div className="col-4">
-                  <label className="form-label">Categoría <span className="obligatorio">*</span></label>
-                  <select name="CategoriaID" className={`form-select ${errors.CategoriaID ? 'is-invalid' : ''}`} value={form.CategoriaID} onChange={handleChange}>
-                    <option value="">Seleccionar</option>
-                    {categorias.map((c) => (
-                      <option key={c.CategoriaID} value={c.CategoriaID}>{c.NombreCategoria}</option>
-                    ))}
-                  </select>
-                  {errors.CategoriaID && <div className="invalid-feedback">{errors.CategoriaID}</div>}
-                </div>
-                <div className="col-4">
-                  <label className="form-label">Stock mínimo <span className="obligatorio">*</span></label>
-                  <input name="StockMinimo" type="number" min={1} className={`form-control ${errors.StockMinimo ? 'is-invalid' : ''}`} value={form.StockMinimo} onChange={handleChange} onBlur={handleBlur} placeholder="Ej. 5" />
-                  {errors.StockMinimo && <div className="invalid-feedback">{errors.StockMinimo}</div>}
-                </div>
-                <div className="col-4">
-                  <label className="form-label">Impuesto (%)</label>
-                  <input
-                    name="Impuesto"
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="0.01"
-                    className={`form-control ${errors.Impuesto ? 'is-invalid' : ''}`}
-                    value={form.Impuesto}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="Ej. 18"
-                  />
-                  {errors.Impuesto && <div className="invalid-feedback">{errors.Impuesto}</div>}
-                </div>
-                <div className="col-4">
-                  <label className="form-label">Unidad medida empaque <span className="obligatorio">*</span></label>
-                  <select name="UnidadMedidaEmpaqueID" className={`form-select ${errors.UnidadMedidaEmpaqueID ? 'is-invalid' : ''}`} value={form.UnidadMedidaEmpaqueID} onChange={handleChange} onBlur={handleBlur}>
-                    <option value="">Seleccionar</option>
-                    {unidadesEmpaque.map((u) => (<option key={u.UnidadMedidaID} value={u.UnidadMedidaID}>{u.Nombre}</option>))}
-                  </select>
-                  {errors.UnidadMedidaEmpaqueID && <div className="invalid-feedback">{errors.UnidadMedidaEmpaqueID}</div>}
-                </div>
-                <div className="col-4">
-                  <label className="form-label">Unidad medida mínima <span className="obligatorio">*</span></label>
-                  <select name="UnidadMedidaMinimaID" className={`form-select ${errors.UnidadMedidaMinimaID ? 'is-invalid' : ''}`} value={form.UnidadMedidaMinimaID} onChange={handleChange} onBlur={handleBlur}>
-                    <option value="">Seleccionar</option>
-                    {unidadesMinima.map((u) => (<option key={u.UnidadMedidaID} value={u.UnidadMedidaID}>{u.Nombre}</option>))}
-                  </select>
-                  {errors.UnidadMedidaMinimaID && <div className="invalid-feedback">{errors.UnidadMedidaMinimaID}</div>}
-                </div>
-                <div className="col-12 col-md-6 d-flex">
-                  <div className="toggle-container">
-                    <label className="toggle-switch">
-                      <input type="checkbox" name="Activo" checked={form.Activo} onChange={handleChange} />
-                      <span className="toggle-slider"></span>
-                    </label>
-                    <span className="toggle-label">Activo</span>
-                  </div>
-                </div>
-                <div className="col-12 mt-2">
-                  <div className="grupo-botones">
-                    <button className="btn btn-submit" type="submit">{editando ? 'Actualizar' : 'Crear'}</button>
-                    {editando && (<button className="btn btn-cancelar" type="button" onClick={onCancel}>Cancelar</button>)}
-                  </div>
-                </div>
-              </form>
+
+      {vistaActual === "gestionar" && (
+        <div className="productos-card products-form-container mb-3">
+          <h3 className="mb-3 text-center">
+            {editando ? "Editar Producto" : "Nuevo Producto"}
+          </h3>
+          <form onSubmit={handleSubmit} className="row g-2" noValidate>
+            <div className="col-12">
+              <label className="form-label">
+                Nombre <span className="obligatorio">*</span>
+              </label>
+              <input
+                name="Nombre"
+                value={form.Nombre}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`form-control ${errors.Nombre ? "is-invalid" : ""}`}
+                placeholder="Paracetamol"
+              />
+              {errors.Nombre && <div className="invalid-feedback">{errors.Nombre}</div>}
             </div>
-          </div>
-        </div>
-        <div className="col-12 col-lg-7">
-          <div className="card shadow-sm tabla-usuarios-contenedor">
-            <div className="card-body">
-              <div className="d-flex align-items-center mb-2">
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-search"></i></span>
-                  <input placeholder="Buscar..." className="form-control" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-                </div>
+
+            <div className="col-12">
+              <label className="form-label">Presentacion</label>
+              <textarea
+                name="Presentacion"
+                rows={1}
+                value={form.Presentacion}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`form-control ${errors.Presentacion ? "is-invalid" : ""}`}
+                placeholder="500 mg x 10 tabletas"
+              />
+              {errors.Presentacion && (
+                <div className="invalid-feedback">{errors.Presentacion}</div>
+              )}
+            </div>
+
+            <div className="col-12 col-md-4">
+              <label className="form-label">
+                Categoria <span className="obligatorio">*</span>
+              </label>
+              <select
+                name="CategoriaID"
+                className={`form-select ${errors.CategoriaID ? "is-invalid" : ""}`}
+                value={form.CategoriaID}
+                onChange={handleChange}
+              >
+                <option value="">Seleccionar</option>
+                {categorias.map((c) => (
+                  <option key={c.CategoriaID} value={c.CategoriaID}>
+                    {c.NombreCategoria}
+                  </option>
+                ))}
+              </select>
+              {errors.CategoriaID && (
+                <div className="invalid-feedback">{errors.CategoriaID}</div>
+              )}
+            </div>
+
+            <div className="col-12 col-md-4">
+              <label className="form-label">
+                Stock minimo <span className="obligatorio">*</span>
+              </label>
+              <input
+                name="StockMinimo"
+                type="number"
+                min={1}
+                className={`form-control ${errors.StockMinimo ? "is-invalid" : ""}`}
+                value={form.StockMinimo}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="Ej. 5"
+              />
+              {errors.StockMinimo && (
+                <div className="invalid-feedback">{errors.StockMinimo}</div>
+              )}
+            </div>
+
+            <div className="col-12 col-md-4">
+              <label className="form-label">Impuesto (%)</label>
+              <input
+                name="Impuesto"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                className={`form-control ${errors.Impuesto ? "is-invalid" : ""}`}
+                value={form.Impuesto}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="Ej. 18"
+              />
+              {errors.Impuesto && <div className="invalid-feedback">{errors.Impuesto}</div>}
+            </div>
+
+
+            <div className="col-12 col-md-4">
+              <label className="form-label">
+                Unidad medida empaque <span className="obligatorio">*</span>
+              </label>
+              <select
+                name="UnidadMedidaEmpaqueID"
+                className={`form-select ${errors.UnidadMedidaEmpaqueID ? "is-invalid" : ""}`}
+                value={form.UnidadMedidaEmpaqueID}
+                onChange={handleChange}
+                onBlur={handleBlur}
+              >
+                <option value="">Seleccionar</option>
+                {unidadesEmpaque.map((u) => (
+                  <option key={u.UnidadMedidaID} value={u.UnidadMedidaID}>
+                    {u.Nombre}
+                  </option>
+                ))}
+              </select>
+              {errors.UnidadMedidaEmpaqueID && (
+                <div className="invalid-feedback">{errors.UnidadMedidaEmpaqueID}</div>
+              )}
+            </div>
+
+            <div className="col-12 col-md-4">
+              <label className="form-label">
+                Unidad medida minima <span className="obligatorio">*</span>
+              </label>
+              <select
+                name="UnidadMedidaMinimaID"
+                className={`form-select ${errors.UnidadMedidaMinimaID ? "is-invalid" : ""}`}
+                value={form.UnidadMedidaMinimaID}
+                onChange={handleChange}
+                onBlur={handleBlur}
+              >
+                <option value="">Seleccionar</option>
+                {unidadesMinima.map((u) => (
+                  <option key={u.UnidadMedidaID} value={u.UnidadMedidaID}>
+                    {u.Nombre}
+                  </option>
+                ))}
+              </select>
+              {errors.UnidadMedidaMinimaID && (
+                <div className="invalid-feedback">{errors.UnidadMedidaMinimaID}</div>
+              )}
+            </div>
+
+            <div className="col-12 col-md-4 d-flex justify-content-center">
+              <div className="toggle-container">
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    name="Activo"
+                    checked={form.Activo}
+                    onChange={handleChange}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+                <span className="toggle-label">Activo</span>
               </div>
-              <DataTable
-                columns={columnas}
-                data={itemsFiltrados}
-                pagination
-                highlightOnHover
-                responsive
-                striped
-                className="table table-striped table-bordered table-hover"
-                noWrap={false}
-                paginationComponentOptions={{ rowsPerPageText: 'Filas:', rangeSeparatorText: 'de' }}
-                paginationPerPage={5}
-                paginationRowsPerPageOptions={[5, 10, 30, 50]}
-                conditionalRowStyles={[{ when: (row) => !row.Activo, style: { opacity: 0.5 } }]}
-                noDataComponent="No se encontraron productos que coincidan con la búsqueda"
-                customStyles={{ cells: { style: { whiteSpace: 'normal !important', overflow: 'visible !important', wordWrap: 'break-word !important', textOverflow: 'initial !important' } }, headCells: { style: { whiteSpace: 'normal !important' } } }}
+            </div>
+
+            <div className="col-12">
+              <div className="grupo-botones">
+                {editando && (
+                  <ActionButton
+                    type="button"
+                    variant="outline-danger"
+                    icon="bi bi-x-circle"
+                    text="Cancelar"
+                    onClick={onCancel}
+                  />
+                )}
+                <ActionButton
+                  type="submit"
+                  variant="primary"
+                  icon={editando ? "bi bi-arrow-clockwise" : "bi bi-plus-circle"}
+                  text={editando ? "Actualizar" : "Crear"}
+                />
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {vistaActual === "ver" && (
+        <div className="productos-card tabla-productos-contenedor">
+          <div className="productos-table-panel">
+            <div className="productos-search-wrapper mb-2">
+              <input
+                placeholder="Buscar producto..."
+                className="productos-search-field"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
               />
             </div>
-          </div>
-        </div>
-      </div>
-
-      {showModalEliminar && productoSeleccionado && (
-        <div className="modal-overlay modal-delete">
-          <div className="modal-content modal-delete-content">
-            <h3>Confirmar Desactivación</h3>
-            <p>¿Desea desactivar el producto <strong>{productoSeleccionado.Nombre}</strong>?</p>
-            <div className="modal-buttons">
-              <button className="btn btn-confirm" onClick={confirmarEliminar}>Confirmar</button>
-              <button className="btn btn-cancel" onClick={cancelarEliminar}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showModalActivar && productoPorActivar && (
-        <div className="modal-overlay modal-delete">
-          <div className="modal-content modal-delete-content">
-            <h3>Confirmar Activación</h3>
-            <p>¿Desea activar el producto <strong>{productoPorActivar.Nombre}</strong>?</p>
-            <div className="modal-buttons">
-              <button className="btn btn-confirm" onClick={confirmarActivar}>Confirmar</button>
-              <button className="btn btn-cancel" onClick={cancelarActivar}>Cancelar</button>
-            </div>
+            <DataTable
+              columns={columnas}
+              data={itemsFiltrados}
+              pagination
+              highlightOnHover
+              responsive
+              striped
+              className="table table-striped table-bordered table-hover"
+              noWrap={false}
+              paginationComponentOptions={paginacionOpciones}
+              paginationPerPage={5}
+              paginationRowsPerPageOptions={[5, 10, 30, 50]}
+              conditionalRowStyles={[{ when: (row) => !row.Activo, style: { opacity: 0.5 } }]}
+              noDataComponent="No se encontraron productos que coincidan con la busqueda"
+              fixedHeader
+              fixedHeaderScrollHeight="45vh"
+              persistTableHead
+              customStyles={productosTableStyles}
+            />
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showModalEliminar && !!productoSeleccionado}
+        title="Confirmar Desactivacion"
+        message={
+          <>
+            Desea desactivar el producto{" "}
+            <strong>{productoSeleccionado?.Nombre}</strong>?
+          </>
+        }
+        onCancel={cancelarEliminar}
+        onConfirm={confirmarEliminar}
+        cancelText="Cancelar"
+        confirmText="Confirmar"
+      />
+
+      <ConfirmModal
+        isOpen={showModalActivar && !!productoPorActivar}
+        title="Confirmar Activacion"
+        message={
+          <>
+            Desea activar el producto{" "}
+            <strong>{productoPorActivar?.Nombre}</strong>?
+          </>
+        }
+        onCancel={cancelarActivar}
+        onConfirm={confirmarActivar}
+        cancelText="Cancelar"
+        confirmText="Confirmar"
+      />
     </div>
   );
 }

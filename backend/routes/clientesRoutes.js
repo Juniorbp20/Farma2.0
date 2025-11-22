@@ -8,7 +8,7 @@ const { authorizePermissions } = require("../middleware/authz");
 router.get("/", clientesController.getClientes);
 router.get("/:id", clientesController.getClienteById);
 
-// Permisos granulares por acción
+// Permisos granulares por acciA³n
 router.post("/", authorizePermissions('clientes:create'), clientesController.createCliente);
 router.put("/:id", authorizePermissions('clientes:update'), clientesController.updateCliente);
 router.delete("/:id", authorizePermissions('clientes:delete'), clientesController.deleteCliente);

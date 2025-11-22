@@ -2,6 +2,7 @@
 // src/components/ClienteForm.js
 import React, { useState, useEffect } from "react";
 import "./ClienteForm.css";
+import ActionButton from "./ActionButton";
 
 function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
   const [form, setForm] = useState({
@@ -226,9 +227,12 @@ function ClienteForm({ onSubmit, clienteEditando, tiposDocumentos }) {
         {errors.Direccion && <div className="invalid-feedback">{errors.Direccion}</div>}
       </div>
 
-      <button type="submit" className="btn btn-submit">
-        {clienteEditando ? "Actualizar" : "Crear"}
-      </button>
+      <ActionButton
+        type="submit"
+        variant="primary"
+        icon={clienteEditando ? "bi bi-arrow-clockwise" : "bi bi-person-plus-fill"}
+        text={clienteEditando ? "Actualizar" : "Crear"}
+      />
     </form>
   </div>
   );

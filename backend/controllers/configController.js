@@ -32,7 +32,7 @@ async function actualizarParametros(req, res, next) {
       return res.status(400).json({ message: 'El nombre de la empresa es obligatorio.' });
     }
     if (!monedaSimbolo || !monedaSimbolo.toString().trim()) {
-      return res.status(400).json({ message: 'El símbolo de la moneda es obligatorio.' });
+      return res.status(400).json({ message: 'El simbolo de la moneda es obligatorio.' });
     }
 
     const payload = {

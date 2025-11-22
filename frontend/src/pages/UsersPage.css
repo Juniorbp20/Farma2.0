@@ -1,18 +1,66 @@
 .users-page-container {
     margin: 0 auto !important;
-    max-width: 1200px !important;
 }
 
-.tabla-usuarios-contenedor {
-    max-height: 70vh;
-    overflow-y: auto;
-    border: 1px solid #ddd;
+.tabla-usuarios-cont {
+    border: 1px solid #dee2e6;
     border-radius: 10px;
-    padding: 5px !important;
-    -webkit-border-radius: 10px;
-    -moz-border-radius: 10px;
-    -ms-border-radius: 10px;
-    -o-border-radius: 10px;
+    padding: 16px 16px !important;
+}
+
+.usuarios-table-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.users-menu .tab-bar {
+    justify-content: flex-end;
+}
+
+.users-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    width: 100%;
+}
+
+.users-form-container {
+    font-weight: 500;
+    color: #4f4f4f !important;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    width: 50%;
+    margin: 0 auto;
+}
+
+.usuarios-search-wrapper {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.usuarios-search-field {
+    border: 1px solid #d8dee8;
+    border-radius: 12px;
+    padding: 0.45rem 0.9rem;
+    min-width: 220px;
+    max-width: 300px;
+    width: 100%;
+    font-size: 0.95rem;
+    color: #4b5563;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.usuarios-search-field:focus {
+    outline: none;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.usuarios-search-field::placeholder {
+    color: rgba(107, 114, 128, 0.7);
 }
 
 form input::placeholder {
@@ -51,22 +99,26 @@ button.btn-submit:hover {
 button.btn-cancelar {
     display: block;
     margin: 0;
-    padding: 8px 40px;
-    border-radius: 5px;
-    color: #ffffff;
-    background-color: #dc3545;
+    padding: 8px 24px;
+    border-radius: 6px;
+    border: 1px solid #dc3545;
+    background: transparent;
+    color: #dc3545;
+    font-weight: 600;
     cursor: var(--cursor-seleccionables) !important;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
 }
 
 .users-form-container button.btn-cancelar:hover {
+    background-color: #dc3545;
     color: #ffffff;
-    background-color: #c82333;
 }
 
 .users-form-container {
     font-weight: 500;
     color: #4f4f4f !important;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
 }
 
 .toggle-container {
@@ -125,15 +177,5 @@ input:checked+.toggle-slider:before {
     transform: translateX(26px);
 }
 
-/* Cursor personalizado en botones de acciones (editar, desactivar, activar) */
-.btn-edit,
-.btn-delete,
-.btn-success {
-    cursor: var(--cursor-seleccionables) !important;
-}
 
-/* Asegurar dentro del contenedor de la tabla */
-.tabla-usuarios-contenedor .btn {
-    cursor: var(--cursor-seleccionables) !important;
-}
 

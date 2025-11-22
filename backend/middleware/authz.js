@@ -79,7 +79,7 @@ function requireAdmin(req, res, next) {
   const key = roleKey(req.user?.rol ?? req.user?.rolId);
   const isAdminId = String(req.user?.rolId ?? '') === '1';
   if (key !== 'admin' && !isAdminId) {
-    return res.status(403).json({ message: 'Solo administradores pueden realizar esta acción.' });
+    return res.status(403).json({ message: 'Solo administradores pueden realizar esta acciA³n.' });
   }
   next();
 }

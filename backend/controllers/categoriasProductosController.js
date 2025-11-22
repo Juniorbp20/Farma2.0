@@ -14,7 +14,7 @@ async function getCategoriasProductos(req, res) {
     res.json(q.recordset);
   } catch (err) {
     console.error('getCategoriasProductos error:', err);
-    res.status(500).json({ message: 'Error al obtener categorías de productos' });
+    res.status(500).json({ message: 'Error al obtener categorA­as de productos' });
   }
 }
 

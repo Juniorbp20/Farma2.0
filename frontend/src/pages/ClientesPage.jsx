@@ -1,11 +1,12 @@
-// src/pages/ClientesPage.js
+// src/pages/ClientesPage.jsx
 import React, { useState, useEffect } from "react";
 import "./ClientesPage.css";
+import ConfirmModal from "../components/ConfirmModal";
 import ClienteForm from "../components/ClienteForm";
 import ClientesList from "../components/ClientesList";
 import Toast from "../components/recursos/Toast";
-import { extractErrorMessage } from '../utils/Utils'; 
-
+import TabBar from "../components/TabBar";
+import { extractErrorMessage } from "../utils/Utils";
 import {
   getClientes,
   getTiposDocumentos,
@@ -14,36 +15,6 @@ import {
   deleteCliente,
 } from "../services/clientesService";
 
-function SectionMenu({ options = [], active, onSelect }) {
-  // Opciones del menú (mostrar "Agregar" solo para admin)
-  
-
-  /* const menuOptions = [
-    { key: "ver", label: "Ver Clientes", icon: "bi bi-people" },
-    ...(user?.rol === "admin"
-      ? [{ key: "agregar", label: "Agregar Cliente", icon: "bi bi-person-plus" }]
-      : []),
-  ]; */
-
-  return (
-    <div className="clientes-menu d-flex justify-content-end border-bottom pb-2 mb-3">
-      <div className="btn-group" role="group" aria-label="Clientes sections">
-        {options.map((opt) => (
-          <button
-            key={opt.key}
-            type="button"
-            className={`btn ${active === opt.key ? "btn-primary" : "btn-outline-primary"}`}
-            onClick={() => onSelect(opt.key)}
-          >
-            {opt.icon ? <i className={`${opt.icon} me-2`} aria-hidden="true"></i> : null}
-            <span>{opt.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ClientesPage({ user }) {
   const [clientes, setClientes] = useState([]);
   const [tiposDocumentos, setTiposDocumentos] = useState([]);
@@ -51,16 +22,12 @@ function ClientesPage({ user }) {
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState("success");
 
-  // Modales
   const [showModalEliminar, setShowModalEliminar] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [showModalEditar, setShowModalEditar] = useState(false);
   const [showModalActivar, setShowModalActivar] = useState(false);
 
-  // Vistas: 'agregar', 'ver' (por defecto 'ver')
-  const [vistaActual, setVistaActual] = useState("ver");
-
-  // Para la notificacion
+  const [vistaActual, setVistaActual] = useState("ver"); // 'ver' | 'agregar'
   const [toastKey, setToastKey] = useState(Date.now());
 
   useEffect(() => {
@@ -78,10 +45,10 @@ function ClientesPage({ user }) {
         await updateCliente(clienteEditando.ClienteID, cliente);
         setClienteEditando(null);
         setShowModalEditar(false);
-        setMensaje("Cliente actualizado con éxito.");
+        setMensaje("Cliente actualizado con exito.");
       } else {
         await createCliente(cliente);
-        setMensaje("Cliente creado con éxito.");
+        setMensaje("Cliente creado con exito.");
       }
       setTipoMensaje("success");
       await cargarDatos();
@@ -89,8 +56,7 @@ function ClientesPage({ user }) {
       return true;
     } catch (err) {
       const mensajeDeError = extractErrorMessage(err);
-      // const mensajeDeError = err.response?.data?.message || err.message;
-      setMensaje("Ocurrió un error: " + mensajeDeError);
+      setMensaje("Ocurrio un error: " + mensajeDeError);
       setTipoMensaje("error");
       setToastKey(Date.now());
       return false;
@@ -101,7 +67,7 @@ function ClientesPage({ user }) {
     setClienteEditando(cliente);
     setShowModalEditar(true);
   };
-  
+
   const abrirModalEliminar = (cliente) => {
     setClienteSeleccionado(cliente);
     setShowModalEliminar(true);
@@ -111,13 +77,12 @@ function ClientesPage({ user }) {
     if (!clienteSeleccionado) return;
     try {
       await deleteCliente(clienteSeleccionado.ClienteID);
-      setMensaje("Cliente eliminado con éxito.");
+      setMensaje("Cliente eliminado con exito.");
       setTipoMensaje("success");
       await cargarDatos();
     } catch (err) {
       const mensajeDeError = extractErrorMessage(err);
-      // const mensajeDeError = err.response?.data?.message || err.message;
-      setMensaje("Ocurrió un error: " + mensajeDeError);
+      setMensaje("Ocurrio un error: " + mensajeDeError);
       setTipoMensaje("error");
     } finally {
       setToastKey(Date.now());
@@ -130,167 +95,145 @@ function ClientesPage({ user }) {
     setShowModalEliminar(false);
     setClienteSeleccionado(null);
   };
+
   const cancelarEdicion = () => {
     setShowModalEditar(false);
     setClienteEditando(null);
   };
-  const abrirModalActivar = (cliente) => { setClienteSeleccionado(cliente); setShowModalActivar(true); };
+
+  const abrirModalActivar = (cliente) => {
+    setClienteSeleccionado(cliente);
+    setShowModalActivar(true);
+  };
+
+  const confirmarActivar = async () => {
+    if (!clienteSeleccionado) return;
+    try {
+      await updateCliente(clienteSeleccionado.ClienteID, { Activo: true });
+      setMensaje("Cliente activado");
+      setTipoMensaje("success");
+      await cargarDatos();
+    } catch (e) {
+      setMensaje("Error al activar: " + (e?.message || ""));
+      setTipoMensaje("error");
+    } finally {
+      setToastKey(Date.now());
+      setShowModalActivar(false);
+      setClienteSeleccionado(null);
+    }
+  };
+
+  const cancelarActivar = () => {
+    setShowModalActivar(false);
+    setClienteSeleccionado(null);
+  };
 
   const menuOptions = [
-    { key: "ver", label: "Ver Clientes", icon: "bi bi-people" },
-    ...(user?.rol === "admin" ? [{ key: "agregar", label: "Agregar Cliente", icon: "bi bi-person-plus" }] : []),
+    { value: "ver", label: "Ver Clientes", icon: "bi bi-people" },
+    ...(user?.rol === "admin"
+      ? [{ value: "agregar", label: "Agregar Cliente", icon: "bi bi-person-plus" }]
+      : []),
   ];
 
   return (
     <div className="clientes-page-container container py-3">
-      <SectionMenu options={menuOptions} active={vistaActual} onSelect={setVistaActual} />
-
-      <div className="mb-3">
-        {vistaActual === "inicio" && (
-          <h1 className="page-title display-5 fw-bold text-uppercase text-center opacity-75">
-            Gestión de Clientes
-          </h1>
-        )}
-        {vistaActual === "agregar" && (
-          <h1 className="page-title display-5 fw-bold text-center opacity-75">
-            Agregar cliente:
-          </h1>
-        )}
-        {vistaActual === "ver" && (
-          <h1 className="page-title display-5 fw-bold text-center opacity-75">
-            Lista de clientes:
-          </h1>
-        )}
+      <div className="clientes-menu d-flex justify-content-end pb-2 mb-3">
+        <TabBar
+          tabs={menuOptions}
+          active={vistaActual}
+          onSelect={setVistaActual}
+          ariaLabel="Secciones de clientes"
+        />
       </div>
 
-      {/*Notificaciones de errores o cambios*/}
       <Toast key={toastKey} message={mensaje} type={tipoMensaje} />
 
-      {vistaActual === "inicio" && (
-        <div className="tarjetas-container">
-          {user?.rol === "admin" && (
-            <div className="tarjeta" onClick={() => setVistaActual("agregar")}>
-              <i className="bi bi-person-plus"></i>
-              <h2>Agregar Cliente</h2>
-              <p>Añade un nuevo cliente al sistema.</p>
-            </div>
-          )}
-          <div className="tarjeta" onClick={() => setVistaActual("ver")}>
-            <i className="bi bi-people"></i>
-            <h2>Ver Clientes</h2>
-            <p>Ver, editar y eliminar los clientes existentes.</p>
-          </div>
-        </div>
-      )}
-
       {vistaActual === "agregar" && (
-        <>
-          
-          <div className="clientes-form-wrapper">
-            <h2 className="form-title">
-              {clienteEditando ? "Editar cliente:" : ""}
-            </h2>
-            <ClienteForm
-              onSubmit={handleSubmit}
-              clienteEditando={clienteEditando}
-              tiposDocumentos={tiposDocumentos}
-            />
-          </div>
-        </>
+        <div className="clientes-form-wrapper">
+          <ClienteForm
+            onSubmit={handleSubmit}
+            clienteEditando={clienteEditando}
+            tiposDocumentos={tiposDocumentos}
+          />
+        </div>
       )}
 
       {vistaActual === "ver" && (
-        <>
-          
-          <div className="clientes-list-wrapper">
-            <ClientesList
-              clientes={clientes}
-              onEdit={user?.rol === "admin" ? handleEdit : undefined}
-              onDelete={user?.rol === "admin" ? abrirModalEliminar : undefined}
-              onActivate={user?.rol === "admin" ? abrirModalActivar : undefined}
-              canEdit={user?.rol === "admin"}
-              canDelete={user?.rol === "admin"}
-            />
-          </div>
-        </>
-      )}
-
-      {/* Modal eliminar */}
-      {showModalEliminar && clienteSeleccionado && (
-        <div className="modal-overlay modal-delete">
-          <div className="modal-content modal-delete-content">
-            <h3>Confirmar Borrado</h3>
-            <p>
-              ¿Desea borrar al cliente{" "}
-              <strong>
-                {clienteSeleccionado.Nombres} {clienteSeleccionado.Apellidos}
-              </strong>
-              ?
-            </p>
-            <p>
-              Documento: <b>[{clienteSeleccionado.TipoDocumento}]</b>{" "}
-              {clienteSeleccionado.Documento}
-            </p>
-            <div className="modal-buttons">
-              <button className="btn btn-confirm" onClick={confirmarEliminar}>
-                Confirmar
-              </button>
-              <button className="btn btn-cancel" onClick={cancelarEliminar}>
-                Cancelar
-              </button>
-            </div>
-          </div>
+        <div className="clientes-list-wrapper">
+          <ClientesList
+            clientes={clientes}
+            onEdit={user?.rol === "admin" ? handleEdit : undefined}
+            onDelete={user?.rol === "admin" ? abrirModalEliminar : undefined}
+            onActivate={user?.rol === "admin" ? abrirModalActivar : undefined}
+            canEdit={user?.rol === "admin"}
+            canDelete={user?.rol === "admin"}
+          />
         </div>
       )}
 
-      {/* Modal editar */}
+      <ConfirmModal
+        isOpen={showModalEliminar && !!clienteSeleccionado}
+        title="Confirmar Borrado"
+        message={
+          <>
+            Desea borrar al cliente{" "}
+            <strong>
+              {clienteSeleccionado?.Nombres} {clienteSeleccionado?.Apellidos}
+            </strong>
+            ?
+            <br />
+            Documento: <strong>[{clienteSeleccionado?.TipoDocumento}]</strong>{" "}
+            {clienteSeleccionado?.Documento}
+          </>
+        }
+        onCancel={cancelarEliminar}
+        onConfirm={confirmarEliminar}
+        cancelText="Cancelar"
+        confirmText="Confirmar"
+      />
+
       {showModalEditar && clienteEditando && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="d-flex">
-              <button className="btn-modal" onClick={cancelarEdicion}>
+        <div className="clientes-modal-backdrop" onClick={cancelarEdicion}>
+          <div className="clientes-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="clientes-modal-header">
+              <div className="clientes-modal-title-badge">
+                <i className="bi bi-person-lines-fill"></i>
+                <span>Editar cliente</span>
+              </div>
+              <button className="btn-close" type="button" onClick={cancelarEdicion} aria-label="Cerrar">
                 <i className="bi bi-x-lg"></i>
               </button>
             </div>
-            <ClienteForm
-              onSubmit={handleSubmit}
-              clienteEditando={clienteEditando}
-              tiposDocumentos={tiposDocumentos}
-            />
-          </div>
-        </div>
-      )}
-    
-      {showModalActivar && clienteSeleccionado && (
-        <div className="modal-overlay modal-delete">
-          <div className="modal-content modal-delete-content">
-            <h3>Confirmar Activación</h3>
-            <p>
-              ¿Desea activar al cliente <strong> {clienteSeleccionado.Nombres} {clienteSeleccionado.Apellidos}c</strong>?
-            </p>
-            <div className="modal-buttons">
-              <button className="btn btn-confirm" onClick={async ()=>{ try { await updateCliente(clienteSeleccionado.ClienteID, { Activo: true }); setMensaje("Cliente activado"); setTipoMensaje("success"); await cargarDatos(); } catch(e){ setMensaje("Error al activar: " + (e?.message||'')); setTipoMensaje("error"); } finally { setToastKey(Date.now()); setShowModalActivar(false); setClienteSeleccionado(null);} }}>
-                Confirmar
-              </button>
-              <button className="btn btn-cancel" onClick={()=>{ setShowModalActivar(false); setClienteSeleccionado(null); }}>
-                Cancelar
-              </button>
+            <div className="clientes-modal-body">
+              <ClienteForm
+                onSubmit={handleSubmit}
+                clienteEditando={clienteEditando}
+                tiposDocumentos={tiposDocumentos}
+              />
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showModalActivar && !!clienteSeleccionado}
+        title="Confirmar Activacion"
+        message={
+          <>
+            Desea activar al cliente{" "}
+            <strong>
+              {clienteSeleccionado?.Nombres} {clienteSeleccionado?.Apellidos}
+            </strong>
+            ?
+          </>
+        }
+        onCancel={cancelarActivar}
+        onConfirm={confirmarActivar}
+        cancelText="Cancelar"
+        confirmText="Confirmar"
+      />
     </div>
   );
 }
 
 export default ClientesPage;
-
-
-
-
-
-
-
-
-
-

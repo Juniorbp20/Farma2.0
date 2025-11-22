@@ -1,0 +1,95 @@
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.6rem 1.35rem;
+  border-radius: 8px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: var(--cursor-seleccionables) !important;
+  transition: all 0.12s ease;
+  min-width: auto;
+}
+
+.action-btn-block {
+  width: 100%;
+}
+
+.action-btn-primary {
+  background-color: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+
+.action-btn-primary:hover,
+.action-btn-primary:focus {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+  color: #fff;
+}
+
+.action-btn-danger {
+  background-color: #dc3545;
+  color: #fff;
+  border-color: #dc3545;
+}
+
+.action-btn-danger:hover,
+.action-btn-danger:focus {
+  background-color: #bb2d3b;
+  border-color: #b02a37;
+}
+
+.action-btn-outline-danger {
+  background-color: transparent;
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.action-btn-outline-danger:hover,
+.action-btn-outline-danger:focus {
+  background-color: #dc3545;
+  color: #fff;
+  border-color: #dc3545;
+}
+
+.action-btn-outline-primary {
+  background-color: transparent;
+  color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.action-btn-outline-primary:hover,
+.action-btn-outline-primary:focus {
+  background-color: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+
+.action-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed !important;
+}
+
+.action-btn .spinner-border {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Variante compacta para acciones de detalle/visualización */
+.action-btn-outline-primary-compact {
+  background-color: transparent;
+  color: #0d6efd;
+  border-color: #0d6efd;
+  padding: 0.45rem 0.9rem;
+  gap: 0rem;
+  font-size: .8rem;
+}
+
+.action-btn-outline-primary-compact:hover,
+.action-btn-outline-primary-compact:focus {
+  background-color: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}

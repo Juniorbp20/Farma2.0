@@ -55,3 +55,362 @@
   color: white;
 }
 
+.chip-modo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0px;
+  padding: 3px 6px;
+  border-radius: 9px;
+  cursor: var(--cursor-seleccionables);
+  border: 1px solid #d9d9d9;
+  background-color: #f1f3f5;
+  color: #495057;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.chip-modo * {
+  cursor: inherit;
+}
+
+.chip-modo--active {
+  border-color: #0d6efd;
+  background-color: #e7f1ff;
+  color: #0d6efd;
+}
+
+.totales-row-label .totales-label {
+  font-weight: 700;
+}
+
+.observaciones-textarea {
+  resize: none;
+  max-height: 40px !important;
+}
+
+.cliente-input-container {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border: 1px solid #ced4da;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  min-height: 48px;
+  background: #fff;
+}
+
+.cliente-input-container:focus-within {
+  outline: none;
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.1rem rgba(13, 110, 253, 0.25);
+}
+
+.cliente-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 12px;
+  background: #e7f1ff;
+  color: #0d6efd;
+  border: 1px solid #d0e2ff;
+}
+
+.cliente-chip-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cliente-chip-name {
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.cliente-chip-remove {
+  border: none;
+  background: transparent;
+  color: #0d6efd;
+  /*width: 20px;
+  height: 20px;
+  */cursor: var(--cursor-seleccionables) !important;
+  border-radius: 7px;
+}
+
+.cliente-chip-remove i {
+  padding: 0 !important;
+  font-size: 1rem;
+}
+
+.cliente-chip-remove:hover {
+  background: rgba(13, 110, 253, 0.12);
+}
+
+.cliente-chip-input {
+  border: none;
+  outline: none;
+  flex: 1 1 160px;
+  min-width: 120px;
+  max-width: 100%;
+  background: transparent;
+}
+
+.cliente-chip-input::placeholder {
+  color: #adb5bd;
+}
+
+.empty-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9px;
+  background: #f1f3f5;
+  color: #6c757d;
+  font-weight: 600;
+  border: 1px dashed #cfd4da;
+}
+
+/* Sección de devoluciones dentro de Punto de Venta */
+.devoluciones-wrapper {
+}
+.devoluciones-filtros {
+}
+.devoluciones-alert {
+}
+.devoluciones-resultados {
+}
+
+.scanner-btn {
+  cursor: var(--cursor-seleccionables) !important;
+  width: 50px;
+  height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 2px solid #0d6efd;
+  background: #fff;
+  color: #0d6efd;
+  transition: all 0.15s ease;
+}
+
+.scanner-btn i{
+  font-size: 1.75rem !important;
+}
+
+.scanner-btn:hover {
+  background: #0d6efd;
+  color: #fff;
+}
+
+.delete-btn {
+  cursor: var(--cursor-seleccionables) !important;
+}
+
+.delete-btn:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
+.input-cant {
+  width: 90px;
+}
+
+.pos-table {
+  background: #EEF2FF !important;
+  border-radius: 12px !important;
+  border: 2px solid #EEF2FF;
+}
+
+.pos-table table {
+  background: transparent !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+.pos-table thead th {
+  background: #eef2ff !important;
+  border: none !important;
+  color: #1f2d3d !important;
+  font-weight: 700 !important;
+}
+
+.pos-table thead th:first-child {
+  border-top-left-radius: 10px !important;
+}
+
+.pos-table thead th:last-child {
+  border-top-right-radius: 10px !important;
+}
+
+.venta-card {
+  padding: 0;
+}
+
+.cliente-card {
+  padding: 0;
+}
+
+.totales-card {
+  padding: 0;
+}
+
+.input-cant {
+  width: 90px;
+}
+
+.input-cant::-webkit-outer-spin-button,
+.input-cant::-webkit-inner-spin-button {
+  margin: 0;
+}
+
+/* ===== Modales estilo inventario reutilizados (confirmar factura) ===== */
+.inventory-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 16px;
+}
+
+.inventory-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 75%;
+  height: 70vh;
+  max-width: none;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.inventory-modal-lg {
+  width: 75%;
+  height: 70vh;
+}
+
+.inventory-modal-header {
+  padding: 10px 15px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inventory-modal-title-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #F8FBFF;
+  color: #0d6efd;
+  border-radius: 9px;
+  padding: 0.35rem 0.95rem;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.inventory-modal-title-badge i {
+  font-size: 1.2rem;
+}
+
+.inventory-modal-body {
+  padding: 10px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.inventory-modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #dfe3e8;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background-color: #ffffff;
+  box-shadow: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  border-radius: 0 0 12px 12px;
+}
+
+.inventory-modal .btn-close {
+  cursor: var(--cursor-seleccionables) !important;
+  background: none;
+  font-size: 1.3rem !important;
+  width: 30px !important;
+  height: 30px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+.inventory-modal .btn-close:hover {
+  color: #dc3545;
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+.chip-strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  background-color: #E2EDFF;
+  color: #0D6EFD;
+  border: 1px solid #ADCDFF;
+}
+
+.chip-soft {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background-color: #F3F7FF;
+  color: #0D6EFD;
+  border: 1px solid #D8E7FF;
+}
+
+.confirm-venta-modal .info-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.confirm-venta-modal table thead th {
+  border: none;
+  background: #f8fafc;
+}
+
+.confirm-venta-modal table tbody td {
+  vertical-align: middle;
+}
+
+.totales-chip-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.totales-chip-inline .info-label {
+  margin-bottom: 0;
+}
+
+.tabla-confirmarFactura{
+  text-align: start !important;
+}

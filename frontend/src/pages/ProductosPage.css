@@ -1,110 +1,90 @@
 .productos-page-container {
     margin: 0 auto !important;
-    max-width: 1200px !important;
 }
 
-.tabla-usuarios-contenedor {
-    max-height: 70vh;
-    overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    padding: 5px !important;
-    -webkit-border-radius: 10px;
-    -moz-border-radius: 10px;
-    -ms-border-radius: 10px;
-    -o-border-radius: 10px;
+.productos-menu .tab-bar {
+    justify-content: flex-end;
 }
 
-/* Modal (copiado del estilo de Clientes) */
-.modal-overlay {
-    width: 100%;
-    padding: 0 25%;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 9, 50, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-}
-
-.modal-content {
-    display: flex;
-    justify-content: end;
+.productos-card {
     background: #fff;
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 20px;
-    width: 500px;
-}
-
-.modal-delete-content {
-    background-color: white !important;
-    border-radius: 10px !important;
-    max-width: 500px;
-    text-align: center;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.162);
-    padding: 30px 70px;
-}
-
-.modal-buttons {
-    margin-top: 15px;
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-}
-
-/* Placeholders alineados a UsersPage */
-form input::placeholder,
-form textarea::placeholder {
-    opacity: 0.9 !important;
-}
-
-.products-form-container button.btn-cancelar:hover {
-    color: #ffffff;
-    background-color: #c82333;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    width: 100%;
 }
 
 .products-form-container {
-    line-height: 1;
     font-weight: 500;
     color: #4f4f4f !important;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    width: 50%;
+    margin: 0 auto;
 }
 
-.btn-confirm {
-    background-color: #0d6efd !important;
-    border: none !important;
-    color: white !important;
-    padding: 8px 16px !important;
-    border-radius: 6px !important;
-    cursor: var(--cursor-seleccionables) !important;
+.tabla-productos-contenedor {
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 16px !important;
 }
 
-.btn-cancel {
-    background-color: #dc3545 !important;
-    border: none !important;
-    color: white !important;
-    padding: 8px 16px !important;
-    border-radius: 6px !important;
-    cursor: var(--cursor-seleccionables) !important;
+.productos-table-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
 }
 
+.productos-search-wrapper {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.productos-search-field {
+    border: 1px solid #d8dee8;
+    border-radius: 12px;
+    padding: 0.45rem 0.9rem;
+    min-width: 220px;
+    max-width: 300px;
+    width: 100%;
+    font-size: 0.95rem;
+    color: #4b5563;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.productos-search-field:focus {
+    outline: none;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.productos-search-field::placeholder {
+    color: rgba(107, 114, 128, 0.7);
+}
+
+/* Modal (copiado del estilo de Clientes) */
 .obligatorio { color: red; font-weight: 700; }
 
-/* Botón cancelar (alineado con UsersPage) */
-.btn-cancelar {
+/* Bot?n cancelar (alineado con UsersPage) */
+.btn.btn-cancelar {
     display: block;
     margin: 0;
-    padding: 8px 40px;
-    border-radius: 5px;
-    color: #ffffff;
-    background-color: #dc3545;
-    cursor: var(--cursor-seleccionables) !important;
-    transition: background-color 0.2s ease;
+    padding: 8px 24px;
+    border-radius: 6px;
+    border: 1px solid #dc3545 !important;
+    color: #dc3545 !important;
+    background: transparent !important;
+    font-weight: 600;
+    transition: all 0.15s ease;
+    cursor: var(--cursor-seleccionables, pointer);
 }
 
-.btn-cancelar:hover {
-    color: #ffffff;
-    background-color: #c82333;
+.btn.btn-cancelar:hover,
+.btn.btn-cancelar:focus {
+    background-color: #dc3545 !important;
+    color: #ffffff !important;
+    border-color: #dc3545 !important;
 }
 
 /* Grupo de botones centrados (igual que usuarios) */
@@ -189,3 +169,5 @@ input:checked+.toggle-slider {
 input:checked+.toggle-slider:before {
     transform: translateX(26px);
 }
+
+

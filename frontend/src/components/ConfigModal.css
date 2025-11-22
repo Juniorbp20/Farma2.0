@@ -248,8 +248,7 @@
     display: none;
     justify-content: flex-end;
     gap: 1rem;
-    background-color: #ffffff;
-    box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.08);
+    background-color: #ffffff !important;
     position: sticky;
     bottom: 0;
     z-index: 2;

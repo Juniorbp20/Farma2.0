@@ -1,45 +1,67 @@
-.table-container {
-    max-width: 100%;
-    margin: 0 auto;
-    margin-bottom: 0px !important;
-    padding: 0;
-    background: #f9f9f9;
-    border-radius: 15px;
-    max-height: 55vh;
-    overflow-y: auto;
-}
-
-.btn-accion-contenedor {
+.clientes-list-container {
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    background: #fff;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
     display: flex;
-    margin: 0 auto;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.btn-delete {
-    background-color: #dc3545 !important;
-    border-color: #dc3545 !important;
-    color: white !important;
-    border-radius: 0 7px 7px 0 !important;
-    margin-left: 1px;
-    cursor: var(--cursor-seleccionables) !important;
+.clientes-search-wrapper {
+    display: flex;
+    justify-content: flex-end;
 }
 
-.btn-delete:hover {
-    background-color: #c82333 !important;
-    border-color: #bd2130 !important;
-    color: white !important;
+.clientes-search-field {
+    border: 1px solid #d8dee8;
+    border-radius: 12px;
+    padding: 0.45rem 0.9rem;
+    min-width: 220px;
+    max-width: 300px;
+    width: 100%;
+    font-size: 0.95rem;
+    color: #4b5563;
+    background: #fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
 }
 
-.btn-edit {
-    background-color: #0d6efd !important;
-    border-color: #0d6efd !important;
-    color: white !important;
-    border-radius: 7px 0 0 7px !important;
-    margin-right: 1px;
-    cursor: var(--cursor-seleccionables) !important;
+.clientes-search-field:focus {
+    outline: none;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
 }
 
-.btn-edit:hover {
-    background-color: #0b5ed7 !important;
-    border-color: #0a58ca !important;
-    color: white !important;
+.clientes-search-field::placeholder {
+    color: rgba(107, 114, 128, 0.7);
+}
+
+.clientes-table-container {
+    border-radius: 12px;
+    padding: 0.25rem;
+    background: #fff;
+}
+
+.clientes-table-container .rdt_Table {
+    border-radius: 10px;
+}
+
+.clientes-table-container .rdt_TableBody {
+    scrollbar-width: thin;
+    scrollbar-color: #1d4ed8 rgba(59, 130, 246, 0.2);
+}
+
+.clientes-table-container .rdt_TableBody::-webkit-scrollbar {
+    width: 10px;
+}
+
+.clientes-table-container .rdt_TableBody::-webkit-scrollbar-track {
+    background: rgba(59, 130, 246, 0.2);
+    border-radius: 999px;
+}
+
+.clientes-table-container .rdt_TableBody::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+    border-radius: 999px;
 }

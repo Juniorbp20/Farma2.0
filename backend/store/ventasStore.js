@@ -1,5 +1,5 @@
 // backend/store/ventasStore.js
-// Persistencia simple de ventas en archivo JSON. Útil mientras no exista tabla Ventas.
+// Persistencia simple de ventas en archivo JSON. Atil mientras no exista tabla Ventas.
 const fs = require('fs');
 const path = require('path');
 
@@ -81,7 +81,7 @@ function listVentas(filters = {}) {
     const st = String(estado).toLowerCase();
     items = items.filter(v => String(v.estado || '').toLowerCase() === st);
   }
-  // Más recientes primero
+  // MA¡s recientes primero
   items.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   return items;
 }

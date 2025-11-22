@@ -5,26 +5,7 @@ import CustomYouTubePlayer from "../components/recursos/CustomYouTubePlayer";
 import { gsap } from "gsap";
 import "./AyudaPage.css";
 import { getParametrosSistema } from "../services/configService";
-
-function HelpMenu({ options = [], active, onSelect }) {
-  return (
-    <div className="help-menu d-flex justify-content-center border-bottom pb-2 mb-3">
-      <div className="btn-group" role="group" aria-label="Help sections">
-        {options.map((opt) => (
-          <button
-            key={opt.key}
-            type="button"
-            className={`btn ${active === opt.key ? "btn-primary" : "btn-outline-primary"}`}
-            onClick={() => onSelect(opt.key)}
-          >
-            {opt.icon ? <i className={`${opt.icon} me-2`} aria-hidden="true"></i> : null}
-            <span>{opt.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
+import TabBar from "../components/TabBar";
 
 function TutorialsGrid({ items = [] }) {
   if (!items.length) {
@@ -194,7 +175,6 @@ function SupportPanel({ contactInfo, loadingContact }) {
                 rel={contact.rel}
                 className={`support-contact-btn ${disabled ? "disabled" : ""}`}
                 aria-disabled={disabled}
-                onClick={disabled ? (e) => e.preventDefault() : undefined}
                 onClick={(event) =>
                   handleContactClick(event, contact, disabled)
                 }
@@ -259,15 +239,22 @@ function AyudaPage() {
   const videoItems = useMemo(() => roleFiltered.filter((t) => t.contentType === "video"), [roleFiltered]);
   const textItems = useMemo(() => roleFiltered.filter((t) => t.contentType === "text"), [roleFiltered]);
 
-  const tabs = [
-    { key: "video", label: "Tutoriales", icon: "bi bi-play-circle" },
-    { key: "docs", label: "Documentacion", icon: "bi bi-journal-text" },
-    { key: "support", label: "Soporte", icon: "bi bi-wrench-adjustable-circle" },
+  const helpTabs = [
+    { value: "video", label: "Tutoriales", icon: "bi bi-play-circle" },
+    { value: "docs", label: "Documentación", icon: "bi bi-journal-text" },
+    { value: "support", label: "Soporte", icon: "bi bi-wrench-adjustable-circle" },
   ];
 
   return (
     <div className="container-fluid p-0">
-      <HelpMenu options={tabs} active={activeTab} onSelect={setActiveTab} />
+      <div className="help-menu d-flex justify-content-center border-bottom pb-2 mb-3">
+        <TabBar
+          tabs={helpTabs}
+          active={activeTab}
+          onSelect={setActiveTab}
+          ariaLabel="Secciones de ayuda"
+        />
+      </div>
       <div className="mb-4">
         {activeTab === "video" && <TutorialsGrid items={videoItems} />}
         {activeTab === "docs" && <DocsAccordion items={textItems} />}
@@ -283,4 +270,3 @@ function AyudaPage() {
 }
 
 export default AyudaPage;
-

@@ -1,60 +1,80 @@
-/* .modal-overlay {
-    width: 100%;
-    padding: 0 25%;
+.confirm-modal-overlay {
     position: fixed;
     inset: 0;
     background: rgba(0, 9, 50, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 1200;
+    padding: 1rem;
 }
 
-.modal-content {
-    display: flex;
-    justify-content: end;
+.confirm-modal {
     background: #fff;
-    border-radius: 8px;
-    padding: 20px;
-    width: 500px;
-    -webkit-border-radius: 8px;
-    -moz-border-radius: 8px;
-    -ms-border-radius: 8px;
-    -o-border-radius: 8px;
-}
-
-.modal-content>.d-flex {
-    justify-content: end;
-}
-
-.modal-delete-content {
-    background-color: white !important;
-    border-radius: 10px !important;
-    max-width: 500px;
+    border-radius: 12px;
+    width: min(520px, 95vw);
     text-align: center;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.162);
-    padding: 30px 70px;
-    -webkit-border-radius: 10px !important;
-    -moz-border-radius: 10px !important;
-    -ms-border-radius: 10px !important;
-    -o-border-radius: 10px !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    padding: 28px 32px;
 }
 
-.modal-content h3 {
-    font-size: 1.6rem;
-    opacity: 0.8;
-    margin: 7px;
+.confirm-modal h3 {
+    font-size: 1.7rem;
+    color: #505050;
+    margin-bottom: 10px;
 }
 
-.modal-content p {
+.confirm-modal-message {
+    color: #4a4a4a;
     font-size: 1rem;
-    opacity: 0.8;
-    margin-bottom: 7px;
+    margin-bottom: 18px;
 }
 
-.modal-buttons {
-    margin-top: 15px;
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-} */
+.confirm-modal-message p {
+    margin: 0;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.confirm-modal-actions .btn {
+  cursor: var(--cursor-seleccionables, pointer) !important;
+}
+
+.confirm-btn {
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 10px 18px;
+  min-width: 130px;
+  transition: all 0.2s ease;
+  cursor: var(--cursor-seleccionables, pointer) !important;
+}
+
+.confirm-btn-confirm {
+    background-color: #0d6efd;
+    border: 1px solid #0d6efd;
+    color: #fff;
+}
+
+.confirm-btn-confirm:hover,
+.confirm-btn-confirm:focus {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+    color: #fff;
+}
+
+.confirm-btn-cancel {
+    background-color: #fff;
+    border: 1px solid #dc3545;
+    color: #dc3545;
+}
+
+.confirm-btn-cancel:hover,
+.confirm-btn-cancel:focus {
+    background-color: #dc3545;
+    color: #fff;
+}

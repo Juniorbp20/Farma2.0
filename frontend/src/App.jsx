@@ -4,7 +4,6 @@ import ClientesPage from "./pages/ClientesPage";
 import UsersPage from "./pages/UsersPage";
 import HomePage from "./pages/HomePage";
 import PuntoVentaPage from "./pages/PuntoVentaPage";
-import DevolucionesPage from "./pages/DevolucionesPage";
 import InventarioPage from "./pages/InventarioPage";
 import ProductosPage from "./pages/ProductosPage";
 import ProveedoresPage from "./pages/ProveedoresPage";
@@ -244,7 +243,7 @@ function App() {
             {view === "proveedores" && <ProveedoresPage />}
             {view === "reportes" && <ReportsPage />}
             {view === "usuarios" && isAdmin && <UsersPage />}
-            {view === "devoluciones" && <DevolucionesPage user={user} onNavigate={handleNavigate} />}
+            {view === "devoluciones" && <PuntoVentaPage user={user} onNavigate={handleNavigate} initialTab="devoluciones" />}
           </div>
         </div>
       </div>

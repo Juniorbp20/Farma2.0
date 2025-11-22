@@ -12,7 +12,7 @@ async function getUnidadesMedida(req, res) {
     // Empaque: 'Empaque' y 'Ambas'
     whereTipo = "AND (LOWER(LTRIM(RTRIM(TipoUnidad))) IN ('empaque','ambas'))";
   } else if (tipo === 'minima') {
-    // Mínima: 'Medida' y 'Ambas'
+    // MA­nima: 'Medida' y 'Ambas'
     whereTipo = "AND (LOWER(LTRIM(RTRIM(TipoUnidad))) IN ('medida','ambas'))";
   }
   try {

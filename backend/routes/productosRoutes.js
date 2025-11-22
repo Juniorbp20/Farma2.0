@@ -6,7 +6,7 @@ const { authorizePermissions } = require('../middleware/authz');
 const router = express.Router();
 
 router.get('/', authorizePermissions('productos:read'), getProductos);
-// Búsqueda para POS: permitir a cualquier usuario autenticado
+// BAºsqueda para POS: permitir a cualquier usuario autenticado
 router.get('/buscar', buscarProductos);
 router.get('/barcode/:codigo', authorizePermissions('productos:read'), getProductoByBarcode);
 router.post('/', authorizePermissions('productos:create'), createProducto);

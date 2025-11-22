@@ -1,9 +1,11 @@
-﻿/* eslint-disable default-case */
-// src/pages/ProveedoresPage.js
+// src/pages/ProveedoresPage.jsx
 import React, { useEffect, useState } from "react";
 import "./ProveedoresPage.css";
 import DataTable from "react-data-table-component";
+import ConfirmModal from "../components/ConfirmModal";
+import ActionButton from "../components/ActionButton";
 import Toast from "../components/recursos/Toast";
+import TabBar from "../components/TabBar";
 import {
   getProveedores,
   createProveedor,
@@ -17,6 +19,7 @@ function ProveedoresPage() {
   const [tipoMensaje, setTipoMensaje] = useState("success");
   const [toastKey, setToastKey] = useState(Date.now());
   const [busqueda, setBusqueda] = useState("");
+  const [vistaActual, setVistaActual] = useState("ver");
 
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({
@@ -28,16 +31,20 @@ function ProveedoresPage() {
   });
   const [errors, setErrors] = useState({});
 
-  // Estados para el modal de eliminar
   const [showModalEliminar, setShowModalEliminar] = useState(false);
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState(null);
-  // Estados para el modal de activar
   const [showModalActivar, setShowModalActivar] = useState(false);
   const [proveedorPorActivar, setProveedorPorActivar] = useState(null);
+
+  const proveedorTabs = [
+    { value: "ver", label: "Ver Proveedores", icon: "bi bi-truck" },
+    { value: "gestionar", label: "Gestionar Proveedores", icon: "bi bi-person-plus" },
+  ];
 
   useEffect(() => {
     cargar();
   }, []);
+
   useEffect(() => {
     if (mensaje) setToastKey(Date.now());
   }, [mensaje]);
@@ -52,17 +59,18 @@ function ProveedoresPage() {
     switch (name) {
       case "NombreProveedor":
         if (!value.trim()) e.NombreProveedor = "El nombre es obligatorio.";
-        else if (value.length > 150)
-          e.NombreProveedor = "Máximo 150 caracteres.";
+        else if (value.length > 150) e.NombreProveedor = "Maximo 150 caracteres.";
         break;
       case "Contacto":
-        if (value && value.length > 100) e.Contacto = "Máximo 100 caracteres.";
+        if (value && value.length > 100) e.Contacto = "Maximo 100 caracteres.";
         break;
       case "Email":
-        if (value && value.length > 100) e.Email = "Máximo 100 caracteres.";
+        if (value && value.length > 100) e.Email = "Maximo 100 caracteres.";
         break;
       case "Telefono":
-        if (value && value.length > 20) e.Telefono = "Máximo 20 caracteres.";
+        if (value && value.length > 20) e.Telefono = "Maximo 20 caracteres.";
+        break;
+      default:
         break;
     }
     return e;
@@ -73,8 +81,16 @@ function ProveedoresPage() {
     const newValue = type === "checkbox" ? checked : value;
     setForm((f) => ({ ...f, [name]: newValue }));
     const fe = validateField(name, newValue);
-    setErrors((prev) => ({ ...prev, ...fe }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      Object.entries(fe).forEach(([k, v]) => {
+        if (v) next[k] = v;
+        else delete next[k];
+      });
+      return next;
+    });
   }
+
   function handleBlur(e) {
     const { name, value } = e.target;
     const fe = validateField(name, value);
@@ -101,14 +117,7 @@ function ProveedoresPage() {
       }
       setTipoMensaje("success");
       setToastKey(Date.now());
-      setEditando(null);
-      setForm({
-        NombreProveedor: "",
-        Contacto: "",
-        Email: "",
-        Telefono: "",
-        Activo: true,
-      });
+      onCancel();
       await cargar();
     } catch (err) {
       setMensaje(err?.message || "Error guardando proveedor");
@@ -119,6 +128,7 @@ function ProveedoresPage() {
 
   function onEdit(row) {
     setEditando(row);
+    setVistaActual("gestionar");
     setForm({
       NombreProveedor: row.NombreProveedor || "",
       Contacto: row.Contacto || "",
@@ -131,6 +141,7 @@ function ProveedoresPage() {
 
   function onCancel() {
     setEditando(null);
+    setVistaActual("ver");
     setForm({
       NombreProveedor: "",
       Contacto: "",
@@ -168,7 +179,6 @@ function ProveedoresPage() {
     setProveedorSeleccionado(null);
   };
 
-  // Activación con confirmación
   function abrirModalActivar(p) {
     setProveedorPorActivar(p);
     setShowModalActivar(true);
@@ -178,13 +188,13 @@ function ProveedoresPage() {
     if (!proveedorPorActivar) return;
     try {
       await updateProveedor(proveedorPorActivar.ProveedorID, { Activo: true });
-      setMensaje('Proveedor activado');
-      setTipoMensaje('success');
+      setMensaje("Proveedor activado");
+      setTipoMensaje("success");
       setToastKey(Date.now());
       await cargar();
     } catch (err) {
-      setMensaje(err?.message || 'Error al activar');
-      setTipoMensaje('error');
+      setMensaje(err?.message || "Error al activar");
+      setTipoMensaje("error");
       setToastKey(Date.now());
     } finally {
       setShowModalActivar(false);
@@ -197,102 +207,87 @@ function ProveedoresPage() {
     setProveedorPorActivar(null);
   }
 
-  async function onDelete(row) {
-    if (!window.confirm(`¿Desactivar proveedor ${row.NombreProveedor}?`))
-      return;
-    try {
-      await deleteProveedor(row.ProveedorID);
-      setMensaje("Proveedor desactivado");
-      setTipoMensaje("success");
-      setToastKey(Date.now());
-      await cargar();
-    } catch (err) {
-      setMensaje(err?.message || "Error al desactivar");
-      setTipoMensaje("error");
-      setToastKey(Date.now());
-    }
-  }
-
   const columnas = [
     {
       name: "ID",
       selector: (r) => r.ProveedorID,
       sortable: true,
-      width: "80px",
+      width: "100px",
     },
     {
       name: "Nombre",
       selector: (r) => r.NombreProveedor,
       sortable: true,
       wrap: true,
-      width: "120px",
+      width: "300px",
     },
     {
       name: "Contacto",
       selector: (r) => r.Contacto || "",
       sortable: true,
       wrap: true,
-      width: "100px",
+      width: "200px",
     },
     {
       name: "Correo",
       selector: (r) => r.Email || "",
       sortable: true,
       wrap: true,
-      width: "100px",
+      width: "250px",
     },
     {
       name: "Teléfono",
       selector: (r) => r.Telefono || "",
       sortable: true,
       wrap: true,
-      width: "100px",
+      width: "150px",
     },
     {
       name: "Activo",
-      selector: (r) => (r.Activo ? "Sí­" : "No"),
+      selector: (r) => (r.Activo ? "Si" : "No"),
       sortable: true,
       width: "100px",
     },
     {
       name: "Acciones",
       cell: (row) => (
-        <div className="btn-accion-contenedor">
+        <div className="table-action-group btn-group btn-group-sm">
           <button
-            className="btn btn-edit btn-sm me-1"
+            type="button"
+            className="btn btn-outline-primary"
             onClick={() => onEdit(row)}
             title="Editar"
           >
-            <i className="bi bi-pencil-fill"></i>
+            <i className="bi bi-pencil"></i>
           </button>
           {row.Activo ? (
             <button
-              className="btn btn-delete btn-sm"
+              type="button"
+              className="btn btn-outline-danger"
               onClick={() => abrirModalEliminar(row)}
               title="Desactivar"
             >
-              <i className="bi bi-person-dash-fill"></i>
+              <i className="bi bi-trash3"></i>
             </button>
           ) : (
             <button
-              className="btn btn-sm btn-success"
+              type="button"
+              className="btn btn-outline-success"
               onClick={() => abrirModalActivar(row)}
               title="Activar"
             >
-              <i className="bi bi-check-circle-fill"></i>
+              <i className="bi bi-check-circle"></i>
             </button>
           )}
         </div>
       ),
-      width: "100px",
+      width: "120px",
     },
   ];
 
   const proveedoresFiltrados = proveedores.filter((p) =>
     Object.values(p).some((v) =>
-      String(v ?? "")
-        .toLowerCase()
-        .includes(busqueda.toLowerCase())
+      String(v ?? "").toLowerCase().includes(busqueda.toLowerCase())
     )
   );
 
@@ -320,204 +315,187 @@ function ProveedoresPage() {
   };
 
   return (
-    <div className="container py-3 users-page-container">
-      <h1 className="page-title display-5 fw-bold text-center opacity-75 mb-3">
-        Gestión de Proveedores
-      </h1>
-
+    <div className="container proveedores-page-container py-3">
+      <div className="d-flex justify-content-end pb-2 mb-3 proveedores-menu">
+        <TabBar
+          tabs={proveedorTabs}
+          active={vistaActual}
+          onSelect={setVistaActual}
+          ariaLabel="Secciones de proveedores"
+        />
+      </div>
       <Toast key={toastKey} message={mensaje} type={tipoMensaje} />
 
-      <div className="row g-3">
-        <div className="col-12 col-lg-5">
-          <div className="card shadow-sm">
-            <div className="card-body users-form-container">
-              <h5 className="card-title text-center">
-                {editando ? "Editar Proveedor" : "Nuevo Proveedor"}
-              </h5>
-              <form onSubmit={handleSubmit} className="">
-                <div className="row g-2">
-                  <div className="col-12">
-                    <label className="form-label">
-                      Nombre <span className="obligatorio">*</span>
-                    </label>
-                    <input
-                      name="NombreProveedor"
-                      value={form.NombreProveedor}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      className={`form-control ${
-                        errors.NombreProveedor ? "is-invalid" : ""
-                      }`}
-                      placeholder="Proveedor S.A."
-                    />
-                    {errors.NombreProveedor && (
-                      <div className="invalid-feedback">
-                        {errors.NombreProveedor}
-                      </div>
-                    )}
-                  </div>
-                  <div className="col-12 col-md-6">
-                    <label className="form-label">Contacto</label>
-                    <input
-                      name="Contacto"
-                      value={form.Contacto}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      className={`form-control ${
-                        errors.Contacto ? "is-invalid" : ""
-                      }`}
-                      placeholder="Juan Pérez"
-                    />
-                    {errors.Contacto && (
-                      <div className="invalid-feedback">{errors.Contacto}</div>
-                    )}
-                  </div>
-                  <div className="col-12 col-md-6">
-                    <label className="form-label">Email</label>
-                    <input
-                      name="Email"
-                      value={form.Email}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      className={`form-control ${
-                        errors.Email ? "is-invalid" : ""
-                      }`}
-                      placeholder="juan.perez@gmail.com"
-                    />
-                    {errors.Email && (
-                      <div className="invalid-feedback">{errors.Email}</div>
-                    )}
-                  </div>
-                  <div className="col-12 col-md-6">
-                    <label className="form-label">Teléfono</label>
-                    <input
-                      name="Telefono"
-                      value={form.Telefono}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      className={`form-control ${
-                        errors.Telefono ? "is-invalid" : ""
-                      }`}
-                      placeholder="849-555-5555"
-                    />
-                    {errors.Telefono && (
-                      <div className="invalid-feedback">{errors.Telefono}</div>
-                    )}
-                  </div>
-
-                  <div className="col-12 col-md-6 d-flex align-items-end  justify-content-center">
-                    <div className="toggle-container">
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          name="Activo"
-                          checked={form.Activo}
-                          onChange={handleChange}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                      <span className="toggle-label">Activo</span>
-                    </div>
-                  </div>
-
-                  <div className="grupo-botones">
-                    <button className="btn btn-submit" type="submit">
-                      {editando ? "Actualizar" : "Crear"}
-                    </button>
-                    {editando && (
-                      <button
-                        className="btn btn-cancelar"
-                        type="button"
-                        onClick={onCancel}
-                      >
-                        Cancelar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </form>
+      {vistaActual === "gestionar" && (
+        <div className="proveedores-card proveedores-form-container mb-3">
+          <h3 className="mb-3 text-center">
+            {editando ? "Editar Proveedor" : "Nuevo Proveedor"}
+          </h3>
+          <form onSubmit={handleSubmit} className="row g-2">
+            <div className="col-12">
+              <label className="form-label">
+                Nombre <span className="obligatorio">*</span>
+              </label>
+              <input
+                name="NombreProveedor"
+                value={form.NombreProveedor}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`form-control ${
+                  errors.NombreProveedor ? "is-invalid" : ""
+                }`}
+                placeholder="Proveedor S.A."
+              />
+              {errors.NombreProveedor && (
+                <div className="invalid-feedback">{errors.NombreProveedor}</div>
+              )}
             </div>
-          </div>
-        </div>
+            <div className="col-12 col-md-6">
+              <label className="form-label">Contacto</label>
+              <input
+                name="Contacto"
+                value={form.Contacto}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`form-control ${errors.Contacto ? "is-invalid" : ""}`}
+                placeholder="Juan Perez"
+              />
+              {errors.Contacto && (
+                <div className="invalid-feedback">{errors.Contacto}</div>
+              )}
+            </div>
+            <div className="col-12 col-md-6">
+              <label className="form-label">Email</label>
+              <input
+                name="Email"
+                value={form.Email}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`form-control ${errors.Email ? "is-invalid" : ""}`}
+                placeholder="juan.perez@gmail.com"
+              />
+              {errors.Email && (
+                <div className="invalid-feedback">{errors.Email}</div>
+              )}
+            </div>
+            <div className="col-12 col-md-6">
+              <label className="form-label">Telefono</label>
+              <input
+                name="Telefono"
+                value={form.Telefono}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`form-control ${errors.Telefono ? "is-invalid" : ""}`}
+                placeholder="849-555-5555"
+              />
+              {errors.Telefono && (
+                <div className="invalid-feedback">{errors.Telefono}</div>
+              )}
+            </div>
 
-        <div className="col-12 col-lg-7">
-          <div className="card shadow-sm tabla-usuarios-contenedor">
-            <div className="card-body proveedores-table-panel">
-              <div className="proveedores-search-wrapper mb-2">
-                <input
-                  placeholder="Buscar proveedor..."
-                  className="proveedores-search-field"
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
+            <div className="col-12 col-md-6 d-flex justify-content-center">
+              <div className="toggle-container">
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    name="Activo"
+                    checked={form.Activo}
+                    onChange={handleChange}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+                <span className="toggle-label">Activo</span>
+              </div>
+            </div>
+
+            <div className="col-12">
+              <div className="grupo-botones">
+                {editando && (
+                  <ActionButton
+                    variant="outline-danger"
+                    icon="bi bi-x-circle"
+                    text="Cancelar"
+                    type="button"
+                    onClick={onCancel}
+                  />
+                )}
+                <ActionButton
+                  variant="primary"
+                  icon={editando ? "bi bi-arrow-clockwise" : "bi bi-truck"}
+                  text={editando ? "Actualizar" : "Crear"}
+                  type="submit"
                 />
               </div>
+            </div>
+          </form>
+        </div>
+      )}
 
-              <DataTable
-                columns={columnas}
-                data={proveedoresFiltrados}
-                pagination
-                highlightOnHover
-                responsive
-                striped
-                className="table table-striped table-bordered table-hover"
-                noWrap={false}
-                paginationComponentOptions={paginacionOpciones}
-                paginationPerPage={5}
-                paginationRowsPerPageOptions={[5, 10, 20, 50]}
-                conditionalRowStyles={[{ when: (row) => !row.Activo, style: { opacity: 0.5 } }]}
-                noDataComponent="No se encontraron proveedores que coincidan con la búsqueda"
-                fixedHeader
-                fixedHeaderScrollHeight="45vh"
-                persistTableHead
-                customStyles={proveedoresTableStyles}
+      {vistaActual === "ver" && (
+        <div className="proveedores-card tabla-proveedores-contenedor">
+          <div className="proveedores-table-panel">
+            <div className="proveedores-search-wrapper mb-2">
+              <input
+                placeholder="Buscar proveedor..."
+                className="proveedores-search-field"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
               />
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal eliminar */}
-      {showModalEliminar && proveedorSeleccionado && (
-        <div className="modal-overlay modal-delete">
-          <div className="modal-content modal-delete-content">
-            <h3>Confirmar Desactivación</h3>
-            <p>
-              ¿Desea desactivar al proveedor <strong>{proveedorSeleccionado.NombreProveedor}</strong>?
-            </p>
-            <div className="modal-buttons">
-              <button className="btn btn-confirm" onClick={confirmarEliminar}>
-                Confirmar
-              </button>
-              <button className="btn btn-cancel" onClick={cancelarEliminar}>
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showModalActivar && proveedorPorActivar && (
-        <div className="modal-overlay modal-delete">
-          <div className="modal-content modal-delete-content">
-            <h3>Confirmar Activación</h3>
-            <p>
-              ¿Desea activar al proveedor <strong>{proveedorPorActivar.NombreProveedor}</strong>?
-            </p>
-            <div className="modal-buttons">
-              <button className="btn btn-confirm" onClick={confirmarActivar}>
-                Confirmar
-              </button>
-              <button className="btn btn-cancel" onClick={cancelarActivar}>
-                Cancelar
-              </button>
-            </div>
+            <DataTable
+              columns={columnas}
+              data={proveedoresFiltrados}
+              pagination
+              highlightOnHover
+              responsive
+              striped
+              className="table table-striped table-bordered table-hover"
+              noWrap={false}
+              paginationComponentOptions={paginacionOpciones}
+              paginationPerPage={5}
+              paginationRowsPerPageOptions={[5, 10, 20, 50]}
+              conditionalRowStyles={[{ when: (row) => !row.Activo, style: { opacity: 0.5 } }]}
+              noDataComponent="No se encontraron proveedores que coincidan con la busqueda"
+              fixedHeader
+              fixedHeaderScrollHeight="45vh"
+              persistTableHead
+              customStyles={proveedoresTableStyles}
+            />
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showModalEliminar && !!proveedorSeleccionado}
+        title="Confirmar Desactivacion"
+        message={
+          <>
+            Desea desactivar al proveedor{" "}
+            <strong>{proveedorSeleccionado?.NombreProveedor}</strong>?
+          </>
+        }
+        onCancel={cancelarEliminar}
+        onConfirm={confirmarEliminar}
+        cancelText="Cancelar"
+        confirmText="Confirmar"
+      />
+
+      <ConfirmModal
+        isOpen={showModalActivar && !!proveedorPorActivar}
+        title="Confirmar Activacion"
+        message={
+          <>
+            Desea activar al proveedor{" "}
+            <strong>{proveedorPorActivar?.NombreProveedor}</strong>?
+          </>
+        }
+        onCancel={cancelarActivar}
+        onConfirm={confirmarActivar}
+        cancelText="Cancelar"
+        confirmText="Confirmar"
+      />
     </div>
   );
 }
 
 export default ProveedoresPage;
-
-

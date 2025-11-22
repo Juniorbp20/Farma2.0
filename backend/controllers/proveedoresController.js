@@ -52,7 +52,7 @@ async function createProveedor(req, res) {
         INSERT INTO dbo.Proveedores (NombreProveedor, Contacto, Email, Telefono, Activo, FechaCreacion)
         VALUES (@NombreProveedor, @Contacto, @Email, @Telefono, @Activo, GETDATE())
       `);
-    res.status(201).json({ message: 'Proveedor creado con éxito' });
+    res.status(201).json({ message: 'Proveedor creado con A©xito' });
   } catch (err) {
     console.error('Error creando proveedor:', err);
     res.status(500).json({ message: 'Error en la base de datos' });

@@ -27,7 +27,7 @@ app.use(
   express.static(path.join(__dirname, "recursos_sistema"))
 );
 
-// CORS con configuración por entorno
+// CORS con configuracion por entorno
 const allowedOrigins = (process.env.CORS_ORIGIN || "")
   .split(",")
   .map((s) => s.trim())
@@ -43,13 +43,13 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Rutas públicas
+// Rutas publicas
 app.get("/", (req, res) => {
   res.send("Backend funcionando");
 });
 app.use("/auth", authRoutes);
 
-// Rutas protegidas
+// Rutas publicas
 const { authorizePermissions } = require("./middleware/authz");
 app.use("/clientes", authenticate, clientesRoutes);
 app.use("/tiposdocumentos", authenticate, tiposDocumentosRoutes);

@@ -10,7 +10,7 @@ function authenticate(req, res, next) {
     req.user = payload;
     next();
   } catch (err) {
-    return res.status(401).json({ message: 'Token inválido' });
+    return res.status(401).json({ message: 'Token invalido' });
   }
 }
 
@@ -64,8 +64,19 @@ function authorizePermissions(...perms) {
   };
 }
 
-module.exports.ROLE_PERMISSIONS = ROLE_PERMISSIONS;
-module.exports.authorizePermissions = authorizePermissions;
+function requireAdmin(req, res, next) {
+  const key = roleKey(req.user?.rol ?? req.user?.rolId);
+  const isAdminId = String(req.user?.rolId ?? '') === '1';
+  if (key !== 'admin' && !isAdminId) {
+    return res.status(403).json({ message: 'Solo administradores pueden realizar esta accion.' });
+  }
+  next();
+}
 
-module.exports = { authenticate, authorizeRoles };
-
+module.exports = {
+  authenticate,
+  authorizeRoles,
+  authorizePermissions,
+  requireAdmin,
+  ROLE_PERMISSIONS,
+};

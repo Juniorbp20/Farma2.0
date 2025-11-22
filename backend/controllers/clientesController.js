@@ -67,10 +67,10 @@ const createCliente = async (req, res) => {
         VALUES (@Nombres, @Apellidos, @TipoDocumentoID, @Documento, @Telefono, @Direccion)
       `);
 
-    res.status(201).json({ message: "Cliente creado con éxito." });
+    res.status(201).json({ message: "Cliente creado con exito." });
   } catch (err) {
     if (err.number === 2627) {
-      // Clave única duplicada
+      // Clave unica duplicada
       return res
         .status(400)
         .json({ message: "Ya existe un cliente con ese documento" });

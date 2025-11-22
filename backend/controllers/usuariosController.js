@@ -66,7 +66,7 @@ async function createUsuario(req, res) {
         INSERT INTO dbo.Usuarios (Nombres, Apellidos, Username, PasswordUser, Email, Telefono, RolID, Activo)
         VALUES (@Nombres, @Apellidos, @Username, @PasswordUser, @Email, @Telefono, @RolID, @Activo)
       `);
-    res.status(201).json({ message: 'Usuario creado con éxito' });
+    res.status(201).json({ message: 'Usuario creado con A©xito' });
   } catch (err) {
     console.error('Error creando usuario:', err);
     res.status(500).json({ message: 'Error en la base de datos' });

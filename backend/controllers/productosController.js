@@ -1,5 +1,5 @@
 // controllers/productosController.js
-// Implementación contra SQL Server (tabla Productos)
+// ImplementaciA³n contra SQL Server (tabla Productos)
 const sql = require('mssql');
 const poolPromise = require('../db');
 const { getLotesColumnInfo, getCantidadExpressions } = require('../store/inventoryUtils');
@@ -87,9 +87,9 @@ const buscarProductos = async (req, res) => {
   }
 };
 
-// No hay columna de código de barras en el esquema proporcionado
+// No hay columna de cA³digo de barras en el esquema proporcionado
 const getProductoByBarcode = async (req, res) => {
-  return res.status(404).json({ message: 'Búsqueda por código de barras no disponible' });
+  return res.status(404).json({ message: 'BAºsqueda por cA³digo de barras no disponible' });
 };
 
 const createProducto = async (req, res) => {
@@ -100,7 +100,7 @@ const createProducto = async (req, res) => {
     if (!Number.isFinite(impuestoVal) || impuestoVal < 0 || impuestoVal > 100) {
       return res.status(400).json({ message: 'Impuesto debe estar entre 0 y 100' });
     }
-    // Permitir compatibilidad: si no vienen IDs pero sí nombres, resolver IDs por nombre
+    // Permitir compatibilidad: si no vienen IDs pero sA­ nombres, resolver IDs por nombre
     const pool = await poolPromise;
     if (UnidadMedidaEmpaqueID == null && UnidadMedidaEmpaque) {
       try {
@@ -118,7 +118,7 @@ const createProducto = async (req, res) => {
     if (UnidadMedidaMinimaID == null) return res.status(400).json({ message: 'Falta UnidadMedidaMinimaID' });
     const stockMin = Number(StockMinimo || 0);
     if (!Number.isFinite(stockMin) || stockMin < 1) return res.status(400).json({ message: 'StockMinimo debe ser al menos 1' });
-    // pool ya disponible como conexión
+    // pool ya disponible como conexiA³n
     let categoria = CategoriaID != null ? Number(CategoriaID) : null;
     if (categoria == null) {
       try {
@@ -238,7 +238,7 @@ const deleteProducto = async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
-    // Si hay lotes con stock > 0, impedir desactivación.
+    // Si hay lotes con stock > 0, impedir desactivaciA³n.
     // Adaptado al esquema: existen columnas CantidadEmpaques y/o CantidadUnidadesMinimas
     const lot = await pool
       .request()

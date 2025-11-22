@@ -20,12 +20,12 @@ async function seedAdmin() {
     const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
     const canReset = process.env.SEED_RESET_ADMIN === 'true' || process.env.NODE_ENV !== 'production';
 
-    // Detectar columnas según el esquema existente
+    // Detectar columnas segAºn el esquema existente
     const hasPasswordUser = await columnExists(pool, 'Usuarios', 'PasswordUser');
     const hasPasswordHash = await columnExists(pool, 'Usuarios', 'PasswordHash');
     const passCol = hasPasswordUser ? 'PasswordUser' : (hasPasswordHash ? 'PasswordHash' : null);
     if (!passCol) {
-      console.warn('Seed: no se encontró columna de contraseña en Usuarios (PasswordUser/PasswordHash).');
+      console.warn('Seed: no se encontrA³ columna de contraseA±a en Usuarios (PasswordUser/PasswordHash).');
       return;
     }
 
@@ -38,7 +38,7 @@ async function seedAdmin() {
       .query('SELECT TOP 1 UsuarioID FROM Usuarios WHERE Username = @Username');
 
     if (!existing.recordset.length) {
-      // Si no existe, intentar crearlo solo con campos mínimos conocidos
+      // Si no existe, intentar crearlo solo con campos mA­nimos conocidos
       const hash = await bcrypt.hash(adminPass, 10);
       const req = pool.request()
         .input('Username', sql.NVarChar(50), adminUser)

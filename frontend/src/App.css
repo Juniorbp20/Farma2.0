@@ -27,6 +27,72 @@ table.table-hover tbody tr:hover {
   cursor: pointer;
 }
 
+/* Grupo de acciones homogéneo en tablas */
+.table-action-group {
+  display: inline-flex;
+  border: 1px solid #d1d9ea;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.02);
+}
+
+.table-action-group .btn {
+  border: none !important;
+  border-right: 1px solid #d1d9ea !important;
+  border-radius: 0 !important;
+  min-width: 36px;
+  padding: 0.35rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  font-weight: 500;
+  background: transparent !important;
+  color: #475569 !important;
+  cursor: var(--cursor-seleccionables) !important;
+}
+
+.table-action-group .btn:last-child {
+  border-right: none !important;
+}
+
+.table-action-group .btn-outline-secondary {
+  color: #475569 !important;
+}
+.table-action-group .btn-outline-secondary:hover,
+.table-action-group .btn-outline-secondary:focus {
+  background: #475569 !important;
+  color: #fff !important;
+}
+
+.table-action-group .btn-outline-primary {
+  color: #0d6efd !important;
+}
+.table-action-group .btn-outline-primary:hover,
+.table-action-group .btn-outline-primary:focus {
+  background: #0d6efd !important;
+  color: #fff !important;
+}
+
+.table-action-group .btn-outline-danger {
+  color: #dc3545 !important;
+}
+.table-action-group .btn-outline-danger:hover,
+.table-action-group .btn-outline-danger:focus {
+  background: #dc3545 !important;
+  color: #fff !important;
+}
+
+.table-action-group .btn-outline-success {
+  color: #1caa5f !important;
+}
+.table-action-group .btn-outline-success:hover,
+.table-action-group .btn-outline-success:focus {
+  background: #1caa5f !important;
+  color: #fff !important;
+}
+
 /*? INICIO MENU DE NAVEGACION */
 .navbar {
   user-select: none !important;
@@ -330,7 +396,7 @@ select, ::picker(select) {
 }
 
 select option {
-  margin: 4px;
+  margin: auto !important;
   padding: 8px 12px !important;
   border-radius: 4px !important;
   background-color: #ffffff !important;

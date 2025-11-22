@@ -14,7 +14,7 @@ function normalizeRole({ rolNombre, rolId }) {
 async function login(req, res) {
   const { username, password } = req.body;
   if (!username || !password) {
-    return res.status(400).json({ message: 'Usuario y contraseña son obligatorios' });
+    return res.status(400).json({ message: 'Usuario y contrasena son obligatorios' });
   }
   try {
     const pool = await poolPromise;
@@ -43,13 +43,13 @@ async function login(req, res) {
       }
     }
 
-    if (!result.recordset.length) return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
+    if (!result.recordset.length) return res.status(401).json({ message: 'Usuario o contrasena incorrectos' });
     const user = result.recordset[0];
     if (!user.Activo) return res.status(403).json({ message: 'Usuario inactivo' });
 
-    // La lógica de comparación de contraseñas es necesaria aquí
+    // La logica de comparacion de contrasenas es necesaria aqui
     const ok = await bcrypt.compare(password, user.PasswordUser || '');
-    if (!ok) return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
+    if (!ok) return res.status(401).json({ message: 'Usuario o contrasena incorrectos' });
 
     const rol = normalizeRole({ rolNombre: user.RolNombre, rolId: user.RolID });
     const payload = { sub: user.UsuarioID, username: user.Username, rol, rolId: user.RolID };
@@ -57,7 +57,7 @@ async function login(req, res) {
       expiresIn: process.env.JWT_EXPIRES_IN || '8h',
     });
 
-    // Logs mínimos en desarrollo
+    // Logs minimos en desarrollo
     if (process.env.NODE_ENV !== 'production') {
       console.log('login ok:', { username: user.Username, rol, rolId: user.RolID });
     }

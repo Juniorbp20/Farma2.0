@@ -2,9 +2,10 @@
     width: 100%;
     margin: 20px auto;
     padding: 25px;
-    background-color: #f8f9fa;
+    background-color: #ffffff;
     border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.037);
+    border: 1px solid #ddd;
 }
 
 .form-container {

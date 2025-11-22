@@ -18,7 +18,7 @@ function ClientesList({
       name: "ID",
       selector: (row) => row.ClienteID,
       sortable: true,
-      width: "80px",
+      width: "60px",
       wrap: true,
     },
     {
@@ -36,10 +36,10 @@ function ClientesList({
       wrap: true,
     },
     {
-      name: "Tipo Documento",
+      name: "T. Documento",
       selector: (row) => row.TipoDocumento,
       sortable: true,
-      width: "150px",
+      width: "100px",
       wrap: true,
     },
     {
@@ -82,38 +82,51 @@ function ClientesList({
     },
     {
       name: "Acciones",
-      cell: (row) => (
-        <div className="btn-accion-contenedor">
-          {canEdit && (
+      cell: (row) => {
+        const buttons = [];
+        if (canEdit && onEdit) {
+          buttons.push(
             <button
-              className="btn btn-edit btn-sm me-1"
-              onClick={() => onEdit && onEdit(row)}
+              key="edit"
+              type="button"
+              className="btn btn-outline-primary"
+              onClick={() => onEdit(row)}
               title="Editar"
             >
-              <i className="bi bi-pencil-fill"></i>
+              <i className="bi bi-pencil"></i>
             </button>
-          )}
-          {row.Activo ? (
-            canDelete && (
+          );
+        }
+        if (row.Activo) {
+          if (canDelete && onDelete) {
+            buttons.push(
               <button
-                className="btn btn-delete btn-sm"
-                onClick={() => onDelete && onDelete(row)}
+                key="delete"
+                type="button"
+                className="btn btn-outline-danger"
+                onClick={() => onDelete(row)}
                 title="Desactivar"
               >
-                <i className="bi bi-person-dash-fill"></i>
+                <i className="bi bi-person-dash"></i>
               </button>
-            )
-          ) : (
+            );
+          }
+        } else if (onActivate) {
+          buttons.push(
             <button
-              className="btn btn-sm btn-success"
-              onClick={() => onActivate && onActivate(row)}
+              key="activate"
+              type="button"
+              className="btn btn-outline-success"
+              onClick={() => onActivate(row)}
               title="Activar"
             >
-              <i className="bi bi-check-circle-fill"></i>
+              <i className="bi bi-check-circle"></i>
             </button>
-          )}
-        </div>
-      ),
+          );
+        }
+        if (!buttons.length) return null;
+        return <div className="table-action-group btn-group btn-group-sm">{buttons}</div>;
+      },
       width: "120px",
     },
   ];
@@ -128,62 +141,61 @@ function ClientesList({
   // Filtrar clientes según búsqueda
   const clientesFiltrados = clientes.filter((cliente) =>
     Object.values(cliente).some((valor) =>
-      String(valor).toLowerCase().includes(busqueda.toLowerCase())
+      String(valor ?? "").toLowerCase().includes(busqueda.toLowerCase())
     )
   );
 
+  const clientesTableStyles = {
+    headCells: {
+      style: {
+        backgroundColor: "#fff",
+        fontWeight: 600,
+        whiteSpace: "normal !important",
+      },
+    },
+    cells: {
+      style: {
+        whiteSpace: "normal !important",
+        overflow: "visible !important",
+        wordWrap: "break-word !important",
+        textOverflow: "initial !important",
+      },
+    },
+  };
+
   return (
     <div className="clientes-list-container">
-      {/* Input de búsqueda */}
-      <div style={{ display: "flex", backgroundColor: "#FFFFFF", justifyContent: "flex-end"}}>
+      <div className="clientes-search-wrapper">
         <input
           type="text"
-          className="form-control"
-          placeholder="Buscar en toda la tabla..."
+          className="clientes-search-field"
+          placeholder="Buscar cliente..."
           value={busqueda}
-          style={{
-            width: "400px",
-            outline: "none",
-            boxShadow: "none",
-          }}
-          onFocus={(e) => (e.target.style.boxShadow = "none")}
           onChange={(e) => setBusqueda(e.target.value)}
         />
       </div>
 
-      <div className="table-container">
-      <DataTable
-        columns={columns}
-        data={clientesFiltrados}
-        pagination
-        highlightOnHover
-        responsive
-        striped
-        className="table table-striped table-bordered table-hover"
-        noWrap={false}
-        paginationComponentOptions={paginacionOpciones}
-        paginationPerPage={5}
-        paginationRowsPerPageOptions={[5, 10, 20, 50]}
-        conditionalRowStyles={[{ when: (row) => !row.Activo, style: { opacity: 0.5 } }]}
-        noDataComponent="No se encontraron datos que coincidan con la búsqueda"
-        customStyles={{
-          cells: {
-            style: {
-              whiteSpace: "normal !important",
-              overflow: "visible !important",
-              wordWrap: "break-word !important",
-              textOverflow: "initial !important",
-            },
-          },
-          headCells: {
-            style: {
-              whiteSpace: "normal !important",
-            },
-          },
-        }}
-      />
+      <div className="clientes-table-container">
+        <DataTable
+          columns={columns}
+          data={clientesFiltrados}
+          pagination
+          highlightOnHover
+          responsive
+          striped
+          className="table table-striped table-bordered table-hover"
+          noWrap={false}
+          paginationComponentOptions={paginacionOpciones}
+          paginationPerPage={5}
+          paginationRowsPerPageOptions={[5, 10, 20, 50]}
+          conditionalRowStyles={[{ when: (row) => !row.Activo, style: { opacity: 0.5 } }]}
+          noDataComponent="No se encontraron datos que coincidan con la b?squeda"
+          fixedHeader
+          fixedHeaderScrollHeight="45vh"
+          persistTableHead
+          customStyles={clientesTableStyles}
+        />
       </div>
-
     </div>
   );
 }

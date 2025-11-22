@@ -1,4 +1,4 @@
-﻿// controllers/comprasController.js
+// controllers/comprasController.js
 const sql = require('mssql');
 const poolPromise = require('../db');
 const {
@@ -19,7 +19,7 @@ try {
   console.warn('exceljs no disponible para exportar compras:', err?.message);
 }
 
-// Soporte PDF para exportación (además de Excel)
+// Soporte PDF para exportaciA³n (ademA¡s de Excel)
 let PDFDocument = null;
 let hasPdfKit = false;
 try {
@@ -167,7 +167,7 @@ async function exportarCompras(req, res) {
         { header: 'Usuario', key: 'usuario', width: 24 },
         { header: 'Items', key: 'items', width: 10 },
         { header: 'Empaques', key: 'empaques', width: 12 },
-        { header: 'Unidades mínimas', key: 'unidades', width: 18 },
+        { header: 'Unidades mA­nimas', key: 'unidades', width: 18 },
         { header: 'Total (RD$)', key: 'total', width: 14 },
       ];
 
@@ -200,7 +200,7 @@ async function exportarCompras(req, res) {
 
     if (format === 'pdf') {
       if (!hasPdfKit || !PDFDocument) {
-        return res.status(503).json({ message: 'Exportación a PDF no disponible. Instale pdfkit en el servidor.' });
+        return res.status(503).json({ message: 'ExportaciA³n a PDF no disponible. Instale pdfkit en el servidor.' });
       }
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename="historial_compras.pdf"');
@@ -265,7 +265,7 @@ async function exportarCompras(req, res) {
       return;
     }
 
-    res.status(400).json({ message: 'Formato de exportación no soportado. Use excel o pdf.' });
+    res.status(400).json({ message: 'Formato de exportaciA³n no soportado. Use excel o pdf.' });
       res.setHeader('Content-Type', '');
       res.setHeader('Content-Disposition', 'attachment; filename=""');
 
@@ -334,7 +334,7 @@ async function exportarCompras(req, res) {
       return;
     }
 
-    res.status(400).json({ message: 'Formato de exportación no soportado. Solo excel.' });
+    res.status(400).json({ message: 'Formato de exportaciA³n no soportado. Solo excel.' });
   } catch (err) {
     console.error('exportarCompras error:', err);
     res.status(500).json({ message: 'Error al exportar el historial de compras.' });
@@ -470,7 +470,16 @@ async function crearCompra(req, res) {
         raw.cantidadUnidadesMinimas ?? raw.CantidadUnidadesMinimas ?? raw.cantidadUnidades ?? 0
       ),
       cantidadTotal: raw.cantidadTotal ?? raw.CantidadTotal ?? raw.CantidadTotalMinima,
+      marcaId:
+        raw.marcaId != null
+          ? Number(raw.marcaId)
+          : raw.MarcaID != null
+            ? Number(raw.MarcaID)
+            : null,
     }));
+
+    const marcasPorValidar = new Set();
+    const marcaIndiceMapa = new Map();
 
     for (const item of itemsSanitizados) {
       if (!item.productoId) {
@@ -493,6 +502,13 @@ async function crearCompra(req, res) {
           return res.status(400).json({ message: `Fecha de vencimiento debe ser futura en item ${item.index + 1}` });
         }
         item.fechaVencimientoDate = fecha;
+        if (!item.marcaId) {
+          return res.status(400).json({ message: `Marca requerida en item ${item.index + 1}` });
+        }
+        marcasPorValidar.add(Number(item.marcaId));
+        if (!marcaIndiceMapa.has(Number(item.marcaId))) {
+          marcaIndiceMapa.set(Number(item.marcaId), item.index);
+        }
       }
       if (item.precioCosto <= 0) {
         return res.status(400).json({ message: `Precio de costo invalido en item ${item.index + 1}` });
@@ -506,6 +522,29 @@ async function crearCompra(req, res) {
           : ensurePositiveNumber(item.cantidadEmpaques) + ensurePositiveNumber(item.cantidadUnidadesMinimas);
       if (totalUnidades <= 0) {
         return res.status(400).json({ message: `Cantidad invalida en item ${item.index + 1}` });
+      }
+    }
+
+    if (marcasPorValidar.size) {
+      const ids = Array.from(marcasPorValidar);
+      const placeholders = ids.map((_, idx) => `@marca${idx}`);
+      const reqMarcas = pool.request();
+      ids.forEach((id, idx) => reqMarcas.input(`marca${idx}`, sql.Int, id));
+      const result = await reqMarcas.query(`
+        SELECT MarcaID, COALESCE(Activo,1) AS Activo
+        FROM dbo.Marcas
+        WHERE MarcaID IN (${placeholders.join(', ')})
+      `);
+      const marcasMap = new Map(result.recordset.map((row) => [row.MarcaID, row]));
+      for (const id of ids) {
+        const data = marcasMap.get(id);
+        const itemIndex = marcaIndiceMapa.get(id) ?? 0;
+        if (!data) {
+          return res.status(404).json({ message: `Marca no encontrada (item ${itemIndex + 1})` });
+        }
+        if (!data.Activo) {
+          return res.status(400).json({ message: `Marca inactiva (item ${itemIndex + 1})` });
+        }
       }
     }
 
@@ -553,7 +592,7 @@ async function crearCompra(req, res) {
           ? ensurePositiveNumber(item.cantidadUnidadesMinimas)
           : DEFAULT_FACTOR_UNIDADES;
         if (meta.hasCantidadUnidades && factorEntrada <= 0) {
-          throw new Error(`Unidades por empaque inválidas (item ${item.index + 1})`);
+          throw new Error(`Unidades por empaque invA¡lidas (item ${item.index + 1})`);
         }
         let factor = factorEntrada || DEFAULT_FACTOR_UNIDADES;
         let totalUnidades;
@@ -579,6 +618,7 @@ async function crearCompra(req, res) {
             'PrecioCosto',
             'PrecioUnitarioVenta',
             'PorcentajeDescuentoEmpaque',
+            'MarcaID',
           ];
           const insertValues = [
             '@ProductoID',
@@ -589,6 +629,7 @@ async function crearCompra(req, res) {
             '@PrecioCosto',
             '@PrecioVenta',
             '@Descuento',
+            '@MarcaID',
           ];
           const counts = splitUnitsToCounts(totalUnidades, factor, meta);
           const reqLote = new sql.Request(tx)
@@ -597,7 +638,8 @@ async function crearCompra(req, res) {
             .input('FechaVencimiento', sql.Date, item.fechaVencimientoDate || new Date(item.fechaVencimiento))
             .input('PrecioCosto', sql.Decimal(10, 2), item.precioCosto)
             .input('PrecioVenta', sql.Decimal(10, 2), item.precioVenta)
-            .input('Descuento', sql.Decimal(5, 4), item.descuento);
+            .input('Descuento', sql.Decimal(5, 4), item.descuento)
+            .input('MarcaID', sql.Int, Number(item.marcaId));
           if (meta.hasCantidadEmpaques) {
             insertColumns.push('CantidadEmpaques');
             insertValues.push('@CantidadEmpaques');

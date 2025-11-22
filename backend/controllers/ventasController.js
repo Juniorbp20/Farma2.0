@@ -1,13 +1,14 @@
 // controllers/ventasController.js
-// Ventas: creación, listado, anulación y PDF.
+// Ventas: creacion, listado, anulacion y PDF.
 const fs = require('fs');
 const path = require('path');
 const sql = require('mssql');
 const poolPromise = require('../db');
-// Carga robusta de utilidades de inventario (evita issues de resolución de ruta)
+// Carga robusta de utilidades de inventario (evita issues de resolucion de ruta)
 const invUtilsPath = require('path').join(__dirname, '..', 'store', 'inventoryUtils');
 const {
   getLotesColumnInfo,
+  getCantidadExpressions,
   ensurePositiveNumber,
   parseDecimal,
   splitUnitsToCounts,
@@ -32,13 +33,14 @@ async function getProductoFactor() {
 
 async function consumirDeLote(scope, loteId, unidades) {
   const meta = await getLotesColumnInfo();
+  const { factorExpr } = getCantidadExpressions(meta, { alias: 'l' });
   const reqL = createRequest(scope).input('LoteID', sql.Int, Number(loteId));
   const selectQuery = `
     SELECT l.LoteID, l.ProductoID, COALESCE(l.Activo,1) AS Activo,
            ${meta.hasCantidad ? 'COALESCE(l.Cantidad,0)' : '0'} AS Cantidad,
            ${meta.hasCantidadEmpaques ? 'COALESCE(l.CantidadEmpaques,0)' : '0'} AS CantidadEmpaques,
            ${meta.hasCantidadUnidades ? 'COALESCE(l.CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas,
-           CAST(1 AS int) AS Factor
+           ${factorExpr} AS Factor
     FROM dbo.Lotes l
     WHERE l.LoteID = @LoteID`;
   const loteQ = await reqL.query(selectQuery);
@@ -46,9 +48,11 @@ async function consumirDeLote(scope, loteId, unidades) {
   const row = loteQ.recordset[0];
   if (!row.Activo) throw new Error('Lote inactivo');
   const factor = ensurePositiveNumber(row.Factor, 1) || 1;
-  const totalActual = meta.hasCantidad
-    ? ensurePositiveNumber(row.Cantidad)
-    : ensurePositiveNumber(row.CantidadEmpaques) * factor;
+  const totalActual = meta.hasTotalUnidades
+    ? ensurePositiveNumber(row.CantidadTotalMinima)
+    : (meta.hasCantidad
+        ? ensurePositiveNumber(row.Cantidad)
+        : ensurePositiveNumber(row.CantidadEmpaques) * factor);
   const tomar = Math.max(0, Math.min(ensurePositiveNumber(unidades), totalActual));
   const restante = totalActual - tomar;
   const nv = splitUnitsToCounts(restante, factor, meta);
@@ -57,6 +61,7 @@ async function consumirDeLote(scope, loteId, unidades) {
   if (meta.hasCantidad) { parts.push('Cantidad = @Cantidad'); reqUp.input('Cantidad', sql.Int, Math.round(nv.cantidad ?? restante)); }
   if (meta.hasCantidadEmpaques) { parts.push('CantidadEmpaques = @CantidadEmpaques'); reqUp.input('CantidadEmpaques', sql.Int, Math.round(nv.empaques ?? 0)); }
   if (meta.hasCantidadUnidades) { parts.push('CantidadUnidadesMinimas = @CantidadUnidades'); reqUp.input('CantidadUnidades', sql.Int, Math.round(nv.unidades ?? 0)); }
+  if (meta.hasTotalUnidades) { parts.push('TotalUnidadesMinimas = @TotalUnidades'); reqUp.input('TotalUnidades', sql.Int, Math.round(nv.totalUnidades ?? restante)); }
   if (parts.length) await reqUp.query(`UPDATE dbo.Lotes SET ${parts.join(', ')} WHERE LoteID = @LoteID;`);
   // actualizar StockActual del producto
   await createRequest(scope)
@@ -73,8 +78,17 @@ function calcLinea(item, factor, loteData) {
   const unidades = modo === 'empaque' ? cantEmp * factor : cantUni;
   const precioEmpaque = parseDecimal(loteData?.PrecioUnitarioVenta ?? item.precioUnitarioVenta);
   const precioUnidadMin = factor > 0 ? precioEmpaque / factor : precioEmpaque;
-  const descEmpaque = parseDecimal(loteData?.PorcentajeDescuentoEmpaque ?? item.porcentajeDescEmpaque, 4);
-  const impuestoPct = parseDecimal(loteData?.PorcentajeImpuesto ?? item.porcentajeImpuesto, 4);
+  const rawDesc = parseDecimal(loteData?.PorcentajeDescuentoEmpaque ?? item.porcentajeDescEmpaque, 4);
+  // Soportar valores 0-1 o 0-100; clamp para evitar negativos
+  const descEmpaquePct = rawDesc > 1 ? rawDesc / 100 : rawDesc;
+  const descEmpaque = modo === 'empaque'
+    ? Math.min(1, Math.max(0, descEmpaquePct))
+    : 0;
+  const impuestoRaw = parseDecimal(
+    loteData?.ImpuestoProducto ?? loteData?.PorcentajeImpuesto ?? item.porcentajeImpuesto,
+    4
+  );
+  const impuestoPct = impuestoRaw > 1 ? impuestoRaw : impuestoRaw; // asumimos impuesto en porcentaje (p.ej. 10)
   let precioAplicadoUnidad = precioUnidadMin;
   if (modo === 'empaque' && factor > 0) {
     const conDesc = precioEmpaque * (1 - descEmpaque);
@@ -100,13 +114,15 @@ const crearVenta = async (req, res) => {
     } = req.body || {};
 
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: 'No se puede crear una venta vacía.' });
+      return res.status(400).json({ message: 'No se puede crear una venta vacia.' });
     }
     if (String(estado).toLowerCase() === 'credito' && (clienteId == null)) {
-      return res.status(400).json({ message: 'Para ventas a crédito se requiere Cliente.' });
+      return res.status(400).json({ message: 'Para ventas a credito se requiere Cliente.' });
     }
 
     const pool = await poolPromise;
+    const metaLotes = await getLotesColumnInfo();
+    const { factorExpr } = getCantidadExpressions(metaLotes, { alias: 'l' });
     const tx = new sql.Transaction(await pool);
     await tx.begin();
     try {
@@ -117,24 +133,24 @@ const crearVenta = async (req, res) => {
       let subtotal = 0;
       let impuestoTotal = 0;
 
-      // Validar y calcular líneas
+      // Validar y calcular lineas
       for (const it of items) {
         const productoId = Number(it.productoId || it.ProductoID);
         const loteId = Number(it.loteId || it.LoteID);
-        if (!productoId || !loteId) throw new Error('Cada ítem requiere productoId y loteId');
-        const factor = await getProductoFactor(tx, productoId);
-
-        // Obtener datos del lote para precios/impuestos
+        if (!productoId || !loteId) throw new Error('Cada item requiere productoId y loteId');
+        // Obtener datos del lote para precios/impuestos y factor
         const lotQ = await createRequest(tx)
           .input('LoteID', sql.Int, loteId)
           .query(`
             SELECT l.PrecioUnitarioVenta, l.PorcentajeImpuesto, l.PorcentajeDescuentoEmpaque,
                    l.NumeroLote,
-                   p.NombreProducto, p.Presentacion
+                   p.NombreProducto, p.Presentacion, p.Impuesto AS ImpuestoProducto,
+                   ${factorExpr} AS FactorUnidades
             FROM dbo.Lotes l
             INNER JOIN dbo.Productos p ON p.ProductoID = l.ProductoID
             WHERE l.LoteID = @LoteID`);
         const loteData = lotQ.recordset[0] || {};
+        const factor = ensurePositiveNumber(loteData?.FactorUnidades, 1) || 1;
         const calc = calcLinea(it, factor, loteData);
         subtotal += calc.subtotalLinea;
         impuestoTotal += calc.impuestoLinea;
@@ -248,7 +264,7 @@ const crearVenta = async (req, res) => {
           await new Promise((resolve, reject) => {
   // Ticket ampliado (~106mm ancho)
   const width = 300; // ~106 mm
-  const baseHeight = 360; // más espacio para cabecera/totales
+  const baseHeight = 360; // mas espacio para cabecera/totales
   const itemsHeight = Math.max(160, payload.items.length * 36);
   const height = baseHeight + itemsHeight;
   const doc = new PDFDocument({ size: [width, height], margin: 12 });
@@ -274,7 +290,7 @@ const crearVenta = async (req, res) => {
             // Encabezado de items (formato columnas)
             const currency = process.env.CURRENCY || 'RD$';
             const colQty = 4;           // Cant
-            const colDesc = 18;         // Descripción (reducido 4 espacios)
+            const colDesc = 18;         // Descripcion (reducido 4 espacios)
             const colItbis = 10;        // ITBIS/U.
             const colMonto = 10;        // Monto
 
@@ -298,7 +314,7 @@ const crearVenta = async (req, res) => {
             );
             doc.text(sep);
 
-            // helper: envolver desc; si supera el ancho, en siguientes líneas reduce 1 y baja a la izquierda
+            // helper: envolver desc; si supera el ancho, en siguientes lineas reduce 1 y baja a la izquierda
             const wrapWords = (text, firstWidth, nextWidth) => {
               const words = String(text || '').split(/\s+/).filter(Boolean);
               const lines = [];
@@ -310,7 +326,7 @@ const crearVenta = async (req, res) => {
                 } else {
                   if (current) lines.push(current);
                   current = w;
-                  width = nextWidth; // para siguientes líneas usamos ancho reducido
+                  width = nextWidth; // para siguientes lineas usamos ancho reducido
                 }
               }
               if (current) lines.push(current);
@@ -324,7 +340,7 @@ const crearVenta = async (req, res) => {
               const desc = `${ln.productoNombre || ('Producto ' + ln.productoId)}${ln.productoPresentacion ? ' ' + ln.productoPresentacion : ''}`;
 
               const descLines = wrapWords(desc, colDesc, Math.max(1, colDesc - 1));
-              // primera línea con cantidad, desc, itbis/u y total
+              // primera linea con cantidad, desc, itbis/u y total
               const firstRow =
                 lpad(qty, colQty) + ' ' +
                 pad(descLines[0] || '', colDesc) + ' ' +
@@ -332,13 +348,13 @@ const crearVenta = async (req, res) => {
                 lpad(`${currency} ${lineTotal.toFixed(2)}`, colMonto);
               doc.text(firstRow);
 
-              // líneas siguientes: bajan alineadas a la izquierda del bloque descripción, con 1 espacio menos
+              // lineas siguientes: bajan alineadas a la izquierda del bloque descripcion, con 1 espacio menos
               for (let i = 1; i < descLines.length; i += 1) {
                 const cont = ' '.repeat(colQty) + ' ' + pad(descLines[i], Math.max(1, colDesc - 1));
                 doc.text(cont);
               }
 
-              // segunda línea con lote (si existe)
+              // segunda linea con lote (si existe)
             });
 
             doc.text(sep);
@@ -398,19 +414,19 @@ const crearVenta = async (req, res) => {
   }
 };
 
-// Listado de ventas con filtros básicos
+// Listado de ventas con filtros basicos
 const listarVentas = async (req, res) => {
   try {
     const pool = await poolPromise;
 
-    // Política: devoluciones solo dentro de N días desde la venta (por defecto 4)
+    // Politica: devoluciones solo dentro de N dias desde la venta (por defecto 4)
     const LIMITE_DIAS_DEV = 4;
     const fvQ = await pool.request().input('id', sql.Int, ventaId).query('SELECT FechaVenta FROM dbo.Ventas WHERE VentaID=@id');
     if (!fvQ.recordset.length) throw httpError(404, 'Venta no encontrada');
     const fechaVenta = new Date(fvQ.recordset[0].FechaVenta);
     const ms = Date.now() - fechaVenta.getTime();
     const dias = ms / (1000*60*60*24);
-    if (dias > LIMITE_DIAS_DEV) throw httpError(400, `La devolución supera el límite de ${LIMITE_DIAS_DEV} días`);
+    if (dias > LIMITE_DIAS_DEV) throw httpError(400, `La devolucion supera el limite de ${LIMITE_DIAS_DEV} dias`);
     const from = req.query.from ? new Date(req.query.from) : null;
     const to = req.query.to ? new Date(req.query.to) : null;
     const clienteId = req.query.clienteId ? Number(req.query.clienteId) : null;
@@ -459,7 +475,7 @@ const obtenerVenta = async (req, res) => {
   }
 };
 
-// Aplicar devolución (nota de crédito simple) que incrementa stock de lotes
+// Aplicar devolucion (nota de credito simple) que incrementa stock de lotes
 const devolucionVenta = async (req, res) => {
   const httpError = (status, message) => Object.assign(new Error(message), { status });
   try {
@@ -474,8 +490,8 @@ const devolucionVenta = async (req, res) => {
       const pid = Number(it.productoId || it.ProductoID);
       const lid = Number(it.loteId || it.LoteID);
       const unidades = Number(it.unidades || it.Unidades || 0);
-      if (!Number.isFinite(pid) || pid <= 0) throw httpError(400, 'productoId inválido');
-      if (!Number.isFinite(lid) || lid <= 0) throw httpError(400, 'loteId inválido');
+      if (!Number.isFinite(pid) || pid <= 0) throw httpError(400, 'productoId invalido');
+      if (!Number.isFinite(lid) || lid <= 0) throw httpError(400, 'loteId invalido');
       if (!Number.isFinite(unidades) || unidades <= 0) throw httpError(400, 'unidades debe ser > 0');
       const k = `${pid}|${lid}`;
       reqMap.set(k, (reqMap.get(k) || 0) + Math.round(unidades));
@@ -483,20 +499,23 @@ const devolucionVenta = async (req, res) => {
 
     const pool = await poolPromise;
 
-    // Cargar detalle de la venta para validar pertenencia y límites
+    // Cargar detalle de la venta para validar pertenencia y limites
+    const meta = await getLotesColumnInfo();
+    const { factorExpr } = getCantidadExpressions(meta, { alias: 'l' });
     const det = await pool.request().input('id', sql.Int, ventaId).query(`
       SELECT dv.ProductoID, dv.LoteID,
              COALESCE(dv.CantidadEmpaquesVendidos,0) AS CantEmp,
              COALESCE(dv.CantidadUnidadesMinimasVendidas,0) AS CantUni,
              COALESCE(dv.PrecioUnitario,0) AS PrecioUnitario,
-             CAST(1 AS int) AS Factor
+             ${factorExpr} AS Factor
       FROM dbo.DetalleVenta dv
       INNER JOIN dbo.Productos p ON p.ProductoID = dv.ProductoID
+      INNER JOIN dbo.Lotes l ON l.LoteID = dv.LoteID
       WHERE dv.VentaID=@id
     `);
     if (!det.recordset.length) throw httpError(404, 'Venta no encontrada o sin detalle');
 
-    const soldMap = new Map(); // pid|lid -> unidadesVendidas (en unidades mínimas)
+    const soldMap = new Map(); // pid|lid -> unidadesVendidas (en unidades minimas)
     for (const r of det.recordset) {
       const factor = ensurePositiveNumber(r.Factor, 1) || 1;
       const units = Number(r.CantUni) + Number(r.CantEmp) * factor;
@@ -506,7 +525,7 @@ const devolucionVenta = async (req, res) => {
 
     // Validar que cada item pertenezca a la factura y no exceda lo vendido
     
-    // No se recalculan totales de la venta en esta instalación.
+    // No se recalculan totales de la venta en esta instalacion.
     let devolverSub = 0; // mantener compatibilidad con bloque de totales (sin efecto)
     const tx = new sql.Transaction(await pool);
     await tx.begin();
@@ -528,7 +547,7 @@ const devolucionVenta = async (req, res) => {
             permite = !!(pr.recordset?.[0]?.Permite);
           }
         } catch { /* si falla, permitir por defecto */ }
-        if (!permite) throw httpError(400, 'Este producto no admite devolución');
+        if (!permite) throw httpError(400, 'Este producto no admite devolucion');
 
         const rqL = new sql.Request(tx).input('lid', sql.Int, lid);
         const selectLote = `SELECT LoteID, ProductoID, COALESCE(Activo,1) AS Activo,
@@ -565,14 +584,14 @@ const devolucionVenta = async (req, res) => {
       await tx.rollback();
       throw err;
     }
-    return res.json({ message: 'Devolución aplicada' });
+    return res.json({ message: 'Devolucion aplicada' });
   } catch (err) {
     const status = err.status && Number.isInteger(err.status) ? err.status : 500;
-    return res.status(status).json({ message: err.message || 'Error al aplicar devolución' });
+    return res.status(status).json({ message: err.message || 'Error al aplicar devolucion' });
   }
 };
 
-// obtenerVenta / devolucionVenta removidos en esta instalación
+// obtenerVenta / devolucionVenta removidos en esta instalacion
 
 const anularVenta = async (req, res) => {
   try {
@@ -581,7 +600,7 @@ const anularVenta = async (req, res) => {
     // JSON store no disponible; buscar archivo directamente
     const venta = { ventaId };
     if (String(venta.estado || '').toLowerCase() === 'anulada') {
-      return res.status(400).json({ message: 'La venta ya está anulada' });
+      return res.status(400).json({ message: 'La venta ya esta anulada' });
     }
 
     // Restituir stock por lote
@@ -590,20 +609,24 @@ const anularVenta = async (req, res) => {
     await tx.begin();
     try {
       const meta = await getLotesColumnInfo();
+      const { factorExpr } = getCantidadExpressions(meta, { alias: 'l' });
       for (const it of venta.items || []) {
         const reqL = createRequest(tx).input('LoteID', sql.Int, Number(it.loteId));
-        const meta = await getLotesColumnInfo();
         const q = await reqL.query(`SELECT LoteID, ProductoID,
           ${meta.hasCantidad ? 'COALESCE(Cantidad,0)' : '0'} AS Cantidad,
           ${meta.hasCantidadEmpaques ? 'COALESCE(CantidadEmpaques,0)' : '0'} AS CantidadEmpaques,
-          ${meta.hasCantidadUnidades ? 'COALESCE(CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas
+          ${meta.hasCantidadUnidades ? 'COALESCE(CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas,
+          ${meta.hasTotalUnidades ? 'COALESCE(TotalUnidadesMinimas,0)' : '0'} AS CantidadTotalMinima,
+          ${factorExpr} AS Factor
           FROM dbo.Lotes WHERE LoteID = @LoteID`);
         if (!q.recordset.length) continue;
         const r = q.recordset[0];
-        const factor = DEFAULT_FACTOR_UNIDADES;
-    const totalActual = meta.hasCantidad
-      ? ensurePositiveNumber(r.Cantidad)
-      : ensurePositiveNumber(r.CantidadEmpaques) * factor;
+        const factor = ensurePositiveNumber(r.Factor, 1) || 1;
+        const totalActual = meta.hasTotalUnidades
+          ? ensurePositiveNumber(r.CantidadTotalMinima)
+          : (meta.hasCantidad
+            ? ensurePositiveNumber(r.Cantidad)
+            : ensurePositiveNumber(r.CantidadEmpaques) * factor);
         const nuevoTotal = totalActual + ensurePositiveNumber(it.unidades);
         const nv = splitUnitsToCounts(nuevoTotal, factor, meta);
         const parts = [];
@@ -611,6 +634,7 @@ const anularVenta = async (req, res) => {
         if (meta.hasCantidad) { parts.push('Cantidad = @Cantidad'); reqUp.input('Cantidad', sql.Int, Math.round(nv.cantidad ?? nuevoTotal)); }
         if (meta.hasCantidadEmpaques) { parts.push('CantidadEmpaques = @CantidadEmpaques'); reqUp.input('CantidadEmpaques', sql.Int, Math.round(nv.empaques ?? 0)); }
         if (meta.hasCantidadUnidades) { parts.push('CantidadUnidadesMinimas = @CantidadUnidades'); reqUp.input('CantidadUnidades', sql.Int, Math.round(nv.unidades ?? 0)); }
+        if (meta.hasTotalUnidades) { parts.push('TotalUnidadesMinimas = @TotalUnidades'); reqUp.input('TotalUnidades', sql.Int, Math.round(nv.totalUnidades ?? nuevoTotal)); }
         if (parts.length) await reqUp.query(`UPDATE dbo.Lotes SET ${parts.join(', ')} WHERE LoteID = @LoteID;`);
         await createRequest(tx)
           .input('ProductoID', sql.Int, Number(r.ProductoID))
@@ -634,7 +658,7 @@ const obtenerPdf = async (req, res) => {
   try {
     const ventaId = Number(req.params.ventaId);
     // No dependemos de JSON; verificamos archivo PDF disponible
-    // Buscar archivo más reciente por patrón
+    // Buscar archivo mas reciente por patron
     const files = fs.existsSync(FACTURAS_DIR) ? fs.readdirSync(FACTURAS_DIR) : [];
     const prefix = `factura_${ventaId}_`;
     const found = files.filter(f => f.startsWith(prefix) && f.endsWith('.pdf')).sort().pop();
@@ -649,11 +673,3 @@ const obtenerPdf = async (req, res) => {
 };
 
 module.exports = { crearVenta, listarVentas, obtenerVenta, devolucionVenta, anularVenta, obtenerPdf };
-
-
-
-
-
-
-
-
