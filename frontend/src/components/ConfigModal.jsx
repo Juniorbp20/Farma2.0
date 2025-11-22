@@ -217,7 +217,7 @@ const ConfigModal = ({ isOpen, onClose, user, onUpdated }) => {
                     </div>
                     <div className="col-12 col-md-6">
                       <label className="config-field">
-                        <span className="config-label">RUC / NIT / RNC</span>
+                        <span className="config-label">RNC</span>
                         <input
                           type="text"
                           value={form.rucNit}

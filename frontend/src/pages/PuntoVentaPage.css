@@ -83,6 +83,27 @@
   font-weight: 700;
 }
 
+.chip-desc-switch {
+  width:fit-content !important;
+  display: inline-flex;
+    align-items: center !important;
+  justify-content: center !important;
+  padding: 2px 7px !important;
+  border-radius: 8px;
+  background: #f2f5ff !important;
+  border: 1px solid #dae3ff !important;
+}
+
+.chip-desc-switch .form-switch{
+  display: inline-flex;
+  gap: 10px !important;
+}
+
+.chip-desc-switch .form-check-input{
+  cursor: var(--cursor-seleccionables) !important;
+}
+
+
 .observaciones-textarea {
   resize: none;
   max-height: 40px !important;
@@ -96,8 +117,15 @@
   border: 1px solid #ced4da;
   border-radius: 10px;
   padding: 0.45rem 0.6rem;
-  min-height: 48px;
+  min-height: 40px !important;
   background: #fff;
+}
+
+.cliente-input-container--selected {
+  border: none;
+  background: transparent;
+  padding: 0;
+  min-height: unset;
 }
 
 .cliente-input-container:focus-within {
@@ -109,9 +137,9 @@
 .cliente-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.65rem;
-  border-radius: 12px;
+  gap: 0.2rem !important;
+  padding: 0.3rem 0.6rem;
+  border-radius: 10px;
   background: #e7f1ff;
   color: #0d6efd;
   border: 1px solid #d0e2ff;
@@ -158,7 +186,13 @@
 }
 
 .cliente-chip-input::placeholder {
-  color: #adb5bd;
+  color: #e1e1e1;
+}
+
+.cliente-sug-list {
+  border: 1px solid #d5e3ff;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .empty-chip {

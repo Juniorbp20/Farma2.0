@@ -80,10 +80,10 @@ function splitUnitsToCounts(totalUnits, factor = 1, meta = {}) {
     if (meta.hasTotalUnidades) res.totalUnidades = units;
     return res;
   }
-  const empaques = safeFactor > 0 ? Math.round(units / safeFactor) : 0;
+  const empaques = safeFactor > 0 ? Math.floor(units / safeFactor) : 0; // usar floor para no inflar empaques
   const result = {
     empaques,
-    unidades: safeFactor,
+    unidades: units % safeFactor, // unidades sobrantes fuera de empaques completos
   };
   if (meta.hasTotalUnidades) result.totalUnidades = units;
   if (meta.hasCantidad) result.cantidad = units;

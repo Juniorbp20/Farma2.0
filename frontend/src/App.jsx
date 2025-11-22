@@ -33,6 +33,10 @@ function App() {
   const [logoPath, setLogoPath] = useState(
     () => sessionStorage.getItem('logoPath') || ""
   );
+  useEffect(() => {
+    const storedTitle = sessionStorage.getItem("appTitle");
+    if (storedTitle) document.title = storedTitle;
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -48,12 +52,17 @@ function App() {
           setCurrencySymbol(data.monedaSimbolo);
           sessionStorage.setItem("currencySymbol", data.monedaSimbolo);
         }
+        if (data?.nombreEmpresa) {
+          document.title = data.nombreEmpresa;
+        }
       })
       .catch(() => {
         const stored = sessionStorage.getItem("logoPath");
         if (stored) setLogoPath(stored);
         const storedSymbol = sessionStorage.getItem("currencySymbol");
         if (storedSymbol) setCurrencySymbol(storedSymbol);
+        const storedTitle = sessionStorage.getItem("appTitle");
+        if (storedTitle) document.title = storedTitle;
       });
   }, []);
 
@@ -104,6 +113,10 @@ function App() {
     if (data?.monedaSimbolo) {
       setCurrencySymbol(data.monedaSimbolo);
       sessionStorage.setItem("currencySymbol", data.monedaSimbolo);
+    }
+    if (data?.nombreEmpresa) {
+      document.title = data.nombreEmpresa;
+      sessionStorage.setItem("appTitle", data.nombreEmpresa);
     }
   };
 

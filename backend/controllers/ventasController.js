@@ -40,6 +40,7 @@ async function consumirDeLote(scope, loteId, unidades) {
            ${meta.hasCantidad ? 'COALESCE(l.Cantidad,0)' : '0'} AS Cantidad,
            ${meta.hasCantidadEmpaques ? 'COALESCE(l.CantidadEmpaques,0)' : '0'} AS CantidadEmpaques,
            ${meta.hasCantidadUnidades ? 'COALESCE(l.CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas,
+           ${meta.hasTotalUnidades ? 'COALESCE(l.TotalUnidadesMinimas,0)' : '0'} AS TotalUnidadesMinimas,
            ${factorExpr} AS Factor
     FROM dbo.Lotes l
     WHERE l.LoteID = @LoteID`;
@@ -47,20 +48,21 @@ async function consumirDeLote(scope, loteId, unidades) {
   if (!loteQ.recordset.length) throw new Error('Lote no encontrado');
   const row = loteQ.recordset[0];
   if (!row.Activo) throw new Error('Lote inactivo');
-  const factor = ensurePositiveNumber(row.Factor, 1) || 1;
+  // factorUnidades representa cuantas unidades minimas hay por empaque; no se debe decrementar.
+  const factorUnidades = ensurePositiveNumber(row.CantidadUnidadesMinimas || row.Factor, 1) || 1;
   const totalActual = meta.hasTotalUnidades
-    ? ensurePositiveNumber(row.CantidadTotalMinima)
-    : (meta.hasCantidad
-        ? ensurePositiveNumber(row.Cantidad)
-        : ensurePositiveNumber(row.CantidadEmpaques) * factor);
+    ? ensurePositiveNumber(row.TotalUnidadesMinimas) || (ensurePositiveNumber(row.CantidadEmpaques) * factorUnidades)
+    : ensurePositiveNumber(row.CantidadEmpaques) * factorUnidades;
   const tomar = Math.max(0, Math.min(ensurePositiveNumber(unidades), totalActual));
+  if (tomar < ensurePositiveNumber(unidades)) {
+    throw Object.assign(new Error(`Stock insuficiente en el lote ${loteId} (disp: ${totalActual}, solicitado: ${unidades}).`), { status: 409 });
+  }
   const restante = totalActual - tomar;
-  const nv = splitUnitsToCounts(restante, factor, meta);
+  const nv = splitUnitsToCounts(restante, factorUnidades, meta);
   const parts = [];
   const reqUp = createRequest(scope).input('LoteID', sql.Int, Number(loteId));
-  if (meta.hasCantidad) { parts.push('Cantidad = @Cantidad'); reqUp.input('Cantidad', sql.Int, Math.round(nv.cantidad ?? restante)); }
-  if (meta.hasCantidadEmpaques) { parts.push('CantidadEmpaques = @CantidadEmpaques'); reqUp.input('CantidadEmpaques', sql.Int, Math.round(nv.empaques ?? 0)); }
-  if (meta.hasCantidadUnidades) { parts.push('CantidadUnidadesMinimas = @CantidadUnidades'); reqUp.input('CantidadUnidades', sql.Int, Math.round(nv.unidades ?? 0)); }
+  if (meta.hasCantidadEmpaques) { parts.push('CantidadEmpaques = @CantidadEmpaques'); reqUp.input('CantidadEmpaques', sql.Int, Math.max(0, Math.floor(nv.empaques ?? 0))); }
+  // CantidadUnidadesMinimas se mantiene como factor, no se reduce
   if (meta.hasTotalUnidades) { parts.push('TotalUnidadesMinimas = @TotalUnidades'); reqUp.input('TotalUnidades', sql.Int, Math.round(nv.totalUnidades ?? restante)); }
   if (parts.length) await reqUp.query(`UPDATE dbo.Lotes SET ${parts.join(', ')} WHERE LoteID = @LoteID;`);
   // actualizar StockActual del producto
@@ -101,6 +103,7 @@ function calcLinea(item, factor, loteData) {
 }
 
 const crearVenta = async (req, res) => {
+  const httpError = (status, message) => Object.assign(new Error(message), { status });
   try {
     const {
       usuarioId,
@@ -122,7 +125,7 @@ const crearVenta = async (req, res) => {
 
     const pool = await poolPromise;
     const metaLotes = await getLotesColumnInfo();
-    const { factorExpr } = getCantidadExpressions(metaLotes, { alias: 'l' });
+    const { factorExpr, totalExpr } = getCantidadExpressions(metaLotes, { alias: 'l' });
     const tx = new sql.Transaction(await pool);
     await tx.begin();
     try {
@@ -130,6 +133,7 @@ const crearVenta = async (req, res) => {
       const fechaIso = now.toISOString();
 
       const lineas = [];
+      const consumoPorLote = new Map(); // clave loteId -> unidades minimas solicitadas
       let subtotal = 0;
       let impuestoTotal = 0;
 
@@ -142,18 +146,35 @@ const crearVenta = async (req, res) => {
         const lotQ = await createRequest(tx)
           .input('LoteID', sql.Int, loteId)
           .query(`
-            SELECT l.PrecioUnitarioVenta, l.PorcentajeImpuesto, l.PorcentajeDescuentoEmpaque,
+            SELECT l.PrecioUnitarioVenta,
+                   l.PorcentajeDescuentoEmpaque,
                    l.NumeroLote,
-                   p.NombreProducto, p.Presentacion, p.Impuesto AS ImpuestoProducto,
-                   ${factorExpr} AS FactorUnidades
+                   ${metaLotes.hasCantidad ? 'COALESCE(l.Cantidad,0) AS Cantidad,' : ''}
+                   ${metaLotes.hasCantidadEmpaques ? 'COALESCE(l.CantidadEmpaques,0) AS CantidadEmpaques,' : ''}
+                   ${metaLotes.hasCantidadUnidades ? 'COALESCE(l.CantidadUnidadesMinimas,0) AS CantidadUnidadesMinimas,' : ''}
+                   ${metaLotes.hasTotalUnidades ? 'COALESCE(l.TotalUnidadesMinimas,0) AS TotalUnidadesMinimas,' : ''}
+                   p.NombreProducto, p.Presentacion, COALESCE(p.Impuesto,0) AS ImpuestoProducto,
+                   ${factorExpr} AS FactorUnidades,
+                   ${totalExpr} AS TotalUnidadesDisponibles
             FROM dbo.Lotes l
             INNER JOIN dbo.Productos p ON p.ProductoID = l.ProductoID
             WHERE l.LoteID = @LoteID`);
         const loteData = lotQ.recordset[0] || {};
         const factor = ensurePositiveNumber(loteData?.FactorUnidades, 1) || 1;
+        const unidadesDisponibles = metaLotes.hasTotalUnidades
+          ? ensurePositiveNumber(loteData?.TotalUnidadesMinimas, 0)
+          : (metaLotes.hasCantidad
+              ? ensurePositiveNumber(loteData?.Cantidad, 0)
+              : ensurePositiveNumber(loteData?.CantidadEmpaques, 0) * factor);
         const calc = calcLinea(it, factor, loteData);
+        if (calc.unidades > unidadesDisponibles) {
+          throw httpError(409, `Stock insuficiente en el lote seleccionado (disp: ${unidadesDisponibles}, solicitado: ${calc.unidades}).`);
+        }
         subtotal += calc.subtotalLinea;
         impuestoTotal += calc.impuestoLinea;
+        // acumular consumo por lote
+        const keyLote = String(loteId);
+        consumoPorLote.set(keyLote, (consumoPorLote.get(keyLote) || 0) + calc.unidades);
         lineas.push({
           productoId,
           loteId,
@@ -188,6 +209,22 @@ const crearVenta = async (req, res) => {
 
       const total = parseDecimal(Math.max(0, (subtotal - descuentoMonto) + impuestoTotal));
 
+      // Validar stock acumulado por lote antes de escribir
+      for (const [key, unidadesSolic] of consumoPorLote.entries()) {
+        const lid = Number(key);
+        const loteInfo = await createRequest(tx)
+          .input('lid', sql.Int, lid)
+          .query(`
+            SELECT ${factorExpr} AS Factor,
+                   ${totalExpr} AS TotalUnidadesDisponibles
+            FROM dbo.Lotes l WHERE l.LoteID = @lid
+          `);
+        const disp = ensurePositiveNumber(loteInfo.recordset?.[0]?.TotalUnidadesDisponibles);
+        if (ensurePositiveNumber(unidadesSolic) > disp) {
+          throw httpError(409, `Stock insuficiente en el lote seleccionado (disp: ${disp}, solicitado: ${unidadesSolic}).`);
+        }
+      }
+
       // Insertar en DB: Ventas (cabecera)
       const reqVenta = createRequest(tx)
         .input('UsuarioID', sql.Int, usuarioId || (req.user?.sub ? Number(req.user.sub) : null))
@@ -221,10 +258,23 @@ const crearVenta = async (req, res) => {
         `);
       }
 
-      // Descontar stock por lote
+      // Descontar stock por lote y registrar historial
       for (const ln of lineas) {
         if (ln.unidades <= 0) continue;
-        await consumirDeLote(tx, ln.loteId, ln.unidades);
+        const consumo = await consumirDeLote(tx, ln.loteId, ln.unidades);
+        try {
+          const uid = usuarioId || (req.user?.sub ? Number(req.user.sub) : null);
+          await createRequest(tx)
+            .input('LoteID', sql.Int, ln.loteId)
+            .input('UsuarioID', sql.Int, uid)
+            .input('Detalle', sql.NVarChar(4000), `VentaID: ${ventaIdDb || ''}, ProductoID: ${ln.productoId}, Unidades: ${Math.round(consumo?.consumido ?? ln.unidades)}`)
+            .query(`INSERT INTO dbo.InventarioLoteHistorial (LoteID, UsuarioID, Accion, Detalle, Fecha, Motivo)
+                    VALUES (@LoteID, @UsuarioID, 'Venta', @Detalle, GETDATE(), NULL);`);
+        } catch (err) {
+          // No bloquear la venta por fallos en el historial
+          // eslint-disable-next-line no-console
+          console.warn('No se pudo registrar historial de inventario:', err?.message);
+        }
       }
 
       await tx.commit();
@@ -237,6 +287,25 @@ const crearVenta = async (req, res) => {
       const cambio = pago.metodo && pago.metodo.toLowerCase() === 'efectivo'
         ? Math.max(0, parseDecimal(Number(pago.monto || 0) - total))
         : 0;
+
+      // Cargar parametros de sistema (nombre, direccion, moneda, etc.)
+      let paramsSistema = {};
+      try { paramsSistema = await require('../services/configService').getParametrosSistema(); } catch {}
+
+      // Obtener datos del cliente para mostrar nombre/documento
+      let clienteInfo = null;
+      if (clienteId != null) {
+        try {
+          const cliQ = await createRequest(pool)
+            .input('cid', sql.Int, Number(clienteId))
+            .query(`SELECT TOP 1 c.Nombres, c.Apellidos, c.Documento,
+                           COALESCE(td.Nombre,'') AS TipoDocumentoNombre
+                    FROM dbo.Clientes c
+                    LEFT JOIN dbo.TiposDocumentos td ON td.TipoDocumentoID = c.TipoDocumentoID
+                    WHERE c.ClienteID = @cid`);
+          clienteInfo = cliQ.recordset[0] || null;
+        } catch {}
+      }
 
       // Armar payload solo para generar PDF y responder (sin JSON)
       const payload = {
@@ -255,6 +324,14 @@ const crearVenta = async (req, res) => {
         items: lineas,
       };
 
+      const currency = paramsSistema?.monedaSimbolo || process.env.CURRENCY || 'RD$';
+      const empresaNombre = paramsSistema?.nombreEmpresa || process.env.BUSINESS_NAME || 'Fmanager';
+      const empresaDir = paramsSistema?.direccion || process.env.BUSINESS_ADDRESS || '';
+      const empresaRuc = paramsSistema?.rucNit || process.env.BUSINESS_RNC || '';
+      const nota1 = '##NO DEVOLUCION DE DINERO##';
+      const nota2 = '##NO DEVOLUCION DESPUES DE 1 DIA##';
+      const nota3 = 'Conserve su factura para cualquier reclamacion.';
+
       // Generar PDF
       if (!fs.existsSync(FACTURAS_DIR)) fs.mkdirSync(FACTURAS_DIR, { recursive: true });
       const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
@@ -262,8 +339,8 @@ const crearVenta = async (req, res) => {
       try {
         if (PDFDocument) {
           await new Promise((resolve, reject) => {
-  // Ticket ampliado (~106mm ancho)
-  const width = 300; // ~106 mm
+  // Ticket ampliado
+  const width = 390; // formato ancho (~112 mm)
   const baseHeight = 360; // mas espacio para cabecera/totales
   const itemsHeight = Math.max(160, payload.items.length * 36);
   const height = baseHeight + itemsHeight;
@@ -271,30 +348,29 @@ const crearVenta = async (req, res) => {
   const stream = fs.createWriteStream(pdfPath);
   doc.pipe(stream);
 
-  const name = process.env.BUSINESS_NAME || 'Fmanager';
-  const addr = process.env.BUSINESS_ADDRESS || '';
-  const rnc = process.env.BUSINESS_RNC || '';
-
-  doc.fontSize(12).text(`*** ${name} ***`, { align: 'center' });
-  if (addr) doc.text(addr, { align: 'center' });
-  if (rnc) doc.text(`RNC: ${rnc}`, { align: 'center' });
+  doc.fontSize(12).text(`*** ${empresaNombre} ***`, { align: 'center' });
+  if (empresaDir) doc.text(empresaDir, { align: 'center' });
+  if (empresaRuc) doc.text(`RNC: ${empresaRuc}`, { align: 'center' });
   doc.moveDown(1);
 
   const createdAt = new Date(payload.fecha);
   doc.text(`FACTURA #: ${payload.ventaId}`);
   doc.text(`Fecha y Hora: ${createdAt.toLocaleString()}`);
-  doc.text(`Cliente: ${payload.clienteId == null ? 'Consumidor Final' : `ID ${payload.clienteId}`}`);
+  const cliLabel = clienteInfo
+    ? `${(clienteInfo.Nombres || '').trim()} ${(clienteInfo.Apellidos || '').trim()}`.trim()
+    : 'Consumidor Final';
+  const cliDoc = clienteInfo?.Documento ? `${clienteInfo.TipoDocumentoNombre || 'Doc'}: ${clienteInfo.Documento}` : '';
+  doc.text(`Cliente: ${cliLabel}${cliDoc ? ` (${cliDoc})` : ''}`);
   doc.text(`Forma de pago: ${payload.formaPago || formaPago}`);
   doc.moveDown(0.5);
 
             // Encabezado de items (formato columnas)
-            const currency = process.env.CURRENCY || 'RD$';
-            const colQty = 4;           // Cant
-            const colDesc = 18;         // Descripcion (reducido 4 espacios)
-            const colItbis = 10;        // ITBIS/U.
-            const colMonto = 10;        // Monto
+            doc.font('Courier').fontSize(10);
+            const colDesc = 30;         // Descripcion (ancho base)
+            const colItbis = 13;        // ITBIS
+            const colMonto = 13;        // Monto
 
-            const sep = '-'.repeat(colQty + 9 + colDesc + 9 + colItbis + 9 + colMonto);
+            const sep = '-'.repeat(colDesc + colItbis + colMonto + 6);
             const pad = (s, w) => {
               const str = String(s ?? '');
               if (str.length >= w) return str.slice(0, w);
@@ -307,10 +383,9 @@ const crearVenta = async (req, res) => {
             };
 
             doc.text(
-              pad('Cant', colQty) + '     ' +
               pad('Descripcion', colDesc) + '   ' +
-              pad('ITBIS/U.', colItbis) + '  ' +
-              pad('Monto', colMonto)
+              lpad('ITBIS', colItbis) + '  ' +
+              lpad('Monto', colMonto)
             );
             doc.text(sep);
 
@@ -335,44 +410,43 @@ const crearVenta = async (req, res) => {
 
             payload.items.forEach((ln) => {
               const qty = ln.modo === 'detalle' ? (ln.cantUnidadesMinimas || 0) : (ln.cantEmpaques || 0);
-              const itbisUnit = parseDecimal((ln.precioUnitarioVenta * (ln.porcentajeImpuesto / 100)), 2);
+              const qtyLabel = ln.modo === 'detalle' ? 'unidad(es)' : 'empaque(s)';
+              const itbisLinea = parseDecimal(ln.impuesto, 2);
               const lineTotal = parseDecimal(ln.total, 2);
               const desc = `${ln.productoNombre || ('Producto ' + ln.productoId)}${ln.productoPresentacion ? ' ' + ln.productoPresentacion : ''}`;
 
               const descLines = wrapWords(desc, colDesc, Math.max(1, colDesc - 1));
-              // primera linea con cantidad, desc, itbis/u y total
               const firstRow =
-                lpad(qty, colQty) + ' ' +
                 pad(descLines[0] || '', colDesc) + ' ' +
-                lpad(`${currency} ${itbisUnit.toFixed(2)}`, colItbis) + '  ' +
+                lpad(`${currency} ${itbisLinea.toFixed(2)}`, colItbis) + '  ' +
                 lpad(`${currency} ${lineTotal.toFixed(2)}`, colMonto);
               doc.text(firstRow);
 
-              // lineas siguientes: bajan alineadas a la izquierda del bloque descripcion, con 1 espacio menos
+              const qtyRow = pad(`Cant: ${qty} ${qtyLabel}`, colDesc);
+              doc.text(qtyRow);
+
               for (let i = 1; i < descLines.length; i += 1) {
-                const cont = ' '.repeat(colQty) + ' ' + pad(descLines[i], Math.max(1, colDesc - 1));
+                const cont = pad(descLines[i], Math.max(1, colDesc - 1));
                 doc.text(cont);
               }
-
-              // segunda linea con lote (si existe)
             });
 
             doc.text(sep);
   const subSin = parseDecimal(payload.subtotal, 2);
   const itbis = parseDecimal(payload.impuestoTotal, 2);
-  const subCon = parseDecimal(payload.subtotal + payload.impuestoTotal, 2);
   const descGlob = parseDecimal(payload.descuento, 2);
   const totalPago = parseDecimal(payload.total, 2);
-  if (descGlob > 0) doc.text(`DESCUENTO GLOBAL:       ${descGlob.toFixed(2)}`, { align: 'right' });
-  doc.text(`SUBTOTAL SIN ITBIS:     ${subSin.toFixed(2)}`, { align: 'right' });
-  doc.text(`ITBIS TOTAL:            ${itbis.toFixed(2)}`, { align: 'right' });
-  doc.text(`SUBTOTAL CON ITBIS:     ${subCon.toFixed(2)}`, { align: 'right' });
-  doc.font('Courier-Bold').text(`TOTAL A PAGAR:          ${totalPago.toFixed(2)}`, { align: 'right' });
-  doc.font('Courier');
+  const labelCol = 16;
+  const moneyStr = (v) => `${currency} ${parseDecimal(v,2).toFixed(2)}`;
+  doc.text(`${pad('SUBTOTAL:', labelCol)} ${moneyStr(subSin)}`);
+  doc.text(`${pad('ITBIS:', labelCol)} ${moneyStr(itbis)}`);
+  if (descGlob > 0) doc.text(`${pad('DESCUENTO:', labelCol)} - ${moneyStr(descGlob)}`);
+  doc.font('Courier-Bold').fontSize(11).text(`${pad('TOTAL:', labelCol)} ${moneyStr(totalPago)}`);
+  doc.font('Courier').fontSize(10);
   doc.moveDown(1);
   if (payload.pago && (payload.pago.metodo || '').toLowerCase() === 'efectivo') {
-    doc.text(`DINERO RECIBIDO:        ${parseDecimal(payload.pago.monto,2).toFixed(2)}`, { align: 'right' });
-    doc.text(`CAMBIO DEVUELTO:        ${parseDecimal(payload.pago.cambio,2).toFixed(2)}`, { align: 'right' });
+    doc.text(`DINERO RECIBIDO:        ${currency} ${parseDecimal(payload.pago.monto,2).toFixed(2)}`, { align: 'right' });
+    doc.text(`CAMBIO DEVUELTO:        ${currency} ${parseDecimal(payload.pago.cambio,2).toFixed(2)}`, { align: 'right' });
     doc.moveDown(1);
   } else if (payload.pago && payload.pago.metodo) {
     const metodo = String(payload.pago.metodo).toUpperCase();
@@ -381,7 +455,11 @@ const crearVenta = async (req, res) => {
   }
   if (observaciones) doc.text(`Obs.: ${observaciones}`);
   doc.moveDown(1);
-  doc.text('Gracias por su compra!', { align: 'center' });
+  doc.text(nota1, { align: 'center' });
+  doc.text(nota2, { align: 'center' });
+  doc.text(nota3, { align: 'center' });
+  doc.moveDown(1);
+  doc.text('¡Gracias por su compra!', { align: 'center' });
   doc.end();
   stream.on('finish', resolve);
   stream.on('error', reject);
@@ -410,7 +488,8 @@ const crearVenta = async (req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Error creando venta:', err);
-    return res.status(500).json({ message: err.message || 'Error creando la venta' });
+    const status = err.status && Number.isInteger(err.status) ? err.status : 500;
+    return res.status(status).json({ message: err.message || 'Error creando la venta' });
   }
 };
 

@@ -7,6 +7,7 @@ import { getLotes } from '../services/inventoryService';
 import { crearVenta, getVentaPdf, getVenta, aplicarDevolucion } from '../services/salesService';
 import TabBar from '../components/TabBar';
 import ActionButton from '../components/ActionButton';
+import Toast from '../components/recursos/Toast';
 
 function number(val, d = 2) {
     const n = Number(val);
@@ -117,22 +118,31 @@ function LineaItem({ item, onChange, onRemove, currencySymbol }) {
                     ))}
                 </select>
             </td>
-            <td style={{ width: 190 }}>
+            <td style={{ width: 210 }}>
                 <div className="d-flex flex-column align-items-center gap-1">
-                    <div className={chipClass}>
-                        <div className="form-check form-switch m-0">
-                            <input
-                                className="form-check-input"
-                                type="checkbox"
-                                role="switch"
-                                id={`modo-${item.lineId}`}
-                                checked={modo === 'empaque'}
-                                onChange={(e) => onChange({ ...item, modo: e.target.checked ? 'empaque' : 'detalle' })}
-                            />
+                    <div className="d-flex align-items-center gap-2">
+                        <div className={chipClass}>
+                            <div className="form-check form-switch m-0">
+                                <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    role="switch"
+                                    id={`modo-${item.lineId}`}
+                                    checked={modo === 'empaque'}
+                                    onChange={(e) => onChange({ ...item, modo: e.target.checked ? 'empaque' : 'detalle' })}
+                                />
+                            </div>
+                            <label className="small mb-0" htmlFor={`modo-${item.lineId}`}>
+                                {modo === 'empaque' ? 'Empaque' : 'Detalle'}
+                            </label>
                         </div>
-                        <label className="small mb-0" htmlFor={`modo-${item.lineId}`}>
-                            {modo === 'empaque' ? 'Empaque' : 'Detalle'}
-                        </label>
+                        <div
+                            className={`badge ${descuentoEmp > 0 ? 'bg-success-subtle text-success fw-semibold' : 'bg-light text-muted'} px-2 py-1 border`}
+                            title="Descuento por empaque aplicado desde el lote"
+                            style={{ minWidth: 70, textAlign: 'center', fontSize: '0.78rem' }}
+                        >
+                            Desc: {(descuentoEmp * 100).toFixed(0)}%
+                        </div>
                     </div>
                     {modo === 'empaque' ? (
                         <input type="number" className="form-control form-control-sm text-center input-cant" min={0} max={maxEmp} value={cantEmp} disabled={!lotesFiltrados.length}
@@ -156,8 +166,8 @@ function LineaItem({ item, onChange, onRemove, currencySymbol }) {
                 </div>
             </td>
             <td className="text-end">{formatMoney(precioMostrar, currencySymbol)}</td>
-            <td className="text-end">{impuestoPct.toFixed(2)}%</td>
-            <td className="text-end">{formatMoney(subtotal, currencySymbol)}</td>
+            <td className="text-end">{formatMoney(imp, currencySymbol)}</td>
+            <td className="text-end">{formatMoney(subtotal + imp, currencySymbol)}</td>
             <td className="text-center">
                 <button className="btn btn-sm btn-outline-danger delete-btn" onClick={() => onRemove(item)} title="Quitar"><i className="bi bi-trash"></i></button>
             </td>
@@ -189,6 +199,15 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
     const [ok, setOk] = useState(null);
     const [showConfirm, setShowConfirm] = useState(false);
     const [currencySymbol, setCurrencySymbol] = useState(() => sessionStorage.getItem('currencySymbol') || 'RD$');
+    const [toastMsg, setToastMsg] = useState('');
+    const [toastType, setToastType] = useState('success');
+    const [toastKey, setToastKey] = useState(Date.now());
+
+    const triggerToast = (type, message) => {
+        setToastType(type);
+        setToastMsg(message);
+        setToastKey(Date.now());
+    };
     // Estado para devoluciones dentro del POS
     const [devFrom, setDevFrom] = useState('');
     const [devTo, setDevTo] = useState('');
@@ -314,13 +333,55 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         return { subtotal, impuestoTotal, descuento: desc, total };
     }, [items, descuentoTipo, descuentoValor]);
 
+    function obtenerLoteSeleccionado(it) {
+        return it.lotes.find((l) => l.loteId === it.loteId) || null;
+    }
+
+    function unidadesSolicitadas(it, loteSel) {
+        const factor = Math.max(1, Number(loteSel?.cantidadUnidadesMinimas || it.factorUnidad || 1));
+        if (it.modo === 'empaque') return Math.max(0, Number(it.cantEmpaques || 0)) * factor;
+        return Math.max(0, Number(it.cantUnidadesMinimas || 0));
+    }
+
+    function disponibilidadLote(it) {
+        const loteSel = obtenerLoteSeleccionado(it);
+        if (!loteSel) return { factor: 1, totalUnidades: 0 };
+        const factor = Math.max(1, Number(loteSel.cantidadUnidadesMinimas || it.factorUnidad || 1));
+        const totalUnidades = Number(loteSel.totalUnidadesMinimas ?? loteSel.cantidadTotalMinima ?? (Number(loteSel.cantidadEmpaques || 0) * factor));
+        return { factor, totalUnidades, loteSel };
+    }
+
+    function clampItemStock(nuevo, itemsPrev) {
+        const { factor, totalUnidades } = disponibilidadLote(nuevo);
+        const usoOtros = itemsPrev
+            .filter((p) => p.lineId !== nuevo.lineId && p.loteId === nuevo.loteId)
+            .reduce((acc, p) => {
+                const loteSel = obtenerLoteSeleccionado(p);
+                return acc + unidadesSolicitadas(p, loteSel);
+            }, 0);
+        const disponible = Math.max(0, totalUnidades - usoOtros);
+        const solicitadas = unidadesSolicitadas(nuevo, obtenerLoteSeleccionado(nuevo));
+        if (solicitadas <= disponible) return nuevo;
+        // Ajustar segun modo
+        const ajustado = { ...nuevo };
+        if (nuevo.modo === 'empaque') {
+            ajustado.cantEmpaques = Math.floor(disponible / factor);
+            ajustado.cantUnidadesMinimas = 0;
+            triggerToast('error', `Stock insuficiente en el lote. Disponibles: ${Math.floor(disponible / factor)} empaques.`);
+        } else {
+            ajustado.cantUnidadesMinimas = disponible;
+            triggerToast('error', `Stock insuficiente en el lote. Disponibles: ${disponible} unidades.`);
+        }
+        return ajustado;
+    }
+
     async function addProducto(prod) {
         setError(''); setOk(null);
         try {
             const lots = await getLotes({ productoId: prod.ProductoID, estado: 'activos' });
             const filtrados = lots
                 .filter(l => (l.diasRestantes == null || l.diasRestantes >= 0))
-                .filter(l => (l.cantidadEmpaques > 0 || l.cantidadUnidadesMinimas > 0 || l.cantidadTotalMinima > 0));
+                .filter(l => (l.cantidadEmpaques > 0 || l.cantidadUnidadesMinimas > 0 || l.cantidadTotalMinima > 0 || l.totalUnidadesMinimas > 0));
             const disponibles = filtrados
                 .sort((a, b) => {
                     const fa = a.fechaVencimiento ? new Date(a.fechaVencimiento).getTime() : Number.MAX_SAFE_INTEGER;
@@ -390,8 +451,44 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         }
     }
 
+    function validarStockGlobal() {
+        const consumoPorLote = new Map(); // loteId -> unidades solicitadas
+        const disponibilidadPorLote = new Map(); // loteId -> {totalUnidades, factor}
+        for (const it of items) {
+            const { factor, totalUnidades } = disponibilidadLote(it);
+            const key = String(it.loteId || 'none');
+            disponibilidadPorLote.set(key, { totalUnidades, factor });
+            const usoActual = consumoPorLote.get(key) || 0;
+            consumoPorLote.set(key, usoActual + unidadesSolicitadas(it, obtenerLoteSeleccionado(it)));
+        }
+        for (const [key, consumo] of consumoPorLote.entries()) {
+            const { totalUnidades = 0, factor = 1 } = disponibilidadPorLote.get(key) || {};
+            if (consumo > totalUnidades) {
+                const dispEmp = Math.floor(totalUnidades / factor);
+                const restantes = Math.max(0, totalUnidades);
+                triggerToast('error', `Stock insuficiente en el lote seleccionado. Disponibles: ${dispEmp} empaques / ${restantes} unidades.`);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function validarCantidadesPositivas() {
+        for (const it of items) {
+            const loteSel = obtenerLoteSeleccionado(it);
+            const unidades = unidadesSolicitadas(it, loteSel);
+            if (!Number.isFinite(unidades) || unidades <= 0) {
+                triggerToast('error', 'Ingresa una cantidad mayor a 0 para cada producto.');
+                return false;
+            }
+        }
+        return true;
+    }
+
     function openConfirm() {
-        if (items.length === 0) { setError('No hay items en el carrito.'); return; }
+        if (items.length === 0) { const msg = 'No hay items en el carrito.'; setError(msg); triggerToast('error', msg); return; }
+        if (!validarCantidadesPositivas()) return;
+        if (!validarStockGlobal()) return;
         const validarMontoRecibido = formaPago === 'Efectivo' && items.length > 0;
         const montoRecibidoNumber = Number(montoRecibido);
         const montoRecibidoIngresado = montoRecibido !== '';
@@ -401,13 +498,15 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             montoRecibidoNumber >= 0 &&
             Math.round((montoRecibidoNumber - calcularTotales.total) * 100) >= 0
         );
-        if (validarMontoRecibido && !montoRecibidoValido) { setError('El monto recibido en efectivo debe ser un número válido y mayor o igual al total.'); return; }
-        if (estado.toLowerCase() === 'credito' && !clienteSel) { setError('Para crédito debe seleccionar cliente.'); return; }
+        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un número válido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
+        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para crédito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
         setShowConfirm(true);
     }
 
     async function onFinalizar() {
-        if (items.length === 0) { setError('No hay items en el carrito.'); return; }
+        if (items.length === 0) { const msg = 'No hay items en el carrito.'; setError(msg); triggerToast('error', msg); return; }
+        if (!validarCantidadesPositivas()) return;
+        if (!validarStockGlobal()) return;
         const validarMontoRecibido = formaPago === 'Efectivo' && items.length > 0;
         const montoRecibidoNumber = Number(montoRecibido);
         const montoRecibidoIngresado = montoRecibido !== '';
@@ -417,8 +516,8 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             montoRecibidoNumber >= 0 &&
             Math.round((montoRecibidoNumber - calcularTotales.total) * 100) >= 0
         );
-        if (validarMontoRecibido && !montoRecibidoValido) { setError('El monto recibido en efectivo debe ser un número válido y mayor o igual al total.'); return; }
-        if (estado.toLowerCase() === 'credito' && !clienteSel) { setError('Para crédito debe seleccionar cliente.'); return; }
+        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un número válido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
+        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para crédito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
         setSaving(true); setError(''); setOk(null);
         try {
             const payload = {
@@ -442,6 +541,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             };
             const resp = await crearVenta(payload);
             setOk(resp);
+            triggerToast('success', `Venta generada correctamente${resp?.ventaId ? ` (#${resp.ventaId})` : ''}`);
             try {
                 if (resp?.ventaId) {
                     const { blob, filename } = await getVentaPdf(resp.ventaId);
@@ -457,7 +557,8 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             setItems([]);
             setDescuentoValor(0); setDescuentoTipo('%'); setObservaciones('');
         } catch (err) {
-            setError(err.message || 'Error al finalizar la venta');
+            const msg = err.message || 'Error al finalizar la venta';
+            triggerToast('error', msg);
         } finally { setSaving(false); }
     }
 
@@ -642,7 +743,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                             <th style={{ width: 140 }}>Stock</th>
                                             <th className="text-end" style={{ width: 110 }}>Precio</th>
                                             <th className="text-end" style={{ width: 90 }}>Itbis</th>
-                                            <th className="text-end" style={{ width: 110 }}>Subtotal</th>
+                                            <th className="text-end" style={{ width: 110 }}>Total</th>
                                             <th style={{ width: 60 }}></th>
                                         </tr>
                                     </thead>
@@ -652,7 +753,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                                 key={it.lineId || `${it.productoId}-${it.loteId}-${idx}`}
                                                 item={it}
                                                 currencySymbol={currencySymbol}
-                                                onChange={(nuevo) => setItems(prev => prev.map(p => (p.lineId === it.lineId ? nuevo : p)))}
+                                                onChange={(nuevo) => setItems(prev => prev.map(p => (p.lineId === it.lineId ? clampItemStock(nuevo, prev) : p)))}
                                                 onRemove={() => setItems(prev => prev.filter(p => p.lineId !== it.lineId))}
                                             />
                                         ))}
@@ -678,7 +779,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                 <div className="row g-2">
                             <div className="col-12">
                                 <label className="form-label">Cliente</label>
-                                <div className="cliente-input-container">
+                                <div className={`cliente-input-container ${clienteSel ? 'cliente-input-container--selected' : ''}`}>
                                     {clienteSel && (
                                         <div className="cliente-chip">
                                             <div className="cliente-chip-content">
@@ -710,7 +811,10 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                     )}
                                 </div>
                                 {!!clienteSug.length && (
-                                    <div className="list-group mt-2" style={{ maxHeight: 200, overflowY: 'auto' }}>
+                                    <div
+                                        className="list-group mt-2 cliente-sug-list"
+                                        style={{ maxHeight: 100, overflowY: 'auto' }}
+                                    >
                                         {clienteSug.map((c) => {
                                             const tipoDoc = c.TipoDocumentoNombre || c.TipoDocumento || c.TipoDocumentoID || 'Doc';
                                             return (
@@ -780,17 +884,29 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                     <div className="card h-100 w-100 totales-card"><div className="card-body d-flex flex-column">
                                 <div className="d-flex justify-content-between totales-row-label"><div className="totales-label">Subtotal</div><div className="fw-semibold">{formatMoney(subtotal, currencySymbol)}</div></div>
                                 <div className="d-flex justify-content-between totales-row-label"><div className="totales-label">Impuestos</div><div className="fw-semibold">{formatMoney(impuestoTotal, currencySymbol)}</div></div>
-                                <div className="d-flex justify-content-between align-items-center my-2 totales-row-label">
-                                    <div className="totales-label">Descuento</div>
-                                    <div className="d-flex align-items-center gap-2">
-                                        <div className="form-check form-switch">
-                                            <input className="form-check-input" type="checkbox" role="switch" id="tipoDescSwitch" checked={descuentoTipo === '%'} onChange={(e) => setDescuentoTipo(e.target.checked ? '%' : '$')} />
-                                            <label className="form-check-label" htmlFor="tipoDescSwitch">{descuentoTipo === '%' ? '%' : '$'}</label>
+                                <div className="totales-row-label my-2 d-flex align-items-center justify-content-between flex-wrap">
+                                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                                        <div className="totales-label mb-0" style={{ minWidth: 90 }}>Descuento</div>
+                                        <div
+                                            className="text-muted chip-desc-switch"
+                                        >
+                                            <div className="form-switch">
+                                                <input className="form-check-input" type="checkbox" role="switch" id="tipoDescSwitch" checked={descuentoTipo === '%'} onChange={(e) => setDescuentoTipo(e.target.checked ? '%' : '$')} />
+                                                <label className="form-check-label" htmlFor="tipoDescSwitch">
+                                                    {descuentoTipo === '%' ? '%' : currencySymbol}
+                                                </label>
+                                            </div>
                                         </div>
-                                        <input type="number" className="form-control form-control-sm" style={{ width: 140 }} min={0} value={descuentoValor}
-                                            onChange={(e) => setDescuentoValor(e.target.value)} />
+                                        <input
+                                            type="number"
+                                            className="form-control form-control-sm"
+                                            style={{ width: 80 }}
+                                            min={0}
+                                            value={descuentoValor}
+                                            onChange={(e) => setDescuentoValor(e.target.value)}
+                                        />
                                     </div>
-                                    <span className="text-muted small">Aplicado: {formatMoney(descuento ?? 0, currencySymbol)}</span>
+                                    <div className="fw-semibold">- {formatMoney(descuento ?? 0, currencySymbol)}</div>
                                 </div>
                                 <div className="d-flex justify-content-between fs-5 mt-2 totales-row-label"><div className="totales-label">Total</div><div className="fw-bold">{formatMoney(total, currencySymbol)}</div></div>
                                 <div className="mt-3">
@@ -898,7 +1014,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                             <div className="modal-dialog modal-lg modal-dialog-scrollable" role="document">
                                 <div className="modal-content">
                                     <div className="modal-header">
-                                        <h5 className="modal-title">Devoluci��n Venta #{devDetalle.ventaId}</h5>
+                                        <h5 className="modal-title">Devolución Venta #{devDetalle.ventaId}</h5>
                                         <button type="button" className="btn-close" onClick={()=>setDevDetalle({ open:false, ventaId:null, cab:null, items:[], err:'', msg:'' })}></button>
                                     </div>
                                     <div className="modal-body" style={{ maxHeight:'65vh', overflowY:'auto' }}>
@@ -1097,12 +1213,12 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                     <span className="chip-soft">{formatMoney(subtotal, currencySymbol)}</span>
                                 </div>
                                 <div className="totales-chip-inline">
-                                    <span className="info-label mb-0 me-2">Descuento</span>
-                                    <span className="chip-soft">-{formatMoney(descuento, currencySymbol)}</span>
-                                </div>
-                                <div className="totales-chip-inline">
                                     <span className="info-label mb-0 me-2">Impuestos</span>
                                     <span className="chip-soft">{formatMoney(impuestoTotal, currencySymbol)}</span>
+                                </div>
+                                <div className="totales-chip-inline">
+                                    <span className="info-label mb-0 me-2">Descuento</span>
+                                    <span className="chip-soft">-{formatMoney(descuento, currencySymbol)}</span>
                                 </div>
                                 <div className="totales-chip-inline">
                                     <span className="info-label mb-0 me-2">Total</span>
@@ -1143,12 +1259,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                 </div>
             )}
 
-            {ok && (
-                <div className="alert alert-success mt-3" role="alert">
-                    Venta generada correctamente {ok?.ventaId ? `(#${ok.ventaId})` : ''}.
-                    {canPrint && ok?.pdfPath && <span className="ms-2">PDF generado en {ok.pdfPath}</span>}
-                </div>
-            )}
+            <Toast key={toastKey} message={toastMsg} type={toastType} />
         </div>
     );
 }
