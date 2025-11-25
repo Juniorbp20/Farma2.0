@@ -27,6 +27,24 @@ function createRequest(scope) {
   return new sql.Request(scope);
 }
 
+async function ensureHistorialTable(pool) {
+  await pool
+    .request()
+    .query(`
+      IF OBJECT_ID('dbo.InventarioLoteHistorial','U') IS NULL
+      BEGIN
+        CREATE TABLE dbo.InventarioLoteHistorial(
+          HistorialID INT IDENTITY(1,1) PRIMARY KEY,
+          LoteID INT NULL,
+          UsuarioID INT NULL,
+          Accion NVARCHAR(50) NOT NULL,
+          Detalle NVARCHAR(4000) NULL,
+          Fecha DATETIME NOT NULL DEFAULT(GETDATE())
+        );
+      END
+    `);
+}
+
 async function getProductoFactor() {
   return DEFAULT_FACTOR_UNIDADES;
 }
@@ -498,14 +516,6 @@ const listarVentas = async (req, res) => {
   try {
     const pool = await poolPromise;
 
-    // Politica: devoluciones solo dentro de N dias desde la venta (por defecto 4)
-    const LIMITE_DIAS_DEV = 4;
-    const fvQ = await pool.request().input('id', sql.Int, ventaId).query('SELECT FechaVenta FROM dbo.Ventas WHERE VentaID=@id');
-    if (!fvQ.recordset.length) throw httpError(404, 'Venta no encontrada');
-    const fechaVenta = new Date(fvQ.recordset[0].FechaVenta);
-    const ms = Date.now() - fechaVenta.getTime();
-    const dias = ms / (1000*60*60*24);
-    if (dias > LIMITE_DIAS_DEV) throw httpError(400, `La devolucion supera el limite de ${LIMITE_DIAS_DEV} dias`);
     const from = req.query.from ? new Date(req.query.from) : null;
     const to = req.query.to ? new Date(req.query.to) : null;
     const clienteId = req.query.clienteId ? Number(req.query.clienteId) : null;
@@ -554,116 +564,285 @@ const obtenerVenta = async (req, res) => {
   }
 };
 
-// Aplicar devolucion (nota de credito simple) que incrementa stock de lotes
+// Aplicar devolucion formal usando tablas Devoluciones/DetalleDevolucion y reingresando stock por lote
 const devolucionVenta = async (req, res) => {
   const httpError = (status, message) => Object.assign(new Error(message), { status });
   try {
     const ventaId = Number(req.params.ventaId);
-    const { items = [], motivo = '' } = req.body || {};
+    const {
+      items = [],
+      motivo = '',
+      formaReintegro = null,
+      usuarioId: usuarioIdBody = null,
+    } = req.body || {};
+    const usuarioId =
+      req.user?.sub != null ? Number(req.user.sub) : usuarioIdBody != null ? Number(usuarioIdBody) : null;
     if (!ventaId) throw httpError(400, 'ventaId requerido');
+    if (!usuarioId || !Number.isInteger(usuarioId) || usuarioId <= 0) {
+      throw httpError(400, 'Usuario no indicado');
+    }
     if (!Array.isArray(items) || items.length === 0) throw httpError(400, 'items requeridos');
 
-    // Validar items de entrada y acumular por (ProductoID, LoteID)
-    const reqMap = new Map(); // key: pid|lid -> unidades
-    for (const it of items) {
-      const pid = Number(it.productoId || it.ProductoID);
-      const lid = Number(it.loteId || it.LoteID);
-      const unidades = Number(it.unidades || it.Unidades || 0);
-      if (!Number.isFinite(pid) || pid <= 0) throw httpError(400, 'productoId invalido');
-      if (!Number.isFinite(lid) || lid <= 0) throw httpError(400, 'loteId invalido');
-      if (!Number.isFinite(unidades) || unidades <= 0) throw httpError(400, 'unidades debe ser > 0');
-      const k = `${pid}|${lid}`;
-      reqMap.set(k, (reqMap.get(k) || 0) + Math.round(unidades));
-    }
-
     const pool = await poolPromise;
-
-    // Cargar detalle de la venta para validar pertenencia y limites
     const meta = await getLotesColumnInfo();
-    const { factorExpr } = getCantidadExpressions(meta, { alias: 'l' });
-    const det = await pool.request().input('id', sql.Int, ventaId).query(`
-      SELECT dv.ProductoID, dv.LoteID,
-             COALESCE(dv.CantidadEmpaquesVendidos,0) AS CantEmp,
-             COALESCE(dv.CantidadUnidadesMinimasVendidas,0) AS CantUni,
-             COALESCE(dv.PrecioUnitario,0) AS PrecioUnitario,
-             ${factorExpr} AS Factor
-      FROM dbo.DetalleVenta dv
-      INNER JOIN dbo.Productos p ON p.ProductoID = dv.ProductoID
-      INNER JOIN dbo.Lotes l ON l.LoteID = dv.LoteID
-      WHERE dv.VentaID=@id
-    `);
-    if (!det.recordset.length) throw httpError(404, 'Venta no encontrada o sin detalle');
 
-    const soldMap = new Map(); // pid|lid -> unidadesVendidas (en unidades minimas)
-    for (const r of det.recordset) {
-      const factor = ensurePositiveNumber(r.Factor, 1) || 1;
-      const units = Number(r.CantUni) + Number(r.CantEmp) * factor;
-      const k = `${r.ProductoID}|${r.LoteID}`;
-      soldMap.set(k, (soldMap.get(k) || 0) + Math.round(units));
+    const ventaQ = await pool
+      .request()
+      .input('VentaID', sql.Int, ventaId)
+      .query('SELECT VentaID, ClienteID, UsuarioID, Estado FROM dbo.Ventas WHERE VentaID=@VentaID');
+    if (!ventaQ.recordset.length) throw httpError(404, 'Venta no encontrada');
+    const ventaRow = ventaQ.recordset[0];
+    if (String(ventaRow.Estado || '').toLowerCase() === 'anulada') {
+      throw httpError(400, 'No se puede devolver una venta anulada');
     }
 
-    // Validar que cada item pertenezca a la factura y no exceda lo vendido
-    
-    // No se recalculan totales de la venta en esta instalacion.
-    let devolverSub = 0; // mantener compatibilidad con bloque de totales (sin efecto)
     const tx = new sql.Transaction(await pool);
     await tx.begin();
     try {
-      const meta = await getLotesColumnInfo();
+      const { factorExpr } = getCantidadExpressions(meta, { alias: 'l' });
+      const detalleVenta = await createRequest(tx)
+        .input('VentaID', sql.Int, ventaId)
+        .query(`
+          SELECT dv.DetalleID, dv.ProductoID, dv.LoteID,
+                 COALESCE(dv.CantidadEmpaquesVendidos,0) AS CantEmp,
+                 COALESCE(dv.CantidadUnidadesMinimasVendidas,0) AS CantUni,
+                 COALESCE(dv.PrecioUnitario,0) AS PrecioUnitario,
+                 ${factorExpr} AS Factor,
+                 l.NumeroLote
+          FROM dbo.DetalleVenta dv
+          LEFT JOIN dbo.Lotes l ON l.LoteID = dv.LoteID
+          WHERE dv.VentaID = @VentaID
+        `);
+      if (!detalleVenta.recordset.length) throw httpError(404, 'Venta sin detalle asociado');
 
-      for (const [k, unidades] of reqMap.entries()) {
-        const [pidStr, lidStr] = k.split('|');
-        const pid = Number(pidStr), lid = Number(lidStr);
+      const prevDev = await createRequest(tx)
+        .input('VentaID', sql.Int, ventaId)
+        .query(`
+          SELECT dd.DetalleVentaID,
+                 SUM(ISNULL(dd.CantidadEmpaquesDevueltos,0)) AS DevEmp,
+                 SUM(ISNULL(dd.CantidadUnidadesMinimasDevueltas,0)) AS DevUni
+          FROM dbo.DetalleDevolucion dd
+          INNER JOIN dbo.DetalleVenta dv ON dv.DetalleID = dd.DetalleVentaID
+          WHERE dv.VentaID = @VentaID
+          GROUP BY dd.DetalleVentaID
+        `);
+      const prevDevMap = new Map();
+      for (const r of prevDev.recordset) {
+        prevDevMap.set(Number(r.DetalleVentaID), {
+          emp: ensurePositiveNumber(r.DevEmp),
+          uni: ensurePositiveNumber(r.DevUni),
+        });
+      }
 
-        const factor = DEFAULT_FACTOR_UNIDADES;
-        // Detectar de forma segura si existe la columna PermiteDevolucion y, si existe, leer su valor
-        let permite = true;
-        try {
-          const hasColQ = await new sql.Request(tx).query("SELECT CASE WHEN COL_LENGTH('dbo.Productos','PermiteDevolucion') IS NULL THEN 0 ELSE 1 END AS HasCol");
-          const hasCol = !!(hasColQ.recordset?.[0]?.HasCol);
-          if (hasCol) {
-            const pr = await new sql.Request(tx).input('pid', sql.Int, pid).query("SELECT CASE WHEN PermiteDevolucion IS NULL THEN 1 ELSE PermiteDevolucion END AS Permite FROM dbo.Productos WHERE ProductoID=@pid");
-            permite = !!(pr.recordset?.[0]?.Permite);
+      const calcTotalUnidades = (emp, uni, factor) =>
+        Math.round(ensurePositiveNumber(emp) * factor + ensurePositiveNumber(uni));
+
+      const detalleMap = new Map();
+      const detalleState = new Map(); // DetalleID -> {vendidas, devPrev, restante, factor}
+      for (const r of detalleVenta.recordset) {
+        const factor = ensurePositiveNumber(r.Factor, DEFAULT_FACTOR_UNIDADES) || 1;
+        const vendidas = calcTotalUnidades(r.CantEmp, r.CantUni, factor);
+        const prev = prevDevMap.get(Number(r.DetalleID)) || { emp: 0, uni: 0 };
+        const devPrev = calcTotalUnidades(prev.emp, prev.uni, factor);
+        const restante = Math.max(0, vendidas - devPrev);
+        detalleMap.set(Number(r.DetalleID), r);
+        detalleState.set(Number(r.DetalleID), { vendidas, devPrev, restante, factor });
+      }
+
+      const devInsert = await createRequest(tx)
+        .input('VentaID', sql.Int, ventaId)
+        .input('ClienteID', sql.Int, ventaRow.ClienteID == null ? null : Number(ventaRow.ClienteID))
+        .input('UsuarioID', sql.Int, usuarioId)
+        .input('Motivo', sql.NVarChar(400), motivo || null)
+        .input('FormaReintegro', sql.NVarChar(50), formaReintegro || null)
+        .query(`
+          INSERT INTO dbo.Devoluciones (VentaID, ClienteID, UsuarioID, Motivo, FormaReintegro)
+          OUTPUT INSERTED.DevolucionID
+          VALUES (@VentaID, @ClienteID, @UsuarioID, @Motivo, @FormaReintegro);
+        `);
+      const devolucionId = devInsert.recordset?.[0]?.DevolucionID;
+
+      for (const it of items) {
+        const detalleIdRaw =
+          it.detalleVentaId ??
+          it.DetalleVentaID ??
+          it.detalleId ??
+          it.DetalleID ??
+          it.idDetalle ??
+          it.detalle_id;
+        const pid = Number(
+          it.productoId ??
+            it.ProductoID ??
+            it.producto_id ??
+            it.idProducto ??
+            it.id_producto ??
+            0
+        );
+        const loteId = Number(it.loteId || it.LoteID || it.lote_id || it.idLote || it.id_lote || 0);
+
+        let detalleId = Number(detalleIdRaw);
+        let detalleRow = detalleMap.get(detalleId);
+
+        const empDev = ensurePositiveNumber(
+          it.cantidadEmpaquesDevueltos ??
+            it.CantidadEmpaquesDevueltos ??
+            it.cantidadEmpaques ??
+            it.CantidadEmpaques ??
+            it.cantEmpaques,
+          0
+        );
+        const uniDev = ensurePositiveNumber(
+          it.cantidadUnidadesMinimasDevueltas ??
+            it.CantidadUnidadesMinimasDevueltas ??
+            it.cantidadUnidades ??
+            it.CantidadUnidades ??
+            it.cantUnidadesMinimas,
+          0
+        );
+        const unidadesDirectas = ensurePositiveNumber(
+          it.unidades ?? it.Unidades ?? it.cantidad ?? it.Cantidad,
+          0
+        );
+
+        const pickDetalle = () => {
+          if (detalleRow) return detalleRow;
+          const candidatos = [];
+          for (const r of detalleVenta.recordset) {
+            if (pid && Number(r.ProductoID) !== pid) continue;
+            if (loteId && Number(r.LoteID) !== loteId) continue;
+            candidatos.push(r);
           }
-        } catch { /* si falla, permitir por defecto */ }
-        if (!permite) throw httpError(400, 'Este producto no admite devolucion');
+          return candidatos[0] || null;
+        };
 
-        const rqL = new sql.Request(tx).input('lid', sql.Int, lid);
-        const selectLote = `SELECT LoteID, ProductoID, COALESCE(Activo,1) AS Activo,
-          ${meta.hasCantidad ? 'COALESCE(Cantidad,0)' : '0'} AS Cantidad,
-          ${meta.hasCantidadEmpaques ? 'COALESCE(CantidadEmpaques,0)' : '0'} AS CantidadEmpaques,
-          ${meta.hasCantidadUnidades ? 'COALESCE(CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas
-        FROM dbo.Lotes WHERE LoteID=@lid`;
-        const rL = await rqL.query(selectLote);
-        if (!rL.recordset.length) throw httpError(404, 'Lote no encontrado');
-        const row = rL.recordset[0];
-        if (row.Activo === 0) throw httpError(409, 'Lote inactivo');
+        detalleRow = detalleRow || pickDetalle();
+        if (!detalleRow) throw httpError(400, 'DetalleVentaID invalido o no pertenece a la venta');
 
-        const totalActual = meta.hasCantidad
-          ? ensurePositiveNumber(row.Cantidad)
-          : ensurePositiveNumber(row.CantidadEmpaques) * factor;
-        const nuevoTotal = totalActual + unidades;
-        const nv = splitUnitsToCounts(nuevoTotal, factor, meta);
+        detalleId = Number(detalleRow.DetalleID);
+        const state = detalleState.get(detalleId) || {
+          vendidas: 0,
+          devPrev: 0,
+          restante: 0,
+          factor: ensurePositiveNumber(detalleRow.Factor, DEFAULT_FACTOR_UNIDADES) || 1,
+        };
+        const factor = ensurePositiveNumber(state.factor, DEFAULT_FACTOR_UNIDADES) || 1;
 
-        const upd = new sql.Request(tx).input('lid', sql.Int, lid);
-        const parts = [];
-        if (meta.hasCantidad) { parts.push('Cantidad=@Cantidad'); upd.input('Cantidad', sql.Int, Math.round(nv.cantidad ?? nuevoTotal)); }
-        if (meta.hasCantidadEmpaques) { parts.push('CantidadEmpaques=@CE'); upd.input('CE', sql.Int, Math.round(nv.empaques ?? 0)); }
-        if (meta.hasCantidadUnidades) { parts.push('CantidadUnidadesMinimas=@CU'); upd.input('CU', sql.Int, Math.round(nv.unidades ?? 0)); }
-        if (parts.length) await upd.query(`UPDATE dbo.Lotes SET ${parts.join(', ')} WHERE LoteID=@lid`);
+        if (detalleRow.LoteID && loteId && Number(detalleRow.LoteID) !== loteId) {
+          throw httpError(400, 'El lote del item no coincide con la venta original');
+        }
 
-        await new sql.Request(tx)
-          .input('pid', sql.Int, pid)
-          .input('u', sql.Int, Math.round(unidades))
-          .query('UPDATE dbo.Productos SET StockActual = COALESCE(StockActual,0) + @u, FechaModificacion=GETDATE() WHERE ProductoID=@pid');
+        // Calcular total de unidades devueltas.
+        // Si viene "unidades" desde el front, interpretamos que equivale a empaques vendidos (como se muestra en la UI)
+        // y multiplicamos por el factor para obtener unidades mínimas reales.
+        const totalFromEmpUni = ensurePositiveNumber(empDev * factor + uniDev);
+        const unidadesDevueltas =
+          unidadesDirectas > 0 ? ensurePositiveNumber(unidadesDirectas * factor) : totalFromEmpUni;
+        const empDevFinal = Math.round(unidadesDirectas > 0 ? unidadesDirectas : empDev);
+        const uniDevFinal = Math.round(unidadesDevueltas);
+
+        if (unidadesDevueltas <= 0) throw httpError(400, 'Las unidades devueltas deben ser mayores a 0');
+        if (unidadesDevueltas > state.restante) {
+          throw httpError(400, 'La cantidad devuelta excede lo vendido en el detalle');
+        }
+
+        await createRequest(tx)
+          .input('DevolucionID', sql.Int, devolucionId)
+          .input('DetalleVentaID', sql.Int, detalleId)
+          .input('ProductoID', sql.Int, detalleRow.ProductoID)
+          .input('LoteID', sql.Int, detalleRow.LoteID || null)
+          .input('CantidadEmpaquesDevueltos', sql.Int, Math.round(empDevFinal))
+          .input('CantidadUnidadesMinimasDevueltas', sql.Int, Math.round(uniDevFinal))
+          .input('PrecioUnitario', sql.Decimal(10, 2), parseDecimal(detalleRow.PrecioUnitario))
+          .input('MotivoRenglon', sql.NVarChar(200), it.motivoRenglon || null)
+          .query(`
+            INSERT INTO dbo.DetalleDevolucion
+              (DevolucionID, DetalleVentaID, ProductoID, LoteID,
+               CantidadEmpaquesDevueltos, CantidadUnidadesMinimasDevueltas,
+               PrecioUnitario, MotivoRenglon)
+            VALUES (@DevolucionID, @DetalleVentaID, @ProductoID, @LoteID,
+                    @CantidadEmpaquesDevueltos, @CantidadUnidadesMinimasDevueltas,
+                    @PrecioUnitario, @MotivoRenglon);
+          `);
+
+        if (detalleRow.LoteID) {
+          detalleState.set(detalleId, {
+            ...state,
+            restante: Math.max(0, state.restante - unidadesDevueltas),
+            devPrev: state.devPrev + unidadesDevueltas,
+          });
+          const loteQ = await createRequest(tx)
+            .input('LoteID', sql.Int, Number(detalleRow.LoteID))
+            .query(`
+              SELECT l.LoteID, l.ProductoID, COALESCE(l.Activo,1) AS Activo,
+                     ${meta.hasCantidad ? 'COALESCE(l.Cantidad,0) AS Cantidad,' : '0 AS Cantidad,'}
+                     ${meta.hasCantidadEmpaques ? 'COALESCE(l.CantidadEmpaques,0) AS CantidadEmpaques,' : '0 AS CantidadEmpaques,'}
+                     ${meta.hasCantidadUnidades ? 'COALESCE(l.CantidadUnidadesMinimas,0) AS CantidadUnidadesMinimas,' : '0 AS CantidadUnidadesMinimas,'}
+                     ${meta.hasTotalUnidades ? 'COALESCE(l.TotalUnidadesMinimas,0) AS TotalUnidadesMinimas,' : '0 AS TotalUnidadesMinimas,'}
+                     ${factorExpr} AS Factor
+              FROM dbo.Lotes l WHERE l.LoteID = @LoteID
+            `);
+          if (!loteQ.recordset.length) throw httpError(404, 'Lote no encontrado');
+          const loteRow = loteQ.recordset[0];
+          if (loteRow.ProductoID !== detalleRow.ProductoID) {
+            throw httpError(400, 'El lote no pertenece al producto de la venta');
+          }
+          const factorLote = ensurePositiveNumber(loteRow.Factor, factor) || 1;
+          const totalActual = meta.hasTotalUnidades
+            ? ensurePositiveNumber(loteRow.TotalUnidadesMinimas)
+            : meta.hasCantidad
+            ? ensurePositiveNumber(loteRow.Cantidad)
+            : ensurePositiveNumber(loteRow.CantidadEmpaques) * factorLote;
+          const nuevoTotal = totalActual + unidadesDevueltas;
+          const nv = splitUnitsToCounts(nuevoTotal, factorLote, meta);
+
+          const reqUp = createRequest(tx).input('LoteID', sql.Int, Number(detalleRow.LoteID));
+          const parts = [];
+          if (meta.hasCantidad) {
+            parts.push('Cantidad = @Cantidad');
+            reqUp.input('Cantidad', sql.Int, Math.round(nv.cantidad ?? nuevoTotal));
+          }
+          if (meta.hasCantidadEmpaques) {
+            parts.push('CantidadEmpaques = @CantidadEmpaques');
+            reqUp.input('CantidadEmpaques', sql.Int, Math.round(nv.empaques ?? 0));
+          }
+          if (meta.hasTotalUnidades) {
+            parts.push('TotalUnidadesMinimas = @TotalUnidadesMinimas');
+            reqUp.input('TotalUnidadesMinimas', sql.Int, Math.round(nv.totalUnidades ?? nuevoTotal));
+          }
+          if (parts.length) {
+            await reqUp.query(`UPDATE dbo.Lotes SET ${parts.join(', ')} WHERE LoteID = @LoteID;`);
+          }
+
+          await createRequest(tx)
+            .input('ProductoID', sql.Int, Number(detalleRow.ProductoID))
+            .input('Cantidad', sql.Int, Math.round(unidadesDevueltas))
+            .query(`
+              UPDATE dbo.Productos
+              SET StockActual = COALESCE(StockActual,0) + @Cantidad,
+                  FechaModificacion = GETDATE()
+              WHERE ProductoID = @ProductoID;
+            `);
+
+          await ensureHistorialTable(pool);
+          const detalleHist = `+${Math.round(unidadesDevueltas)} unidades - Motivo: Devolucion - Venta ${ventaId} - Lote ${detalleRow.LoteID}${motivo ? ` - ${motivo}` : ''}`;
+          await createRequest(tx)
+            .input('LoteID', sql.Int, Number(detalleRow.LoteID))
+            .input('UsuarioID', sql.Int, usuarioId)
+            .input('Accion', sql.NVarChar(50), 'Devolucion')
+            .input('Detalle', sql.NVarChar(4000), detalleHist.slice(0, 4000))
+            .query(`
+              INSERT INTO dbo.InventarioLoteHistorial (LoteID, UsuarioID, Accion, Detalle)
+              VALUES (@LoteID, @UsuarioID, @Accion, @Detalle);
+            `);
+        }
       }
 
       await tx.commit();
+      return res.json({ message: 'Devolucion registrada', devolucionId });
     } catch (err) {
       await tx.rollback();
       throw err;
     }
-    return res.json({ message: 'Devolucion aplicada' });
   } catch (err) {
     const status = err.status && Number.isInteger(err.status) ? err.status : 500;
     return res.status(status).json({ message: err.message || 'Error al aplicar devolucion' });
@@ -685,19 +864,19 @@ const anularVenta = async (req, res) => {
     // Restituir stock por lote
     const pool = await poolPromise;
     const tx = new sql.Transaction(await pool);
-    await tx.begin();
-    try {
-      const meta = await getLotesColumnInfo();
-      const { factorExpr } = getCantidadExpressions(meta, { alias: 'l' });
-      for (const it of venta.items || []) {
-        const reqL = createRequest(tx).input('LoteID', sql.Int, Number(it.loteId));
-        const q = await reqL.query(`SELECT LoteID, ProductoID,
-          ${meta.hasCantidad ? 'COALESCE(Cantidad,0)' : '0'} AS Cantidad,
-          ${meta.hasCantidadEmpaques ? 'COALESCE(CantidadEmpaques,0)' : '0'} AS CantidadEmpaques,
-          ${meta.hasCantidadUnidades ? 'COALESCE(CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas,
-          ${meta.hasTotalUnidades ? 'COALESCE(TotalUnidadesMinimas,0)' : '0'} AS CantidadTotalMinima,
+      await tx.begin();
+      try {
+        const meta = await getLotesColumnInfo();
+        const { factorExpr } = getCantidadExpressions(meta, { alias: 'l' });
+        for (const it of venta.items || []) {
+          const reqL = createRequest(tx).input('LoteID', sql.Int, Number(it.loteId));
+          const q = await reqL.query(`SELECT l.LoteID, l.ProductoID,
+          ${meta.hasCantidad ? 'COALESCE(l.Cantidad,0)' : '0'} AS Cantidad,
+          ${meta.hasCantidadEmpaques ? 'COALESCE(l.CantidadEmpaques,0)' : '0'} AS CantidadEmpaques,
+          ${meta.hasCantidadUnidades ? 'COALESCE(l.CantidadUnidadesMinimas,0)' : '0'} AS CantidadUnidadesMinimas,
+          ${meta.hasTotalUnidades ? 'COALESCE(l.TotalUnidadesMinimas,0)' : '0'} AS CantidadTotalMinima,
           ${factorExpr} AS Factor
-          FROM dbo.Lotes WHERE LoteID = @LoteID`);
+          FROM dbo.Lotes l WHERE l.LoteID = @LoteID`);
         if (!q.recordset.length) continue;
         const r = q.recordset[0];
         const factor = ensurePositiveNumber(r.Factor, 1) || 1;

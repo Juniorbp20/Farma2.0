@@ -5,8 +5,8 @@ const { crearVenta, listarVentas, obtenerVenta, devolucionVenta, anularVenta, ob
 const router = express.Router();
 
 router.get('/', listarVentas);
-router.get('/:ventaId', obtenerVenta);
 router.get('/:ventaId/pdf', obtenerPdf);
+router.get('/:ventaId', obtenerVenta);
 router.post('/:ventaId/devolucion', devolucionVenta);
 router.post('/:ventaId/anular', anularVenta);
 router.post('/', crearVenta);

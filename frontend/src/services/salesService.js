@@ -39,8 +39,16 @@ export async function getVentaPdf(ventaId) {
 export async function getVentas(params = {}) {
   try {
     const url = new URL(`${API_URL}/ventas`);
-    if (params.from) url.searchParams.set('from', params.from);
-    if (params.to) url.searchParams.set('to', params.to);
+    if (params.from) {
+      const d = new Date(params.from);
+      d.setHours(0, 0, 0, 0);
+      url.searchParams.set('from', d.toISOString());
+    }
+    if (params.to) {
+      const d = new Date(params.to);
+      d.setHours(23, 59, 59, 999);
+      url.searchParams.set('to', d.toISOString());
+    }
     if (params.clienteId) url.searchParams.set('clienteId', params.clienteId);
     if (params.estado) url.searchParams.set('estado', params.estado);
     const res = await fetch(url, { headers: { ...authHeader() } });
@@ -58,6 +66,7 @@ export async function getVentas(params = {}) {
     throw e;
   }
 }
+
 
 export async function getVenta(ventaId) {
   const res = await fetch(`${API_URL}/ventas/${ventaId}`, { headers: { ...authHeader() } });

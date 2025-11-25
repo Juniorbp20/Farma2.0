@@ -1,10 +1,10 @@
-// src/pages/PuntoVentaPage.jsx
+﻿// src/pages/PuntoVentaPage.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './PuntoVentaPage.css';
 import { getClientes, getClienteById } from '../services/clientesService';
 import { buscarProductos } from '../services/productsService';
 import { getLotes } from '../services/inventoryService';
-import { crearVenta, getVentaPdf, getVenta, aplicarDevolucion } from '../services/salesService';
+import { crearVenta, getVentaPdf, getVenta, aplicarDevolucion, getVentas } from '../services/salesService';
 import TabBar from '../components/TabBar';
 import ActionButton from '../components/ActionButton';
 import Toast from '../components/recursos/Toast';
@@ -18,6 +18,34 @@ function number(val, d = 2) {
 
 function formatMoney(amount, currencySymbol = 'RD$') {
     return `${currencySymbol} ${Number(amount || 0).toFixed(2)}`;
+}
+
+function fixEncoding(value) {
+    if (typeof value !== 'string') return value;
+    // Limpia artefactos comunes (Â, Ã y NBSP) de doble codificación
+    const cleaned = value
+        .replace(/\u00A0/g, ' ')
+        .replace(/\u00C2/g, '')
+        .replace(/\u00C3\u0083/g, 'Ã')
+        .replace(/\s+/g, ' ')
+        .trim();
+    try {
+        // Intenta reinterpretar como Latin1 -> UTF-8
+        return decodeURIComponent(escape(cleaned));
+    } catch {
+        return cleaned;
+    }
+}
+
+function sanitizeProducto(p) {
+    return {
+        ...p,
+        Nombre: fixEncoding(p?.Nombre),
+        NombreProducto: fixEncoding(p?.NombreProducto),
+        Presentacion: fixEncoding(p?.Presentacion),
+        Categoria: fixEncoding(p?.Categoria),
+        Marca: fixEncoding(p?.Marca),
+    };
 }
 
 function LineaItem({ item, onChange, onRemove, currencySymbol }) {
@@ -208,7 +236,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         setToastMsg(message);
         setToastKey(Date.now());
     };
-    // Estado para devoluciones dentro del POS
+    // Estado para Devoluciones dentro del POS
     const [devFrom, setDevFrom] = useState('');
     const [devTo, setDevTo] = useState('');
     const [devFacturaNo, setDevFacturaNo] = useState('');
@@ -218,9 +246,16 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
     const [devNotaCredito, setDevNotaCredito] = useState(null);
     const [devDetalle, setDevDetalle] = useState({ open: false, ventaId: null, cab: null, items: [], err: '', msg: '' });
     const [devResumen, setDevResumen] = useState({ open: false, ventaId: null, cab: null, items: [], err: '' });
+
+    // Reimpresion / regenerar factura
+    const [reimpNo, setReimpNo] = useState('');
+    const [reimpData, setReimpData] = useState(null);
+    const [reimpLoading, setReimpLoading] = useState(false);
+    const [reimpError, setReimpError] = useState('');
+
     const tabOptions = [
         { value: 'venta', label: 'Venta', icon: 'bi bi-receipt' },
-        { value: 'devoluciones', label: 'Devoluciones', icon: 'bi bi-arrow-counterclockwise' },
+        { value: 'Devoluciones', label: 'Devoluciones', icon: 'bi bi-arrow-counterclockwise' },
         { value: 'otras', label: 'Otras opciones', icon: 'bi bi-sliders' },
     ];
 
@@ -284,9 +319,10 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                 if (!cancel) {
                     const lista = Array.isArray(data) ? data : [];
                     const anotados = lista.map((p) => {
+                        const prod = sanitizeProducto(p);
                         const stockVal = Number(p.Stock ?? p.StockActual ?? p.stock_actual ?? 0);
                         const sinStock = !Number.isFinite(stockVal) || stockVal <= 0;
-                        return { ...p, _sinStock: sinStock };
+                        return { ...prod, _sinStock: sinStock };
                     });
                     setSugerencias(anotados);
                     setSugIndex(0);
@@ -498,8 +534,8 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             montoRecibidoNumber >= 0 &&
             Math.round((montoRecibidoNumber - calcularTotales.total) * 100) >= 0
         );
-        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un número válido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
-        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para crédito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
+        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un nÃºmero vÃ¡lido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
+        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para crÃ©dito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
         setShowConfirm(true);
     }
 
@@ -516,8 +552,8 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             montoRecibidoNumber >= 0 &&
             Math.round((montoRecibidoNumber - calcularTotales.total) * 100) >= 0
         );
-        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un número válido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
-        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para crédito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
+        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un nÃºmero vÃ¡lido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
+        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para crÃ©dito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
         setSaving(true); setError(''); setOk(null);
         try {
             const payload = {
@@ -565,30 +601,87 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
     // --- Devoluciones integradas en PuntoVenta ---
     async function devBuscar() {
         const id = Number(devFacturaNo);
-        if (!Number.isFinite(id) || id <= 0) {
-            setDevError('Ingrese un nǧmero de factura vǭlido');
+        const tieneId = Number.isFinite(id) && id > 0;
+        const tieneRango = Boolean(devFrom || devTo);
+
+        if (!tieneId && !tieneRango) {
+            setDevError('Ingrese un numero de factura valido o un rango de fechas');
             return;
         }
         setDevError(''); setDevLoading(true);
         try {
-            const data = await getVenta(id);
-            const cab = data?.cabecera;
-            setDevVentas(cab ? [cab] : []);
-            if (!cab) setDevError('Factura no encontrada');
-            try {
-                const raw = localStorage.getItem(`DEV_FLAG_VENTA_${id}`);
-                if (raw) {
-                    const o = JSON.parse(raw);
-                    const fecha = o?.ts ? new Date(o.ts).toLocaleString() : null;
-                    setDevNotaCredito(fecha ? `Se registr�� una devoluci��n el ${fecha}.` : 'Se registr�� una devoluci��n para esta factura.');
-                } else setDevNotaCredito(null);
-            } catch { setDevNotaCredito(null); }
+            if (tieneId) {
+                const data = await getVenta(id);
+                const cab = data?.cabecera;
+                setDevVentas(cab ? [cab] : []);
+                if (!cab) setDevError('Factura no encontrada');
+                try {
+                    const raw = localStorage.getItem(`DEV_FLAG_VENTA_${id}`);
+                    if (raw) {
+                        const o = JSON.parse(raw);
+                        const fecha = o?.ts ? new Date(o.ts).toLocaleString() : null;
+                        setDevNotaCredito(fecha ? `Se registro una devolucion el ${fecha}.` : 'Se registro una devolucion para esta factura.');
+                    } else {
+                        setDevNotaCredito(null);
+                    }
+                } catch {
+                    setDevNotaCredito(null);
+                }
+            } else {
+                const params = {};
+                if (devFrom) params.from = devFrom;
+                if (devTo) params.to = devTo;
+                const data = await getVentas(params);
+                const lista = Array.isArray(data) ? data : [];
+                setDevVentas(lista);
+                if (!lista.length) setDevError('No se encontraron facturas en el rango');
+                setDevNotaCredito(null);
+            }
         } catch (e) {
             setDevVentas([]);
             setDevError(e?.message || 'No se pudo obtener la factura');
             setDevNotaCredito(null);
         } finally { setDevLoading(false); }
     }
+
+    // --- Reimprimir / regenerar factura ---
+    async function reimpBuscar() {
+        const id = Number(reimpNo);
+        if (!Number.isFinite(id) || id <= 0) {
+            setReimpError('Ingrese un numero de factura valido');
+            setReimpData(null);
+            return;
+        }
+        setReimpError(''); setReimpLoading(true);
+        try {
+            const data = await getVenta(id);
+            setReimpData(data?.cabecera ? { id, cab: data.cabecera } : null);
+            if (!data?.cabecera) setReimpError('Factura no encontrada');
+        } catch (e) {
+            setReimpData(null);
+            setReimpError(e?.message || 'No se pudo obtener la factura');
+        } finally {
+            setReimpLoading(false);
+        }
+    }
+
+    async function reimpVerPdf() {
+        const id = Number(reimpNo);
+        if (!Number.isFinite(id) || id <= 0) return;
+        try {
+            const { blob, filename } = await getVentaPdf(id);
+            const url = URL.createObjectURL(blob);
+            const win = window.open(url, '_blank');
+            if (!win) {
+                const a = document.createElement('a');
+                a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+        } catch (e) {
+            setReimpError(e?.message || 'No se pudo obtener el PDF');
+        }
+    }
+
 
     async function devAbrirDetalle(v) {
         setDevDetalle({ open: true, ventaId: v.VentaID, cab: null, items: [], err: '', msg: '' });
@@ -655,10 +748,10 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                 sessionStorage.setItem('POS_PRELOAD_RETURN', JSON.stringify({ clienteId: data?.cabecera?.ClienteID || null, items: restantes }));
                 try { localStorage.setItem(`DEV_FLAG_VENTA_${devDetalle.ventaId}`, JSON.stringify({ ts: Date.now() })); } catch {}
             } catch { /* si falla, igual continua */ }
-            setDevDetalle((p) => ({ ...p, msg: 'Devoluci��n aplicada', err: '' }));
+            setDevDetalle((p) => ({ ...p, msg: 'Devolucion aplicada', err: '' }));
             setTimeout(() => setActiveTab('venta'), 300);
         } catch (e) {
-            setDevDetalle((p) => ({ ...p, err: e.message || 'Error al aplicar devoluci��n' }));
+            setDevDetalle((p) => ({ ...p, err: e.message || 'Error al aplicar devolucion' }));
         }
     }
     const { subtotal, impuestoTotal, descuento, total } = calcularTotales;
@@ -837,7 +930,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                     </div>
                                 )}
                                 {!clienteSel && !clienteSug.length && (
-                                    <div className="text-muted small mt-1">Ningún cliente seleccionado.</div>
+                                    <div className="text-muted small mt-1">NingÃºn cliente seleccionado.</div>
                                 )}
                             </div>
                                     <div className="col-4">
@@ -936,9 +1029,9 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                 </>
             )}
 
-            {activeTab === 'devoluciones' && (
-                <div className="container py-2 devoluciones-wrapper">
-                    <div className="card mb-3 devoluciones-filtros">
+            {activeTab === 'Devoluciones' && (
+                <div className="container py-2 Devoluciones-wrapper">
+                    <div className="card mb-3 Devoluciones-filtros">
                         <div className="card-body">
                             <div className="row g-2 align-items-end">
                                 <div className="col-12 col-md-3">
@@ -957,20 +1050,20 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                         placeholder="Ej: 1005"
                                         value={devFacturaNo}
                                         onChange={(e)=>setDevFacturaNo(e.target.value)}
-                                        onKeyDown={(e)=>{ if(e.key==='Enter' && Number(devFacturaNo)>0 && !devLoading) devBuscar(); }}
+                                        onKeyDown={(e)=>{ if(e.key==='Enter' && !devLoading && (Number(devFacturaNo)>0 || devFrom || devTo)) devBuscar(); }}
                                     />
                                 </div>
                                 <div className="col-12 col-md-2 d-grid d-md-flex">
-                                    <button className="btn btn-primary w-100" onClick={devBuscar} disabled={devLoading || !(Number(devFacturaNo)>0)}>{devLoading ? 'Buscando...' : 'Buscar'}</button>
+                                    <button className="btn btn-primary w-100" onClick={devBuscar} disabled={devLoading || (!(Number(devFacturaNo)>0) && !devFrom && !devTo)}>{devLoading ? 'Buscando...' : 'Buscar'}</button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {devError && <div className="alert alert-danger devoluciones-alert">{devError}</div>}
-                    {devNotaCredito && <div className="alert alert-info devoluciones-alert">{devNotaCredito}</div>}
+                    {devError && <div className="alert alert-danger Devoluciones-alert">{devError}</div>}
+                    {devNotaCredito && <div className="alert alert-info Devoluciones-alert">{devNotaCredito}</div>}
 
-                    <div className="card devoluciones-resultados">
+                    <div className="card Devoluciones-resultados">
                         <div className="card-body">
                             <div className="table-responsive" style={{ maxHeight: 360, overflowY: 'auto' }}>
                                 <table className="table table-sm align-middle">
@@ -1014,7 +1107,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                             <div className="modal-dialog modal-lg modal-dialog-scrollable" role="document">
                                 <div className="modal-content">
                                     <div className="modal-header">
-                                        <h5 className="modal-title">Devolución Venta #{devDetalle.ventaId}</h5>
+                                        <h5 className="modal-title">Devolucion Venta #{devDetalle.ventaId}</h5>
                                         <button type="button" className="btn-close" onClick={()=>setDevDetalle({ open:false, ventaId:null, cab:null, items:[], err:'', msg:'' })}></button>
                                     </div>
                                     <div className="modal-body" style={{ maxHeight:'65vh', overflowY:'auto' }}>
@@ -1049,7 +1142,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                     </div>
                                     <div className="modal-footer">
                                         <button className="btn btn-secondary" onClick={()=>setDevDetalle({ open:false, ventaId:null, cab:null, items:[], err:'', msg:'' })}>Cerrar</button>
-                                        <button className="btn btn-primary" disabled={!canProcessDevol} onClick={devConfirmarDevolucion}>Aplicar devoluci��n</button>
+                                        <button className="btn btn-primary" disabled={!canProcessDevol} onClick={devConfirmarDevolucion}>Aplicar Devolucion</button>
                                     </div>
                                 </div>
                             </div>
@@ -1067,7 +1160,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                     <div className="modal-body" style={{ maxHeight:'65vh', overflowY:'auto' }}>
                                         {devResumen.err && <div className="alert alert-danger">{devResumen.err}</div>}
                                         {(() => { try { return !!localStorage.getItem(`DEV_FLAG_VENTA_${devResumen.ventaId}`); } catch { return false; } })() && (
-                                            <div className="alert alert-info py-2">Esta factura tiene una devoluci��n registrada.</div>
+                                            <div className="alert alert-info py-2">Esta factura tiene una devolucion registrada.</div>
                                         )}
                                         <div className="mb-2"><strong>Fecha:</strong> {devResumen.cab ? new Date(devResumen.cab.FechaVenta).toLocaleString() : '-'}</div>
                                         <div className="mb-2"><strong>Cliente:</strong> {devResumen.cab?.ClienteNombre || (devResumen.cab?.ClienteID ?? '-')}</div>
@@ -1122,7 +1215,59 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
 
             {activeTab === 'otras' && (
                 <div className="card">
-                    <div className="card-body text-muted">Otras opciones (pendiente de implementar).</div>
+                    <div className="card-body">
+                        <h5 className="mb-3">Otras opciones</h5>
+                        <div className="row g-3">
+                            <div className="col-12 col-lg-6">
+                                <div className="card h-100">
+                                    <div className="card-body">
+                                        <h6 className="mb-2">Reimprimir / Regenerar factura</h6>
+                                        <div className="mb-2">
+                                            <label className="form-label">No. factura</label>
+                                            <input
+                                                type="number"
+                                                className="form-control"
+                                                placeholder="Ej: 1005"
+                                                value={reimpNo}
+                                                onChange={(e)=>setReimpNo(e.target.value)}
+                                                onKeyDown={(e)=>{ if (e.key==='Enter') reimpBuscar(); }}
+                                            />
+                                        </div>
+                                        <div className="d-flex gap-2 mb-3">
+                                            <button className="btn btn-primary" onClick={reimpBuscar} disabled={reimpLoading}>
+                                                {reimpLoading ? 'Buscando...' : 'Buscar'}
+                                            </button>
+                                            <button className="btn btn-outline-secondary" onClick={reimpVerPdf} disabled={!reimpNo || reimpLoading}>
+                                                Ver PDF
+                                            </button>
+                                            <button className="btn btn-outline-primary" onClick={reimpVerPdf} disabled={!reimpNo || reimpLoading}>
+                                                Reimprimir
+                                            </button>
+                                        </div>
+                                        {reimpError && <div className="alert alert-danger py-2">{reimpError}</div>}
+                                        {reimpLoading && <div className="text-muted">Cargando...</div>}
+                                        {reimpData && (
+                                            <div className="alert alert-info">
+                                                <div><strong>Factura:</strong> {reimpNo}</div>
+                                                <div><strong>Fecha:</strong> {reimpData.cab?.FechaVenta ? new Date(reimpData.cab.FechaVenta).toLocaleString() : '-'}</div>
+                                                <div><strong>Cliente:</strong> {reimpData.cab?.ClienteID ?? '-'}</div>
+                                                <div><strong>Total:</strong> {Number(reimpData.cab?.Total || 0).toFixed(2)}</div>
+                                                <div><strong>Estado:</strong> {reimpData.cab?.Estado || '-'}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="col-12 col-lg-6">
+                                <div className="card h-100">
+                                    <div className="card-body">
+                                        <h6 className="mb-2">Historial del día</h6>
+                                        <div className="text-muted small">Próximamente.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -1263,3 +1408,10 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         </div>
     );
 }
+
+
+
+
+
+
+

@@ -570,6 +570,7 @@ async function addLote(req, res) {
           0
         )
       : computeUnitsFromCounts({ empaques: CantidadEmpaques }, factor, meta);
+    const unidadesTotalesInt = Math.round(unidadesTotales);
 
     if (unidadesTotales <= 0) {
       return res.status(400).json({ message: 'La cantidad total debe ser mayor a 0' });
@@ -604,10 +605,12 @@ async function addLote(req, res) {
       if (meta.hasCantidadEmpaques) insertColumns.push('CantidadEmpaques');
       if (meta.hasCantidadUnidades) insertColumns.push('CantidadUnidadesMinimas');
       if (meta.hasCantidad) insertColumns.push('Cantidad');
+      if (meta.hasTotalUnidades) insertColumns.push('TotalUnidadesMinimas');
 
       if (meta.hasCantidadEmpaques) insertValues.push('@CantidadEmpaques');
       if (meta.hasCantidadUnidades) insertValues.push('@CantidadUnidadesMinimas');
       if (meta.hasCantidad) insertValues.push('@CantidadTotal');
+      if (meta.hasTotalUnidades) insertValues.push('@TotalUnidadesMinimas');
 
       const reqTx = new sql.Request(tx)
         .input('ProductoID', sql.Int, Number(ProductoID))
@@ -625,7 +628,10 @@ async function addLote(req, res) {
         reqTx.input('CantidadUnidadesMinimas', sql.Int, Math.round(factor));
       }
       if (meta.hasCantidad) {
-        reqTx.input('CantidadTotal', sql.Int, Math.round(unidadesTotales));
+        reqTx.input('CantidadTotal', sql.Int, unidadesTotalesInt);
+      }
+      if (meta.hasTotalUnidades) {
+        reqTx.input('TotalUnidadesMinimas', sql.Int, unidadesTotalesInt);
       }
 
       const insertQuery = `
@@ -638,7 +644,7 @@ async function addLote(req, res) {
 
       await new sql.Request(tx)
         .input('ProductoID', sql.Int, Number(ProductoID))
-        .input('Cantidad', sql.Int, Math.round(unidadesTotales))
+        .input('Cantidad', sql.Int, unidadesTotalesInt)
         .query(`
           UPDATE dbo.Productos
           SET StockActual = COALESCE(StockActual,0) + @Cantidad,
@@ -1139,10 +1145,12 @@ async function ajustarStock(req, res) {
         if (meta.hasCantidadEmpaques) insertColumns.push('CantidadEmpaques');
         if (meta.hasCantidadUnidades) insertColumns.push('CantidadUnidadesMinimas');
         if (meta.hasCantidad) insertColumns.push('Cantidad');
+        if (meta.hasTotalUnidades) insertColumns.push('TotalUnidadesMinimas');
 
         if (meta.hasCantidadEmpaques) insertValues.push('@CantidadEmpaques');
         if (meta.hasCantidadUnidades) insertValues.push('@CantidadUnidades');
         if (meta.hasCantidad) insertValues.push('@CantidadTotal');
+        if (meta.hasTotalUnidades) insertValues.push('@TotalUnidadesMinimas');
 
         const reqTx = new sql.Request(tx)
           .input('ProductoID', sql.Int, Number(ProductoID))
@@ -1156,6 +1164,9 @@ async function ajustarStock(req, res) {
         }
         if (meta.hasCantidad) {
           reqTx.input('CantidadTotal', sql.Int, Math.round(counts.cantidad ?? unidadesTotales));
+        }
+        if (meta.hasTotalUnidades) {
+          reqTx.input('TotalUnidadesMinimas', sql.Int, Math.round(unidadesTotales));
         }
 
         await reqTx.query(`

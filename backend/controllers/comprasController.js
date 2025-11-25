@@ -655,6 +655,11 @@ async function crearCompra(req, res) {
             insertValues.push('@CantidadTotal');
             reqLote.input('CantidadTotal', sql.Int, Math.round(counts.cantidad ?? totalUnidades));
           }
+          if (meta.hasTotalUnidades) {
+            insertColumns.push('TotalUnidadesMinimas');
+            insertValues.push('@TotalUnidadesMinimas');
+            reqLote.input('TotalUnidadesMinimas', sql.Int, Math.round(counts.totalUnidades ?? totalUnidades));
+          }
           const insertLote = await reqLote.query(`
             INSERT INTO dbo.Lotes (${insertColumns.join(', ')})
             OUTPUT INSERTED.LoteID
