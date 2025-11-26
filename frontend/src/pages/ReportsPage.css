@@ -1,25 +1,37 @@
-.reports-placeholder {
-  max-width: 800px;
-  width: 100%;
-  height: 300px !important;
-  background: linear-gradient(135deg, #fcfdff 0%, #eef3ff 100%) !important;
-  border: 1px solid #0d6dfd29 !important;
-  border-radius: 18px;
-  margin-top: 10vh;
+.reports-page-container {
+  max-width: 1200px;
 }
 
-.reports-placeholder .placeholder-icon {
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
-  background: #0d6efd12;
-  color: #0d6efd;
-  display: grid;
-  place-items: center;
-  font-size: 36px;
-  box-shadow: 0 10px 25px rgba(13, 110, 253, 0.1);
-  -webkit-border-radius: 20px;
-  -moz-border-radius: 20px;
-  -ms-border-radius: 20px;
-  -o-border-radius: 20px;
+.report-chip {
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+
+.report-chip .label {
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.report-chip .value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.mini-card {
+  border: 1px solid #e7ecf5;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: #f9fbff;
+  min-width: 120px;
+}
+
+.mini-card .mini-label {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.mini-card .mini-value {
+  font-size: 1.1rem;
+  font-weight: 700;
 }

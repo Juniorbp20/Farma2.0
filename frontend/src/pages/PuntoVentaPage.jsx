@@ -3,8 +3,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './PuntoVentaPage.css';
 import { getClientes, getClienteById } from '../services/clientesService';
 import { buscarProductos } from '../services/productsService';
-import { getLotes } from '../services/inventoryService';
-import { crearVenta, getVentaPdf, getVenta, aplicarDevolucion, getVentas } from '../services/salesService';
+import { getLotes, getMovimientosRecientesInventario } from '../services/inventoryService';
+import { crearVenta, getVentaPdf, getVenta, aplicarDevolucion, getVentas, getHistorialDia } from '../services/salesService';
 import TabBar from '../components/TabBar';
 import ActionButton from '../components/ActionButton';
 import Toast from '../components/recursos/Toast';
@@ -22,11 +22,11 @@ function formatMoney(amount, currencySymbol = 'RD$') {
 
 function fixEncoding(value) {
     if (typeof value !== 'string') return value;
-    // Limpia artefactos comunes (Â, Ã y NBSP) de doble codificación
+    // Limpia artefactos comunes (A con tilde fantasma y NBSP) de doble codificacion
     const cleaned = value
         .replace(/\u00A0/g, ' ')
         .replace(/\u00C2/g, '')
-        .replace(/\u00C3\u0083/g, 'Ã')
+        .replace(/\u00C3\u0083/g, 'A')
         .replace(/\s+/g, ' ')
         .trim();
     try {
@@ -253,6 +253,19 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
     const [reimpLoading, setReimpLoading] = useState(false);
     const [reimpError, setReimpError] = useState('');
 
+    // Historial del dia
+    const [histFecha, setHistFecha] = useState(() => new Date().toISOString().slice(0, 10));
+    const [histLoading, setHistLoading] = useState(false);
+    const [histError, setHistError] = useState('');
+    const [histData, setHistData] = useState(null);
+
+    // Movimientos recientes de inventario
+    const [movsFiltroProd, setMovsFiltroProd] = useState('');
+    const [movsLimit, setMovsLimit] = useState(20);
+    const [movs, setMovs] = useState([]);
+    const [movsLoading, setMovsLoading] = useState(false);
+    const [movsError, setMovsError] = useState('');
+
     const tabOptions = [
         { value: 'venta', label: 'Venta', icon: 'bi bi-receipt' },
         { value: 'Devoluciones', label: 'Devoluciones', icon: 'bi bi-arrow-counterclockwise' },
@@ -336,6 +349,12 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         const t = setTimeout(run, 250);
         return () => { cancel = true; clearTimeout(t); };
     }, [busqueda]);
+
+    useEffect(() => {
+        if (activeTab !== 'otras') return;
+        if (!histData && !histLoading) histBuscar(histFecha);
+        if (!movs.length && !movsLoading) movsBuscar();
+    }, [activeTab]);
 
     const calcularTotales = useMemo(() => {
         let subtotal = 0;
@@ -534,8 +553,8 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             montoRecibidoNumber >= 0 &&
             Math.round((montoRecibidoNumber - calcularTotales.total) * 100) >= 0
         );
-        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un nÃºmero vÃ¡lido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
-        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para crÃ©dito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
+        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un numero valido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
+        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para credito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
         setShowConfirm(true);
     }
 
@@ -552,8 +571,8 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             montoRecibidoNumber >= 0 &&
             Math.round((montoRecibidoNumber - calcularTotales.total) * 100) >= 0
         );
-        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un nÃºmero vÃ¡lido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
-        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para crÃ©dito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
+        if (validarMontoRecibido && !montoRecibidoValido) { const msg = 'El monto recibido en efectivo debe ser un numero valido y mayor o igual al total.'; setError(msg); triggerToast('error', msg); return; }
+        if (estado.toLowerCase() === 'credito' && !clienteSel) { const msg = 'Para credito debe seleccionar cliente.'; setError(msg); triggerToast('error', msg); return; }
         setSaving(true); setError(''); setOk(null);
         try {
             const payload = {
@@ -682,6 +701,44 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         }
     }
 
+    async function histBuscar(fechaParam) {
+        const fallback = new Date().toISOString().slice(0, 10);
+        const fecha = fechaParam || histFecha || fallback;
+        if (Number.isNaN(new Date(fecha).getTime())) {
+            setHistError('Fecha invalida');
+            return;
+        }
+        setHistError('');
+        setHistLoading(true);
+        try {
+            const data = await getHistorialDia(fecha);
+            setHistData(data || null);
+        } catch (e) {
+            setHistData(null);
+            setHistError(e?.message || 'No se pudo obtener el historial');
+        } finally {
+            setHistLoading(false);
+        }
+    }
+
+    async function movsBuscar() {
+        setMovsError('');
+        setMovsLoading(true);
+        try {
+            const params = {};
+            const lim = Number(movsLimit);
+            if (Number.isFinite(lim) && lim > 0) params.limit = lim;
+            const filtro = (movsFiltroProd || '').trim();
+            if (filtro) params.producto = filtro;
+            const data = await getMovimientosRecientesInventario(params);
+            setMovs(Array.isArray(data) ? data : []);
+        } catch (e) {
+            setMovs([]);
+            setMovsError(e?.message || 'No se pudo obtener los movimientos');
+        } finally {
+            setMovsLoading(false);
+        }
+    }
 
     async function devAbrirDetalle(v) {
         setDevDetalle({ open: true, ventaId: v.VentaID, cab: null, items: [], err: '', msg: '' });
@@ -812,7 +869,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                             onClick={() => addProducto(p)}
                                             disabled={p._sinStock}
                                         >
-                                            <span>{p.Nombre}{p.Presentacion ? ` · ${p.Presentacion}` : ''}</span>
+                                            <span>{p.Nombre}{p.Presentacion ? ` - ${p.Presentacion}` : ''}</span>
                                             {p._sinStock ? (
                                                 <span className="badge bg-secondary d-inline-flex align-items-center gap-1">
                                                     <i className="bi bi-slash-circle"></i> Sin stock
@@ -930,7 +987,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                     </div>
                                 )}
                                 {!clienteSel && !clienteSug.length && (
-                                    <div className="text-muted small mt-1">NingÃºn cliente seleccionado.</div>
+                                    <div className="text-muted small mt-1">Ningun cliente seleccionado.</div>
                                 )}
                             </div>
                                     <div className="col-4">
@@ -1261,8 +1318,176 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                             <div className="col-12 col-lg-6">
                                 <div className="card h-100">
                                     <div className="card-body">
-                                        <h6 className="mb-2">Historial del día</h6>
-                                        <div className="text-muted small">Próximamente.</div>
+                                        <div className="d-flex align-items-center justify-content-between mb-2">
+                                            <h6 className="mb-0">Historial del dia</h6>
+                                            {histData?.fecha && <span className="badge bg-light text-dark">Fecha: {histData.fecha}</span>}
+                                        </div>
+                                        <div className="row g-2 align-items-end mb-3">
+                                            <div className="col-12 col-sm-7">
+                                                <label className="form-label mb-1">Fecha</label>
+                                                <input
+                                                    type="date"
+                                                    className="form-control"
+                                                    value={histFecha}
+                                                    onChange={(e)=>setHistFecha(e.target.value)}
+                                                    onKeyDown={(e)=>{ if (e.key==='Enter') histBuscar(); }}
+                                                />
+                                            </div>
+                                            <div className="col-12 col-sm-5 d-flex gap-2">
+                                                <button className="btn btn-primary w-100" onClick={()=>histBuscar()} disabled={histLoading}>
+                                                    {histLoading ? 'Cargando...' : 'Buscar'}
+                                                </button>
+                                                <button
+                                                    className="btn btn-outline-secondary"
+                                                    onClick={() => { const hoy = new Date().toISOString().slice(0, 10); setHistFecha(hoy); histBuscar(hoy); }}
+                                                    disabled={histLoading}
+                                                >
+                                                    Hoy
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {histError && <div className="alert alert-danger py-2">{histError}</div>}
+                                        {histLoading && <div className="text-muted">Cargando...</div>}
+                                        {!histLoading && !histError && histData && (
+                                            <>
+                                                <div className="row g-3 mb-3">
+                                                    <div className="col-12 col-sm-4">
+                                                        <div className="info-label">Total vendido</div>
+                                                        <div className="chip-strong w-100 text-center">{formatMoney(histData.totalVentas || 0, currencySymbol)}</div>
+                                                    </div>
+                                                    <div className="col-12 col-sm-4">
+                                                        <div className="info-label">Cantidad de ventas</div>
+                                                        <div className="chip-soft w-100 text-center">{histData.cantidadVentas || 0}</div>
+                                                    </div>
+                                                    <div className="col-12 col-sm-4">
+                                                        <div className="info-label">Total en devoluciones</div>
+                                                        <div className="chip-soft w-100 text-center bg-warning-subtle text-warning fw-semibold">
+                                                            {formatMoney(histData.totalDevoluciones || 0, currencySymbol)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="mb-3">
+                                                    <div className="info-label mb-1">Resumen por metodo de pago</div>
+                                                    <div className="d-flex flex-wrap gap-2">
+                                                        {(histData.metodosPago || []).length === 0 && (
+                                                            <span className="text-muted small">Sin movimientos en la fecha.</span>
+                                                        )}
+                                                        {(histData.metodosPago || []).map((m, idx) => (
+                                                            <span key={`${m.metodo || 'met'}-${idx}`} className="badge bg-light border text-dark px-3 py-2">
+                                                                <div className="small fw-semibold">{m.metodo || 'Otro'}</div>
+                                                                <div>{formatMoney(m.total || 0, currencySymbol)}</div>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="table-responsive" style={{ maxHeight: 320 }}>
+                                                    <table className="table table-sm align-middle mb-0">
+                                                        <thead className="table-light">
+                                                            <tr>
+                                                                <th>No. factura</th>
+                                                                <th>Hora</th>
+                                                                <th>Cliente</th>
+                                                                <th className="text-end">Total</th>
+                                                                <th>Forma de pago</th>
+                                                                <th>Usuario</th>
+                                                                <th>Estado</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {(histData.ventas || []).map((v, idx) => (
+                                                                <tr key={`hv-${v.numeroFactura || idx}`}>
+                                                                    <td>{v.numeroFactura || '-'}</td>
+                                                                    <td>{v.hora || '-'}</td>
+                                                                    <td>{v.cliente || '-'}</td>
+                                                                    <td className="text-end">{formatMoney(v.total || 0, currencySymbol)}</td>
+                                                                    <td>{v.metodoPago || '-'}</td>
+                                                                    <td>{v.usuario || '-'}</td>
+                                                                    <td>{v.estado || '-'}</td>
+                                                                </tr>
+                                                            ))}
+                                                            {(histData.ventas || []).length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={7} className="text-center text-muted">Sin ventas registradas en esta fecha.</td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="col-12 col-lg-6">
+                                <div className="card h-100">
+                                    <div className="card-body">
+                                        <div className="d-flex align-items-center justify-content-between mb-2">
+                                            <h6 className="mb-0">Movimientos de inventario</h6>
+                                            <span className="badge bg-light text-dark">Últimos</span>
+                                        </div>
+                                        <div className="row g-2 align-items-end mb-3">
+                                            <div className="col-12 col-sm-7">
+                                                <label className="form-label mb-1">Producto</label>
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    placeholder="Nombre contiene..."
+                                                    value={movsFiltroProd}
+                                                    onChange={(e)=>setMovsFiltroProd(e.target.value)}
+                                                    onKeyDown={(e)=>{ if (e.key==='Enter') movsBuscar(); }}
+                                                />
+                                            </div>
+                                            <div className="col-6 col-sm-2">
+                                                <label className="form-label mb-1">Límite</label>
+                                                <input
+                                                    type="number"
+                                                    className="form-control"
+                                                    min={1}
+                                                    max={100}
+                                                    value={movsLimit}
+                                                    onChange={(e)=>setMovsLimit(e.target.value)}
+                                                    onKeyDown={(e)=>{ if (e.key==='Enter') movsBuscar(); }}
+                                                />
+                                            </div>
+                                            <div className="col-6 col-sm-3 d-flex">
+                                                <button className="btn btn-primary w-100" onClick={movsBuscar} disabled={movsLoading}>
+                                                    {movsLoading ? 'Cargando...' : 'Buscar'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {movsError && <div className="alert alert-danger py-2">{movsError}</div>}
+                                        {movsLoading && <div className="text-muted">Cargando...</div>}
+                                        {!movsLoading && !movsError && (
+                                            <div className="table-responsive" style={{ maxHeight: 320 }}>
+                                                <table className="table table-sm align-middle mb-0">
+                                                    <thead className="table-light">
+                                                        <tr>
+                                                            <th>Fecha ingreso</th>
+                                                            <th>Producto</th>
+                                                            <th>Lote</th>
+                                                            <th className="text-end">Cantidad</th>
+                                                            <th>Vence</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {movs.map((m, idx) => (
+                                                            <tr key={`mov-${m.loteId || idx}`}>
+                                                                <td>{m.fechaIngreso ? new Date(m.fechaIngreso).toLocaleDateString() : '-'}</td>
+                                                                <td>{m.producto || '-'}</td>
+                                                                <td>{m.numeroLote || m.loteId || '-'}</td>
+                                                                <td className="text-end">{Number(m.totalUnidades ?? m.cantidadUnidadesMinimas ?? m.cantidadEmpaques ?? 0)}</td>
+                                                                <td>{m.fechaVencimiento ? new Date(m.fechaVencimiento).toLocaleDateString() : '-'}</td>
+                                                            </tr>
+                                                        ))}
+                                                        {movs.length === 0 && (
+                                                            <tr>
+                                                                <td colSpan={5} className="text-center text-muted">Sin movimientos recientes.</td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1408,6 +1633,8 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         </div>
     );
 }
+
+
 
 
 

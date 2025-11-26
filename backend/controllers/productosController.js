@@ -1,8 +1,8 @@
-// controllers/productosController.js
+﻿// controllers/productosController.js
 // ImplementaciA³n contra SQL Server (tabla Productos)
 const sql = require('mssql');
 const poolPromise = require('../db');
-const { getLotesColumnInfo, getCantidadExpressions } = require('../store/inventoryUtils');
+const { getLotesColumnInfo, getCantidadExpressions, ensurePositiveNumber } = require('../store/inventoryUtils');
 
 function mapProductoRow(r) {
   return {
@@ -87,9 +87,76 @@ const buscarProductos = async (req, res) => {
   }
 };
 
-// No hay columna de cA³digo de barras en el esquema proporcionado
+// No hay columna de codigo de barras en el esquema proporcionado
 const getProductoByBarcode = async (req, res) => {
-  return res.status(404).json({ message: 'BAºsqueda por cA³digo de barras no disponible' });
+  return res.status(404).json({ message: 'Busqueda por codigo de barras no disponible' });
+};
+
+// Consulta de precio / existencia
+const consultarProductoInventario = async (req, res) => {
+  try {
+    const term = (req.query.busqueda || '').toString().trim();
+    if (!term) return res.status(400).json({ message: 'Parametro busqueda requerido' });
+
+    const pool = await poolPromise;
+    const meta = await getLotesColumnInfo();
+    const { totalExpr } = getCantidadExpressions(meta, { alias: 'l' });
+
+    const qProd = await pool
+      .request()
+      .input('term', sql.NVarChar(200), `%${term}%`)
+      .query(`
+        SELECT TOP 5 p.ProductoID, p.NombreProducto, p.Presentacion, p.PrecioUnitarioVenta, p.StockActual
+        FROM dbo.Productos p
+        WHERE p.Activo = 1
+          AND (p.NombreProducto LIKE @term OR p.Presentacion LIKE @term OR CAST(p.ProductoID AS NVARCHAR(20)) LIKE @term)
+        ORDER BY p.NombreProducto
+      `);
+
+    if (!qProd.recordset.length) return res.status(404).json({ message: 'Producto no encontrado' });
+    const prod = qProd.recordset[0];
+
+    const qLotes = await pool
+      .request()
+      .input('ProductoID', sql.Int, prod.ProductoID)
+      .query(`
+        SELECT l.LoteID, l.NumeroLote, l.FechaVencimiento,
+               ${meta.hasCantidadEmpaques ? 'COALESCE(l.CantidadEmpaques,0) AS CantidadEmpaques,' : '0 AS CantidadEmpaques,'}
+               ${meta.hasCantidadUnidades ? 'COALESCE(l.CantidadUnidadesMinimas,0) AS CantidadUnidadesMinimas,' : '0 AS CantidadUnidadesMinimas,'}
+               ${meta.hasTotalUnidades ? 'COALESCE(l.TotalUnidadesMinimas,0) AS TotalUnidadesMinimas,' : `${totalExpr} AS TotalUnidadesMinimas,`}
+               ${meta.hasCantidad ? 'COALESCE(l.Cantidad,0) AS Cantidad' : '0 AS Cantidad'}
+        FROM dbo.Lotes l
+        WHERE l.ProductoID = @ProductoID AND COALESCE(l.Activo,1) = 1
+      `);
+
+    const lotes = qLotes.recordset.map((l) => {
+      const factor = ensurePositiveNumber(l.CantidadUnidadesMinimas, 1) || 1;
+      const total = meta.hasTotalUnidades
+        ? ensurePositiveNumber(l.TotalUnidadesMinimas)
+        : (meta.hasCantidad
+          ? ensurePositiveNumber(l.Cantidad)
+          : ensurePositiveNumber(l.CantidadEmpaques) * factor);
+      return {
+        lote: l.NumeroLote || l.LoteID,
+        cantidad: total,
+        fechaVencimiento: l.FechaVencimiento,
+      };
+    });
+
+    const existenciaTotal = lotes.reduce((acc, l) => acc + ensurePositiveNumber(l.cantidad), 0);
+
+    return res.json({
+      productoId: prod.ProductoID,
+      nombre: prod.NombreProducto,
+      presentacion: prod.Presentacion,
+      precio: Number(prod.PrecioUnitarioVenta || 0),
+      existenciaTotal,
+      lotes,
+    });
+  } catch (err) {
+    console.error('consultarProductoInventario error:', err);
+    return res.status(500).json({ message: 'Error al consultar producto' });
+  }
 };
 
 const createProducto = async (req, res) => {
@@ -271,4 +338,5 @@ const deleteProducto = async (req, res) => {
   }
 };
 
-module.exports = { getProductos, buscarProductos, getProductoByBarcode, createProducto, updateProducto, deleteProducto };
+module.exports = { getProductos, buscarProductos, getProductoByBarcode, createProducto, updateProducto, deleteProducto, consultarProductoInventario };
+

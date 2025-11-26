@@ -20,6 +20,82 @@ try { PDFDocument = require('pdfkit'); } catch {}
 const FACTURAS_DIR = path.join(process.cwd(), 'recursos_sistema', 'facturas_fmanager');
 const DEFAULT_FACTOR_UNIDADES = 1;
 
+// Historial del dia (ventas)
+async function historialDia(req, res) {
+  try {
+    const pool = await poolPromise;
+    const fechaParam = req.query.fecha ? new Date(req.query.fecha) : new Date();
+    if (Number.isNaN(fechaParam.getTime())) {
+      return res.status(400).json({ message: 'Fecha invalida' });
+    }
+    const desde = new Date(fechaParam);
+    desde.setHours(0, 0, 0, 0);
+    const hasta = new Date(fechaParam);
+    hasta.setHours(23, 59, 59, 999);
+
+    const ventasQ = await pool
+      .request()
+      .input('from', sql.DateTime, desde)
+      .input('to', sql.DateTime, hasta)
+      .query(`
+        SELECT v.VentaID, v.FechaVenta, v.Total, v.ClienteID, v.FormaPago, v.UsuarioID,
+               COALESCE(u.Username, '') AS UsuarioNombre,
+               LTRIM(RTRIM(COALESCE(c.Nombres,'') + ' ' + COALESCE(c.Apellidos,''))) AS ClienteNombre,
+               v.Estado
+        FROM dbo.Ventas v
+        LEFT JOIN dbo.Usuarios u ON u.UsuarioID = v.UsuarioID
+        LEFT JOIN dbo.Clientes c ON c.ClienteID = v.ClienteID
+        WHERE v.FechaVenta BETWEEN @from AND @to
+        ORDER BY v.FechaVenta DESC, v.VentaID DESC
+      `);
+
+    const metodos = {};
+    let totalVentas = 0;
+    ventasQ.recordset.forEach((v) => {
+      const total = Number(v.Total || 0);
+      totalVentas += total;
+      const key = v.FormaPago || 'Otro';
+      metodos[key] = (metodos[key] || 0) + total;
+    });
+
+    const metodosPago = Object.entries(metodos).map(([metodo, total]) => ({ metodo, total }));
+    const ventas = ventasQ.recordset.map((v) => ({
+      numeroFactura: v.VentaID,
+      hora: v.FechaVenta ? new Date(v.FechaVenta).toLocaleTimeString() : '',
+      cliente: v.ClienteNombre || v.ClienteID || '-',
+      total: Number(v.Total || 0),
+      metodoPago: v.FormaPago || '-',
+      usuario: v.UsuarioNombre || v.UsuarioID || '-',
+      estado: v.Estado || '-',
+    }));
+
+    // Total de devoluciones del dia (monto aproximado)
+    const devQ = await pool
+      .request()
+      .input('from', sql.DateTime, desde)
+      .input('to', sql.DateTime, hasta)
+      .query(`
+        SELECT SUM(ISNULL(dd.CantidadUnidadesMinimasDevueltas,0) * ISNULL(dd.PrecioUnitario,0)) AS TotalDev
+        FROM dbo.Devoluciones d
+        INNER JOIN dbo.DetalleDevolucion dd ON dd.DevolucionID = d.DevolucionID
+        WHERE d.FechaDevolucion BETWEEN @from AND @to
+      `);
+    const totalDevoluciones = Number(devQ.recordset?.[0]?.TotalDev || 0);
+
+    return res.json({
+      fecha: desde.toISOString().slice(0, 10),
+      totalVentas,
+      cantidadVentas: ventas.length,
+      totalDevoluciones,
+      metodosPago,
+      ventas,
+    });
+  } catch (err) {
+    console.error('historialDia error:', err);
+    return res.status(500).json({ message: 'Error al obtener historial del dia' });
+  }
+}
+
 function createRequest(scope) {
   if (scope instanceof sql.Transaction) return new sql.Request(scope);
   if (scope instanceof sql.Request) return scope;
@@ -930,4 +1006,4 @@ const obtenerPdf = async (req, res) => {
   }
 };
 
-module.exports = { crearVenta, listarVentas, obtenerVenta, devolucionVenta, anularVenta, obtenerPdf };
+module.exports = { crearVenta, listarVentas, obtenerVenta, devolucionVenta, anularVenta, obtenerPdf, historialDia };

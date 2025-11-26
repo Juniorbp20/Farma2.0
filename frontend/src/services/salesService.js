@@ -78,6 +78,18 @@ export async function getVenta(ventaId) {
   return res.json();
 }
 
+export async function getHistorialDia(fechaIso) {
+  const url = new URL(`${API_URL}/ventas/historial-dia`);
+  if (fechaIso) url.searchParams.set('fecha', fechaIso);
+  const res = await fetch(url, { headers: { ...authHeader() } });
+  if (!res.ok) {
+    let m = 'Error al obtener historial del dia';
+    try { const e = await res.json(); m = e?.message || m; } catch {}
+    throw new Error(m);
+  }
+  return res.json();
+}
+
 export async function aplicarDevolucion(ventaId, payload) {
   const res = await fetch(`${API_URL}/ventas/${ventaId}/devolucion`, {
     method: 'POST',

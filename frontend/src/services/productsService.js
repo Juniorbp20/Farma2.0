@@ -82,3 +82,11 @@ export async function getUnidadesMedida(tipo) {
   return res.json();
 }
 
+export async function consultarProductoInventario(busqueda) {
+  const url = new URL(`${API_URL}/productos/consulta-inventario`);
+  url.searchParams.set('busqueda', busqueda || '');
+  const res = await fetch(url, { headers: { ...authHeader() } });
+  await handleErrors(res, 'Error al consultar producto.');
+  return res.json();
+}
+

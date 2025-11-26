@@ -1214,6 +1214,59 @@ async function ajustarStock(req, res) {
   }
 }
 
+// Movimientos recientes de inventario (lotes)
+async function getMovimientosRecientes(req, res) {
+  try {
+    const pool = await poolPromise;
+    const limite = Number(req.query.limit) > 0 ? Number(req.query.limit) : 20;
+    const filtroProducto = (req.query.producto || '').trim();
+
+    const q = await pool
+      .request()
+      .input('limite', sql.Int, limite)
+      .input('prod', sql.NVarChar(200), filtroProducto || null)
+      .query(`
+        SELECT TOP (@limite)
+          l.LoteID,
+          l.ProductoID,
+          p.NombreProducto,
+          l.NumeroLote,
+          l.FechaIngreso,
+          l.FechaVencimiento,
+          COALESCE(l.CantidadEmpaques,0) AS CantidadEmpaques,
+          COALESCE(l.CantidadUnidadesMinimas,0) AS CantidadUnidadesMinimas,
+          CASE
+            WHEN COL_LENGTH('dbo.Lotes','TotalUnidadesMinimas') IS NOT NULL
+              THEN COALESCE(l.TotalUnidadesMinimas, COALESCE(l.CantidadEmpaques,0) * COALESCE(l.CantidadUnidadesMinimas,1))
+            ELSE COALESCE(l.CantidadEmpaques,0) * COALESCE(l.CantidadUnidadesMinimas,1)
+          END AS TotalUnidades,
+          l.PrecioCosto
+        FROM dbo.Lotes l
+        INNER JOIN dbo.Productos p ON p.ProductoID = l.ProductoID
+        WHERE (@prod IS NULL OR p.NombreProducto LIKE '%' + @prod + '%')
+        ORDER BY COALESCE(l.FechaIngreso, l.LoteID) DESC, l.LoteID DESC
+      `);
+
+    const movimientos = q.recordset.map((row) => ({
+      loteId: row.LoteID,
+      productoId: row.ProductoID,
+      producto: row.NombreProducto,
+      numeroLote: row.NumeroLote,
+      fechaIngreso: row.FechaIngreso,
+      fechaVencimiento: row.FechaVencimiento,
+      cantidadEmpaques: ensurePositiveNumber(row.CantidadEmpaques),
+      cantidadUnidadesMinimas: ensurePositiveNumber(row.CantidadUnidadesMinimas),
+      totalUnidades: ensurePositiveNumber(row.TotalUnidades),
+      precioCosto: parseDecimal(row.PrecioCosto),
+    }));
+
+    return res.json(movimientos);
+  } catch (err) {
+    console.error('getMovimientosRecientes error:', err);
+    return res.status(500).json({ message: 'Error al obtener movimientos de inventario' });
+  }
+}
+
 module.exports = {
   getResumen,
   getLotes,
@@ -1224,4 +1277,5 @@ module.exports = {
   ajustarStock,
   consumirDesdeLotes,
   getMarcasActivas,
+  getMovimientosRecientes,
 };

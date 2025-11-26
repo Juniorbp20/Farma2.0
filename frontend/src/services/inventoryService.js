@@ -112,3 +112,15 @@ export async function getMarcas(params = {}) {
   return res.json();
 }
 
+export async function getMovimientosRecientesInventario(params = {}) {
+  const url = new URL(`${API_URL}/inventario/movimientos-recientes`);
+  const entries = Object.entries(params || {});
+  entries.forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    url.searchParams.set(key, value);
+  });
+  const res = await fetch(url, { headers: { ...authHeader() } });
+  await handleErrors(res, 'Error al obtener movimientos de inventario.');
+  return res.json();
+}
+

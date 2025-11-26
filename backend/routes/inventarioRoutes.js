@@ -9,6 +9,7 @@ const {
   desactivarLote,
   ajustarStock,
   getMarcasActivas,
+  getMovimientosRecientes,
 } = require('../controllers/inventarioController');
 const {
   listarCompras,
@@ -27,6 +28,7 @@ router.put('/lotes/:id', updateLote);
 router.patch('/lotes/:id/desactivar', desactivarLote);
 router.post('/ajustar', ajustarStock);
 router.get('/marcas', getMarcasActivas);
+router.get('/movimientos-recientes', getMovimientosRecientes);
 
 router.get('/compras', listarCompras);
 router.get('/compras/export', exportarCompras);
