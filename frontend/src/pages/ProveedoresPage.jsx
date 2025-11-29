@@ -1,11 +1,13 @@
 // src/pages/ProveedoresPage.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "./ProveedoresPage.css";
 import DataTable from "react-data-table-component";
 import ConfirmModal from "../components/ConfirmModal";
 import ActionButton from "../components/ActionButton";
 import Toast from "../components/recursos/Toast";
 import TabBar from "../components/TabBar";
+import { getUser } from "../services/authService";
+import { buildPermissions } from "../utils/permissions";
 import {
   getProveedores,
   createProveedor,
@@ -36,14 +38,20 @@ function ProveedoresPage() {
   const [showModalActivar, setShowModalActivar] = useState(false);
   const [proveedorPorActivar, setProveedorPorActivar] = useState(null);
 
-  const proveedorTabs = [
-    { value: "ver", label: "Ver Proveedores", icon: "bi bi-truck" },
-    { value: "gestionar", label: "Gestionar Proveedores", icon: "bi bi-person-plus" },
-  ];
+  const perms = useMemo(() => buildPermissions(getUser()), []);
+  const canView = perms.can("proveedores:read");
+  const canManage = perms.hasAny(["proveedores:create", "proveedores:update", "proveedores:delete"]);
+
+  const proveedorTabs = canManage
+    ? [
+        { value: "ver", label: "Ver Proveedores", icon: "bi bi-truck" },
+        { value: "gestionar", label: "Gestionar Proveedores", icon: "bi bi-person-plus" },
+      ]
+    : [{ value: "ver", label: "Ver Proveedores", icon: "bi bi-truck" }];
 
   useEffect(() => {
-    cargar();
-  }, []);
+    if (canView) cargar();
+  }, [canView]);
 
   useEffect(() => {
     if (mensaje) setToastKey(Date.now());
@@ -99,6 +107,7 @@ function ProveedoresPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!canManage) return;
     const v = {
       ...validateField("NombreProveedor", form.NombreProveedor),
       ...validateField("Contacto", form.Contacto),
@@ -127,6 +136,7 @@ function ProveedoresPage() {
   }
 
   function onEdit(row) {
+    if (!canManage) return;
     setEditando(row);
     setVistaActual("gestionar");
     setForm({
@@ -153,6 +163,7 @@ function ProveedoresPage() {
   }
 
   const abrirModalEliminar = (p) => {
+    if (!canManage) return;
     setProveedorSeleccionado(p);
     setShowModalEliminar(true);
   };
@@ -180,6 +191,7 @@ function ProveedoresPage() {
   };
 
   function abrirModalActivar(p) {
+    if (!canManage) return;
     setProveedorPorActivar(p);
     setShowModalActivar(true);
   }
@@ -207,7 +219,7 @@ function ProveedoresPage() {
     setProveedorPorActivar(null);
   }
 
-  const columnas = [
+  const columnas = useMemo(() => [
     {
       name: "ID",
       selector: (r) => r.ProveedorID,
@@ -248,42 +260,46 @@ function ProveedoresPage() {
       sortable: true,
       width: "100px",
     },
-    {
-      name: "Acciones",
-      cell: (row) => (
-        <div className="table-action-group btn-group btn-group-sm">
-          <button
-            type="button"
-            className="btn btn-outline-primary"
-            onClick={() => onEdit(row)}
-            title="Editar"
-          >
-            <i className="bi bi-pencil"></i>
-          </button>
-          {row.Activo ? (
-            <button
-              type="button"
-              className="btn btn-outline-danger"
-              onClick={() => abrirModalEliminar(row)}
-              title="Desactivar"
-            >
-              <i className="bi bi-trash3"></i>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-outline-success"
-              onClick={() => abrirModalActivar(row)}
-              title="Activar"
-            >
-              <i className="bi bi-check-circle"></i>
-            </button>
-          )}
-        </div>
-      ),
-      width: "120px",
-    },
-  ];
+    ...(canManage
+      ? [
+          {
+            name: "Acciones",
+            cell: (row) => (
+              <div className="table-action-group btn-group btn-group-sm">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={() => onEdit(row)}
+                  title="Editar"
+                >
+                  <i className="bi bi-pencil"></i>
+                </button>
+                {row.Activo ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger"
+                    onClick={() => abrirModalEliminar(row)}
+                    title="Desactivar"
+                  >
+                    <i className="bi bi-trash3"></i>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-outline-success"
+                    onClick={() => abrirModalActivar(row)}
+                    title="Activar"
+                  >
+                    <i className="bi bi-check-circle"></i>
+                  </button>
+                )}
+              </div>
+            ),
+            width: "120px",
+          },
+        ]
+      : []),
+  ], [canManage]);
 
   const proveedoresFiltrados = proveedores.filter((p) =>
     Object.values(p).some((v) =>
@@ -313,6 +329,18 @@ function ProveedoresPage() {
     rowsPerPageText: "Filas:",
     rangeSeparatorText: "de",
   };
+
+  useEffect(() => {
+    if (!canManage && vistaActual === "gestionar") setVistaActual("ver");
+  }, [canManage, vistaActual]);
+
+  if (!canView) {
+    return (
+      <div className="container py-4">
+        <div className="alert alert-warning mb-0">No tienes acceso a Proveedores.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container proveedores-page-container py-3">

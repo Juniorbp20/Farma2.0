@@ -18,7 +18,6 @@ const proveedoresRoutes = require("./routes/proveedoresRoutes");
 const configRoutes = require("./routes/configRoutes");
 const errorHandler = require("./middleware/errorHandler");
 const { authenticate } = require("./middleware/authz");
-// const { seedAdmin } = require("./seed");
 
 const app = express();
 app.use(express.json());
@@ -27,7 +26,6 @@ app.use(
   express.static(path.join(__dirname, "recursos_sistema"))
 );
 
-// CORS con configuracion por entorno
 const allowedOrigins = (process.env.CORS_ORIGIN || "")
   .split(",")
   .map((s) => s.trim())
@@ -43,13 +41,11 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Rutas publicas
 app.get("/", (req, res) => {
   res.send("Backend funcionando");
 });
 app.use("/auth", authRoutes);
 
-// Rutas publicas
 const { authorizePermissions } = require("./middleware/authz");
 app.use("/clientes", authenticate, clientesRoutes);
 app.use("/tiposdocumentos", authenticate, tiposDocumentosRoutes);
@@ -63,13 +59,9 @@ app.use("/inventario", authenticate, inventarioRoutes);
 app.use("/proveedores", authenticate, proveedoresRoutes);
 app.use("/api/config", authenticate, configRoutes);
 
-// Manejo de errores global
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
-
-// Seed deshabilitado por defecto; habilita con SEED_ENABLED=true
-// if (process.env.SEED_ENABLED === 'true') seedAdmin();

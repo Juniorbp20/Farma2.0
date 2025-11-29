@@ -7,14 +7,6 @@
   margin: 0 auto;
 }
 
-@media (max-width: 992px) {
-  .support-grid-wrap { width: 80%; }
-}
-
-@media (max-width: 576px) {
-  .support-grid-wrap { width: 100%; }
-}
-
 .support-reasons {
   display: flex;
   flex-wrap: wrap;
@@ -74,7 +66,7 @@
   position: relative;
   display: block;
   line-height: 1.2;
-  color: #4d5357;
+  color: #767676;
 }
 
 .support-heading .title::after {
@@ -205,9 +197,76 @@
   padding-bottom: 20px !important;
 }
 
+.tutorial-card {
+  border-radius: 14px;
+  box-shadow: 0 6px 14px rgba(20, 34, 65, 0.08);
+  padding: 12px !important;
+  height: auto !important;
+}
+
 .tutorial-card-body {
-  padding-top: 0 !important;
-  padding-bottom: 12px !important;
+  padding: 0 !important;
+  flex: 0 0 auto !important;
+  display: block;
+}
+
+.tutorial-card-info{
+  padding: 10px;
+}
+
+.tutorial-title {
+  font-size: 1.08rem;
+  line-height: 1.2;
+  color: #696969;
+  font-weight: 700;
+}
+
+.tutorial-role-chip,
+.tutorial-section-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 4px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  line-height: 1;
+}
+
+.tutorial-role-chip i,
+.tutorial-section-chip i {
+  font-size: 0.7rem;
+}
+
+.tutorial-role-chip.role-admin {
+  background: #fff3cd;
+  color: #946200;
+  border-color: #ffe69c;
+}
+
+.tutorial-role-chip.role-cashier {
+  background: #e7f1ff;
+  color: #0d6efd;
+  border-color: #cfe2ff;
+}
+
+.tutorial-role-chip.role-pharma {
+  background: #eaf7f0;
+  color: #0f5132;
+  border-color: #c7eedc;
+}
+
+.tutorial-role-chip.role-inventory {
+  background: #e8f5ff;
+  color: #0b4c74;
+  border-color: #c6e4ff;
+}
+
+.tutorial-section-chip {
+  background: #f5f5f5;
+  color: #555;
+  border-color: #e0e0e0;
 }
 
 .doc-badge {
@@ -221,5 +280,20 @@
 .accordion .accordion-header,
 .accordion .accordion-button:not(.collapsed) {
   cursor: var(--cursor-seleccionables) !important;
+}
+
+.accordion .accordion-button {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(99, 99, 99, 0.8);
+}
+
+.accordion .accordion-button:focus {
+  box-shadow: none;
+  color: rgba(99, 99, 99, 0.505) !important;
+}
+
+.accordion .accordion-body p {
+  color: rgba(99, 99, 99, 0.8);
 }
 

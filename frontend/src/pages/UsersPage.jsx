@@ -103,7 +103,6 @@ function UsersPage() {
     const { name, value, type, checked } = e.target;
     const newValue = type === "checkbox" ? checked : value;
     setForm((f) => ({ ...f, [name]: newValue }));
-    // Validar campo individual
     const fieldError = validateField(name, newValue);
     setErrors((prev) => {
       const newErrors = { ...prev };
@@ -221,7 +220,6 @@ function UsersPage() {
         await cargar();
       } catch (err) {
         const mensajeDeError = extractErrorMessage(err);
-        // const mensajeDeError = err.response?.data?.message || err.message;
         setMensaje("Ocurrio un error: " + mensajeDeError);
         setTipoMensaje("error");
         setToastKey(Date.now());
@@ -241,7 +239,6 @@ function UsersPage() {
       setTipoMensaje("success");
     } catch (err) {
       const mensajeDeError = extractErrorMessage(err);
-      // const mensajeDeError = err.response?.data?.message || err.message;
       setMensaje("Ocurrio un error: " + mensajeDeError);
       setTipoMensaje("error");
     } finally {

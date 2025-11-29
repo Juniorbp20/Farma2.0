@@ -207,16 +207,6 @@
   border: 1px dashed #cfd4da;
 }
 
-/* Sección de devoluciones dentro de Punto de Venta */
-.devoluciones-wrapper {
-}
-.devoluciones-filtros {
-}
-.devoluciones-alert {
-}
-.devoluciones-resultados {
-}
-
 .scanner-btn {
   cursor: var(--cursor-seleccionables) !important;
   width: 50px;
@@ -301,7 +291,6 @@
   margin: 0;
 }
 
-/* ===== Modales estilo inventario reutilizados (confirmar factura) ===== */
 .inventory-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -376,7 +365,7 @@
 .inventory-modal .btn-close {
   cursor: var(--cursor-seleccionables) !important;
   background: none;
-  font-size: 1.3rem !important;
+  font-size: 1.7rem !important;
   width: 30px !important;
   height: 30px !important;
   display: inline-flex;
@@ -447,4 +436,55 @@
 
 .tabla-confirmarFactura{
   text-align: start !important;
+}
+
+.devoluciones-wrapper {
+}
+.devoluciones-filtros {
+  padding-top: 0 !important;
+}
+.devoluciones-alert {
+}
+.devoluciones-resultados {
+}
+
+.reimpresion-alert {
+  background: #f5faff !important;
+  border: 1px solid #b5ddff !important;
+  color: #525252 !important;
+}
+
+.otras-opciones-container .card {
+  padding: 0;
+  border: 1px solid #e6ebf3;
+  box-shadow: none;
+}
+
+.otras-opciones-container .card-body {
+  padding: 1rem 0.85rem;
+}
+
+.chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #f0f5ff;
+  border: 1px solid #d5e4ff;
+  color: #0d6efd;
+  font-weight: 700;
+}
+
+.chip-metodo-label {
+  font-size: 0.9rem;
+  color: #475569;
+  font-weight: 600;
+}
+
+.chip-metodo-valor {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0d6efd;
 }

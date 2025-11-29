@@ -118,7 +118,6 @@ const useCharacterAnimation = (usernameRef, passwordRef, svgRef, showPassword, p
         eyeR: svgRef.current.querySelector('#ojoDer ellipse'),
       };
 
-      // Posición inicial de los brazos (derechitas y fuera de vista)
       const INITIAL_HIDDEN_Y = 400;
       const INITIAL_HIDDEN_X = 0;
       const INITIAL_ROTATION = 0;
@@ -131,7 +130,6 @@ const useCharacterAnimation = (usernameRef, passwordRef, svgRef, showPassword, p
   }, [svgRef, startBlinking, stopBlinking]);
 
 
-  // Maneja el foco y el toggle de la contraseña
   useEffect(() => {
     if (isPasswordFocus) {
       stopBlinking();
@@ -140,7 +138,6 @@ const useCharacterAnimation = (usernameRef, passwordRef, svgRef, showPassword, p
     else if (isEmailFocus) {
       stopBlinking();
       
-      // LÓGICA CLAVE: Solo descubrir si el campo de contraseña está vacío
       if (!passwordValue) { 
         uncoverEyes(); 
       }
@@ -151,7 +148,6 @@ const useCharacterAnimation = (usernameRef, passwordRef, svgRef, showPassword, p
       return () => usernameRef.current.removeEventListener('input', handler);
     } 
     else {
-      //uncoverEyes();
       startBlinking(12);
       gsap.to(svgElements.current.eyes, 0.5, { x: 0, y: 0, ease: Power2.easeOut });
     }
@@ -257,7 +253,6 @@ function LoginPage({ onLogin }) {
       <div className="row w-100">
         <div className="col-12 col-sm-8 col-md-6 col-lg-4 mx-auto">
 
-          {/* INICIO Personaje*/}
           <div className="text-center login-character-container" ref={svgRef}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -272,7 +267,6 @@ function LoginPage({ onLogin }) {
                 </clipPath>
               </defs>
 
-              {/* CAPA 1: CUERPO (Fondo) */}
               <g id="cuerpo">
                 <g>
                   <path d="M267.986,858.564v-281.154c0-44.522,36.222-80.745,80.745-80.745h290.904c44.523,0,80.745,36.222,80.745,80.745v281.154h-452.394Z" fill="#fff" />
@@ -292,7 +286,6 @@ function LoginPage({ onLogin }) {
                 <circle cx="492.209" cy="810.25" r="7.894" fill="#2c2c2c" />
               </g>
 
-              {/* CAPA 2: CABEZA */}
               <g id="cabeza">
                 <g>
                   <g>
@@ -320,7 +313,6 @@ function LoginPage({ onLogin }) {
                 </g>
               </g>
 
-              {/* CAPA 3: OJOS (Para el parpadeo y la mirada) */}
               <g className="eyes-group">
                 <g id="ojoIzq">
                   <path d="M380.289,282.904s25.09-24.668,66.814-8.598" fill="none" stroke="#2c2c2c" strokeLinecap="round" strokeLinejoin="round" strokeWidth="12" />
@@ -332,7 +324,6 @@ function LoginPage({ onLogin }) {
                 </g>
               </g>
 
-              {/* CAPA 4: BRAZO IZQUIERDO (SUPERIOR - PARA CUBRIR) */}
               <g id="brazoIzq" className="arm-left">
                 <g>
                   <path d="M195.694,759.471v105.368c0,4.218-2.922,7.874-7.037,8.803h0c-4.351.982-8.767-1.361-10.392-5.515l-9.892-25.28v45.693c0,7.545-6.116,13.661-13.661,13.661h0c0,7.805-6.327,14.132-14.132,14.132h-23.965c-7.805,0-14.132-6.327-14.132-14.132v-1.884l-2.814-.082c-7.386-.216-13.26-6.266-13.26-13.655v-127.168l109.285.059Z" fill="#f4a07a" stroke="#2c2c2c" strokeLinejoin="round" strokeWidth="7" />
@@ -340,7 +331,6 @@ function LoginPage({ onLogin }) {
                 </g>
               </g>
 
-              {/* CAPA 5: BRAZO DERECHO (La capa más alta) */}
               <g id="brazoDer" className="arm-right">
                 <g>
                   <path d="M791.187,759.471v105.368c0,4.218,2.922,7.874,7.037,8.803h0c4.351.982,8.767-1.361,10.392-5.515l9.892-25.28v45.693c0,7.545,6.116,13.661,13.661,13.661h0c0,7.805,6.327,14.132,14.132,14.132h23.965c7.805,0,14.132-6.327,14.132-14.132v-1.884l2.814-.082c7.386-.216,13.26-6.266,13.26-13.655v-127.168s-109.285.059-109.285.059Z" fill="#f4a07a" stroke="#2c2c2c" strokeLinejoin="round" strokeWidth="7" />
@@ -350,7 +340,6 @@ function LoginPage({ onLogin }) {
 
             </svg>
           </div>
-          {/* FIN Personaje*/}
 
           <div className="card card-form-login shadow-sm" style={{ border: '3px solid #E2ECFF', borderRadius: '15px', fontFamily: 'Roboto', userselect: 'none', padding: '10px 0'}}>
             <div className="card-body p-4">

@@ -10,7 +10,6 @@ const handleErrors = async (res, defaultMsg) => {
       const errorBody = await res.json();
       message = errorBody?.message || defaultMsg;
     } catch (err) {
-      // ignore parse errors
     }
     throw new Error(message);
   }
@@ -66,6 +65,15 @@ export async function deactivateLote(id, payload = {}) {
     body: JSON.stringify(payload),
   });
   await handleErrors(res, 'Error al desactivar lote.');
+  return res.json();
+}
+
+export async function reactivateLote(id) {
+  const res = await fetch(`${API_URL}/inventario/lotes/${id}/reactivar`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+  });
+  await handleErrors(res, 'Error al reactivar lote.');
   return res.json();
 }
 

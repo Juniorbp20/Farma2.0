@@ -13,7 +13,7 @@
 .cyp-hover-surface {
   position: absolute;
   inset: 0;
-  z-index: 1; /* debajo de los controles, encima del iframe */
+  z-index: 1;
   background: transparent;
 }
 

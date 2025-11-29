@@ -44,7 +44,6 @@ async function createUsuario(req, res) {
   }
   try {
     const pool = await poolPromise;
-    // Verificar duplicado
     const dup = await pool
       .request()
       .input('Username', sql.NVarChar(50), Username)
@@ -78,7 +77,6 @@ async function updateUsuario(req, res) {
   const { Nombres, Apellidos, Username, Password, Email, Telefono, RolID, Activo } = req.body;
   try {
     const pool = await poolPromise;
-    // Si se cambia Username, verificar duplicado
     if (Username) {
       const dup = await pool
         .request()

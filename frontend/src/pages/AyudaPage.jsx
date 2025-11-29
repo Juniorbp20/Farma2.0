@@ -7,6 +7,20 @@ import "./AyudaPage.css";
 import { getParametrosSistema } from "../services/configService";
 import TabBar from "../components/TabBar";
 
+const ROLE_LABELS = {
+  1: "Administrador",
+  2: "Cajero",
+  3: "Farmacéutico",
+  4: "Inventario",
+};
+
+const ROLE_CLASS = {
+  1: "role-admin",
+  2: "role-cashier",
+  3: "role-pharma",
+  4: "role-inventory",
+};
+
 function TutorialsGrid({ items = [] }) {
   if (!items.length) {
     return <div className="text-center text-muted py-4">No hay tutoriales disponibles.</div>;
@@ -16,14 +30,32 @@ function TutorialsGrid({ items = [] }) {
       <div className="row g-2">
         {items.map((item) => (
           <div key={item.id} className="col-12 col-md-6 col-lg-4">
-            <div className="card h-100">
+            <div className="card h-100 tutorial-card">
               <div className="card-body tutorial-card-body">
                 <div className="ratio ratio-16x9 custom-yt-wrapper">
                   <CustomYouTubePlayer videoId={item.videoId} />
                 </div>
               </div>
-              <div className="px-3 pb-3">
-                <div className="fw-semibold" style={{ fontSize: "0.95rem" }}>{item.title}</div>
+              <div className="tutorial-card-info">
+                <div className="fw-semibold tutorial-title">{item.title}</div>
+                <div className="d-flex flex-wrap gap-1 mt-2">
+                  {Array.isArray(item.roleAccess) &&
+                    item.roleAccess
+                      .map((role) => Number(role))
+                      .filter((role) => ROLE_LABELS[role])
+                      .map((role) => (
+                        <span key={`${item.id}-role-${role}`} className={`tutorial-role-chip ${ROLE_CLASS[role] || ""}`}>
+                          <i className="bi bi-person-badge me-1" aria-hidden="true"></i>
+                          {ROLE_LABELS[role]}
+                        </span>
+                      ))}
+                  {item.section && (
+                    <span className="tutorial-section-chip">
+                      <i className="bi bi-journal-text me-1" aria-hidden="true"></i>
+                      {item.section}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

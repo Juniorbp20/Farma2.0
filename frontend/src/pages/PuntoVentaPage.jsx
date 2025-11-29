@@ -3,11 +3,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './PuntoVentaPage.css';
 import { getClientes, getClienteById } from '../services/clientesService';
 import { buscarProductos } from '../services/productsService';
-import { getLotes, getMovimientosRecientesInventario } from '../services/inventoryService';
+import { getLotes } from '../services/inventoryService';
 import { crearVenta, getVentaPdf, getVenta, aplicarDevolucion, getVentas, getHistorialDia } from '../services/salesService';
 import TabBar from '../components/TabBar';
 import ActionButton from '../components/ActionButton';
+import CustomButton from '../components/recursos/CustomButton';
 import Toast from '../components/recursos/Toast';
+import { getUser } from '../services/authService';
+import { buildPermissions } from '../utils/permissions';
+import DataTable from 'react-data-table-component';
 
 function number(val, d = 2) {
     const n = Number(val);
@@ -22,7 +26,6 @@ function formatMoney(amount, currencySymbol = 'RD$') {
 
 function fixEncoding(value) {
     if (typeof value !== 'string') return value;
-    // Limpia artefactos comunes (A con tilde fantasma y NBSP) de doble codificacion
     const cleaned = value
         .replace(/\u00A0/g, ' ')
         .replace(/\u00C2/g, '')
@@ -30,7 +33,6 @@ function fixEncoding(value) {
         .replace(/\s+/g, ' ')
         .trim();
     try {
-        // Intenta reinterpretar como Latin1 -> UTF-8
         return decodeURIComponent(escape(cleaned));
     } catch {
         return cleaned;
@@ -70,7 +72,7 @@ function LineaItem({ item, onChange, onRemove, currencySymbol }) {
 
     const precioEmpaqueBase = loteSel ? Number(loteSel.precioVenta || loteSel.precioUnitarioVenta || 0) : 0;
     const rawDesc = Number(loteSel?.descuento || loteSel?.porcentajeDescuentoEmpaque || 0);
-    const descPct = rawDesc > 1 ? rawDesc / 100 : rawDesc;
+    const descPct = rawDesc >= 1 ? rawDesc / 100 : rawDesc;
     const descuentoEmp = modo === 'empaque' ? Math.min(1, Math.max(0, descPct)) : 0;
     const precioEmpaqueAplicado = precioEmpaqueBase * (1 - descuentoEmp);
     const precioUnidadAplicada =
@@ -236,41 +238,39 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         setToastMsg(message);
         setToastKey(Date.now());
     };
-    // Estado para Devoluciones dentro del POS
     const [devFrom, setDevFrom] = useState('');
     const [devTo, setDevTo] = useState('');
     const [devFacturaNo, setDevFacturaNo] = useState('');
     const [devVentas, setDevVentas] = useState([]);
     const [devLoading, setDevLoading] = useState(false);
-    const [devError, setDevError] = useState('');
-    const [devNotaCredito, setDevNotaCredito] = useState(null);
+    const [, setDevError] = useState('');
+    const [, setDevNotaCredito] = useState(null);
     const [devDetalle, setDevDetalle] = useState({ open: false, ventaId: null, cab: null, items: [], err: '', msg: '' });
     const [devResumen, setDevResumen] = useState({ open: false, ventaId: null, cab: null, items: [], err: '' });
 
-    // Reimpresion / regenerar factura
     const [reimpNo, setReimpNo] = useState('');
     const [reimpData, setReimpData] = useState(null);
     const [reimpLoading, setReimpLoading] = useState(false);
     const [reimpError, setReimpError] = useState('');
 
-    // Historial del dia
     const [histFecha, setHistFecha] = useState(() => new Date().toISOString().slice(0, 10));
     const [histLoading, setHistLoading] = useState(false);
     const [histError, setHistError] = useState('');
     const [histData, setHistData] = useState(null);
 
-    // Movimientos recientes de inventario
-    const [movsFiltroProd, setMovsFiltroProd] = useState('');
-    const [movsLimit, setMovsLimit] = useState(20);
-    const [movs, setMovs] = useState([]);
-    const [movsLoading, setMovsLoading] = useState(false);
-    const [movsError, setMovsError] = useState('');
+    const perms = useMemo(() => buildPermissions(user || getUser()), [user]);
+    const canMovsInventario = perms.can('inventario:read');
 
-    const tabOptions = [
-        { value: 'venta', label: 'Venta', icon: 'bi bi-receipt' },
-        { value: 'Devoluciones', label: 'Devoluciones', icon: 'bi bi-arrow-counterclockwise' },
-        { value: 'otras', label: 'Otras opciones', icon: 'bi bi-sliders' },
-    ];
+    const tabOptions = useMemo(() => {
+        const base = [
+            { value: 'venta', label: 'Venta', icon: 'bi bi-receipt' },
+            { value: 'Devoluciones', label: 'Devoluciones', icon: 'bi bi-arrow-counterclockwise' },
+        ];
+        if (canMovsInventario) {
+            base.push({ value: 'otras', label: 'Otras opciones', icon: 'bi bi-sliders' });
+        }
+        return base;
+    }, [canMovsInventario]);
 
     const handleTabSelect = (key) => {
         setActiveTab(key);
@@ -304,13 +304,17 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         setClienteSug(matches);
     }, [clienteTerm, clientes]);
 
-    useEffect(() => {
-        if (formaPago === 'Credito') {
-            if (estado !== 'Credito') setEstado('Credito');
-        } else if (estado === 'Credito') {
-            setEstado('Pagada');
-        }
+    const estadoOpciones = useMemo(() => {
+        if (formaPago === 'Efectivo') return ['Pagada', 'Pendiente'];
+        if (formaPago === 'Tarjeta') return ['Pagada'];
+        return ['Credito'];
     }, [formaPago]);
+
+    useEffect(() => {
+        if (!estadoOpciones.includes(estado)) {
+            setEstado(estadoOpciones[0]);
+        }
+    }, [estadoOpciones, estado]);
 
     const canPrint = (() => {
         const r = String(user?.rol || '').toLowerCase();
@@ -353,7 +357,6 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
     useEffect(() => {
         if (activeTab !== 'otras') return;
         if (!histData && !histLoading) histBuscar(histFecha);
-        if (!movs.length && !movsLoading) movsBuscar();
     }, [activeTab]);
 
     const calcularTotales = useMemo(() => {
@@ -365,7 +368,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             const factor = Math.max(1, Number(loteSel.cantidadUnidadesMinimas || it.factorUnidad || 1));
             const precioEmpaqueBase = Number(loteSel.precioVenta || loteSel.precioUnitarioVenta || 0);
             const rawDesc = Number(loteSel.descuento || loteSel.porcentajeDescuentoEmpaque || 0);
-            const descPct = rawDesc > 1 ? rawDesc / 100 : rawDesc;
+            const descPct = rawDesc >= 1 ? rawDesc / 100 : rawDesc;
             const descEmp = it.modo === 'empaque' ? Math.min(1, Math.max(0, descPct)) : 0;
             const precioEmpaque = precioEmpaqueBase * (1 - descEmp);
             const precioUnidadAplicada =
@@ -507,8 +510,8 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
     }
 
     function validarStockGlobal() {
-        const consumoPorLote = new Map(); // loteId -> unidades solicitadas
-        const disponibilidadPorLote = new Map(); // loteId -> {totalUnidades, factor}
+        const consumoPorLote = new Map();
+        const disponibilidadPorLote = new Map();
         for (const it of items) {
             const { factor, totalUnidades } = disponibilidadLote(it);
             const key = String(it.loteId || 'none');
@@ -624,7 +627,9 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         const tieneRango = Boolean(devFrom || devTo);
 
         if (!tieneId && !tieneRango) {
-            setDevError('Ingrese un numero de factura valido o un rango de fechas');
+            const msg = 'Ingrese un numero de factura valido o un rango de fechas';
+            setDevError(msg);
+            triggerToast('error', msg);
             return;
         }
         setDevError(''); setDevLoading(true);
@@ -633,13 +638,19 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                 const data = await getVenta(id);
                 const cab = data?.cabecera;
                 setDevVentas(cab ? [cab] : []);
-                if (!cab) setDevError('Factura no encontrada');
+                if (!cab) {
+                    const msg = 'Factura no encontrada';
+                    setDevError(msg);
+                    triggerToast('error', msg);
+                }
                 try {
                     const raw = localStorage.getItem(`DEV_FLAG_VENTA_${id}`);
                     if (raw) {
                         const o = JSON.parse(raw);
                         const fecha = o?.ts ? new Date(o.ts).toLocaleString() : null;
-                        setDevNotaCredito(fecha ? `Se registro una devolucion el ${fecha}.` : 'Se registro una devolucion para esta factura.');
+                        const nota = fecha ? `Se registro una devolucion el ${fecha}.` : 'Se registro una devolucion para esta factura.';
+                        setDevNotaCredito(nota);
+                        triggerToast('success', nota);
                     } else {
                         setDevNotaCredito(null);
                     }
@@ -653,12 +664,18 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                 const data = await getVentas(params);
                 const lista = Array.isArray(data) ? data : [];
                 setDevVentas(lista);
-                if (!lista.length) setDevError('No se encontraron facturas en el rango');
+                if (!lista.length) {
+                    const msg = 'No se encontraron facturas en el rango';
+                    setDevError(msg);
+                    triggerToast('error', msg);
+                }
                 setDevNotaCredito(null);
             }
         } catch (e) {
             setDevVentas([]);
-            setDevError(e?.message || 'No se pudo obtener la factura');
+            const msg = e?.message || 'No se pudo obtener la factura';
+            setDevError(msg);
+            triggerToast('error', msg);
             setDevNotaCredito(null);
         } finally { setDevLoading(false); }
     }
@@ -667,18 +684,36 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
     async function reimpBuscar() {
         const id = Number(reimpNo);
         if (!Number.isFinite(id) || id <= 0) {
-            setReimpError('Ingrese un numero de factura valido');
+            const msg = 'Factura no encontrada';
+            setReimpError(msg);
             setReimpData(null);
+            triggerToast('error', msg);
             return;
         }
         setReimpError(''); setReimpLoading(true);
         try {
             const data = await getVenta(id);
-            setReimpData(data?.cabecera ? { id, cab: data.cabecera } : null);
-            if (!data?.cabecera) setReimpError('Factura no encontrada');
+            let cab = data?.cabecera || null;
+            if (cab?.ClienteID) {
+                try {
+                    const cli = await getClienteById(cab.ClienteID);
+                    const nombre = `${cli?.Nombres || ''} ${cli?.Apellidos || ''}`.trim();
+                    cab = { ...cab, ClienteNombre: nombre || cab.ClienteID };
+                } catch {
+                    cab = { ...cab, ClienteNombre: cab.ClienteID };
+                }
+            }
+            setReimpData(cab ? { id, cab } : null);
+            if (!cab) {
+                const msg = 'Factura no encontrada';
+                setReimpError(msg);
+                triggerToast('error', msg);
+            }
         } catch (e) {
             setReimpData(null);
-            setReimpError(e?.message || 'No se pudo obtener la factura');
+            const msg = e?.message || 'No se pudo obtener la factura';
+            setReimpError(msg);
+            triggerToast('error', msg);
         } finally {
             setReimpLoading(false);
         }
@@ -721,25 +756,6 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         }
     }
 
-    async function movsBuscar() {
-        setMovsError('');
-        setMovsLoading(true);
-        try {
-            const params = {};
-            const lim = Number(movsLimit);
-            if (Number.isFinite(lim) && lim > 0) params.limit = lim;
-            const filtro = (movsFiltroProd || '').trim();
-            if (filtro) params.producto = filtro;
-            const data = await getMovimientosRecientesInventario(params);
-            setMovs(Array.isArray(data) ? data : []);
-        } catch (e) {
-            setMovs([]);
-            setMovsError(e?.message || 'No se pudo obtener los movimientos');
-        } finally {
-            setMovsLoading(false);
-        }
-    }
-
     async function devAbrirDetalle(v) {
         setDevDetalle({ open: true, ventaId: v.VentaID, cab: null, items: [], err: '', msg: '' });
         try {
@@ -755,7 +771,9 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             }));
             setDevDetalle({ open: true, ventaId: v.VentaID, cab: data.cabecera, items, err: '', msg: '' });
         } catch (e) {
-            setDevDetalle((prev) => ({ ...prev, err: e.message || 'No se pudo cargar el detalle' }));
+            const msg = e.message || 'No se pudo cargar el detalle';
+            setDevDetalle((prev) => ({ ...prev, err: msg }));
+            triggerToast('error', msg);
         }
     }
 
@@ -780,7 +798,9 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             }
             setDevResumen({ open: true, ventaId: v.VentaID, cab, items, err: '' });
         } catch (e) {
-            setDevResumen((prev) => ({ ...prev, err: e.message || 'No se pudo cargar el resumen' }));
+            const msg = e.message || 'No se pudo cargar el resumen';
+            setDevResumen((prev) => ({ ...prev, err: msg }));
+            triggerToast('error', msg);
         }
     }
 
@@ -790,7 +810,9 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                 .filter(i => Number(i.devolver) > 0)
                 .map(i => ({ productoId: i.productoId, loteId: i.loteId, unidades: Number(i.devolver) }));
             if (devolver.length === 0) {
-                setDevDetalle((p) => ({ ...p, err: 'No hay cantidades a devolver' }));
+                const msg = 'No hay cantidades a devolver';
+                setDevDetalle((p) => ({ ...p, err: msg }));
+                triggerToast('error', msg);
                 return;
             }
             await aplicarDevolucion(devDetalle.ventaId, { items: devolver });
@@ -806,9 +828,12 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                 try { localStorage.setItem(`DEV_FLAG_VENTA_${devDetalle.ventaId}`, JSON.stringify({ ts: Date.now() })); } catch {}
             } catch { /* si falla, igual continua */ }
             setDevDetalle((p) => ({ ...p, msg: 'Devolucion aplicada', err: '' }));
+            triggerToast('success', 'Devolucion aplicada');
             setTimeout(() => setActiveTab('venta'), 300);
         } catch (e) {
-            setDevDetalle((p) => ({ ...p, err: e.message || 'Error al aplicar devolucion' }));
+            const msg = e.message || 'Error al aplicar devolucion';
+            setDevDetalle((p) => ({ ...p, err: msg }));
+            triggerToast('error', msg);
         }
     }
     const { subtotal, impuestoTotal, descuento, total } = calcularTotales;
@@ -827,6 +852,87 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         : null;
     const mostrarErrorMonto = validarMontoRecibido && montoRecibidoIngresado && !montoRecibidoValido;
     const finalizarDisabled = saving || items.length === 0 || (validarMontoRecibido && !montoRecibidoValido);
+
+    const dataTableStyles = useMemo(() => ({
+        headCells: {
+            style: {
+                paddingTop: '8px',
+                paddingBottom: '8px',
+                paddingLeft: '10px',
+                paddingRight: '10px',
+            },
+        },
+        cells: {
+            style: {
+                paddingTop: '6px',
+                paddingBottom: '6px',
+                paddingLeft: '10px',
+                paddingRight: '10px',
+            },
+        },
+    }), []);
+
+    const columnasDevoluciones = useMemo(() => ([
+        { name: 'No. Factura', selector: v => v.VentaID, sortable: true, minWidth: '80px' },
+        { name: 'Fecha', selector: v => v.FechaVenta, sortable: true, minWidth: '140px', cell: v => new Date(v.FechaVenta).toLocaleString() },
+        { name: 'Cliente', selector: v => v.ClienteID ?? '-', wrap: true, minWidth: '120px' },
+        { name: 'Estado', selector: v => v.Estado || '-', sortable: true, minWidth: '100px' },
+        { name: 'Forma pago', selector: v => v.FormaPago || '-', sortable: true, minWidth: '120px' },
+        { name: 'Total', selector: v => Number(v.Total || 0), right: true, minWidth: '120px', cell: v => Number(v.Total || 0).toFixed(2) },
+        {
+            name: 'Acciones',
+            minWidth: '300px',
+            cell: v => (
+                <div className="d-flex justify-content-end gap-2">
+                    <CustomButton className="btn-sm btn-outline-secondary" onClick={() => devAbrirResumen(v)}>
+                        <i className="bi bi-eye me-1" aria-hidden="true" />
+                        Ver resumen
+                    </CustomButton>
+                    <CustomButton
+                        className="btn-sm btn-outline-primary"
+                        disabled={!canProcessDevol}
+                        title={canProcessDevol ? '' : 'No autorizado'}
+                        onClick={() => devAbrirDetalle(v)}
+                    >
+                        <i className="bi bi-arrow-repeat me-1" aria-hidden="true" />
+                        Procesar
+                    </CustomButton>
+                </div>
+            )
+        }
+    ]), [canProcessDevol]);
+
+    const columnasHistorialDia = useMemo(() => ([
+        { name: 'No. factura', selector: v => v.numeroFactura || '-', sortable: true, width: '100px', grow: 0 },
+        { name: 'Hora', selector: v => v.hora || '-',wrap: true, sortable: true, width: '100px', grow: 0 },
+        { name: 'Cliente', selector: v => v.cliente || '-', wrap: true,  width: '100px', grow: 0 },
+        { name: 'Total', selector: v => v.total || 0, right: true, wrap: true,   width: '100px', grow: 0, cell: v => formatMoney(v.total || 0, currencySymbol) },
+        { name: 'F. de pago', selector: v => v.metodoPago || '-',   width: '80px', grow: 0},
+        { name: 'Usuario', selector: v => v.usuario || '-',  wrap: true,  width: '80px', grow: 0 },
+        { name: 'Estado', selector: v => v.estado || '-',  wrap: true,  width: '80px', grow: 0 },
+    ]), [currencySymbol]);
+
+    const columnasResumenFactura = useMemo(() => ([
+        {
+            name: 'Producto',
+            grow: 2,
+            cell: (it) => (
+                <div>
+                    <div className="fw-semibold">{it.producto}</div>
+                    <div className="text-muted small">{it.presentacion}</div>
+                </div>
+            )
+        },
+        { name: 'Lote', selector: it => it.numeroLote || '-', grow: 1 },
+        { name: 'Modo', selector: it => it.cantEmp > 0 ? `Empaque x${it.cantEmp}` : 'Detalle', grow: 1 },
+        { name: 'Unid.', selector: it => it.cantUni || 0, right: true, width: '90px' },
+        { name: 'P. Unit.', selector: it => Number(it.precio || 0), right: true, width: '110px', cell: it => Number(it.precio || 0).toFixed(2) },
+    ]), []);
+
+    const resumenTableStyles = useMemo(() => ({
+        headCells: { style: { paddingTop: '10px', paddingBottom: '10px', fontWeight: 700 } },
+        cells: { style: { paddingTop: '8px', paddingBottom: '8px' } },
+    }), []);
 
     return (
         <div className="container py-3">
@@ -995,7 +1101,6 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                         <select className="form-select" value={formaPago} onChange={(e) => setFormaPago(e.target.value)}>
                                             <option>Efectivo</option>
                                             <option>Tarjeta</option>
-                                            <option>Transferencia</option>
                                             <option>Credito</option>
                                         </select>
                                     </div>
@@ -1021,11 +1126,15 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                     )}
                                     <div className="col-4">
                                         <label className="form-label">Estado</label>
-                                        <select className="form-select" value={estado} onChange={(e) => setEstado(e.target.value)}>
-                                            <option>Pagada</option>
-                                            <option>Pendiente</option>
-                                            <option>Credito</option>
-                                        </select>
+                                        {estadoOpciones.length === 1 ? (
+                                            <div className="form-control bg-light">{estadoOpciones[0]}</div>
+                                        ) : (
+                                            <select className="form-select" value={estado} onChange={(e) => setEstado(e.target.value)}>
+                                                {estadoOpciones.map((opt) => (
+                                                    <option key={opt}>{opt}</option>
+                                                ))}
+                                            </select>
+                                        )}
                                     </div>
                                 </div>
                             </div></div>
@@ -1111,157 +1220,178 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                     />
                                 </div>
                                 <div className="col-12 col-md-2 d-grid d-md-flex">
-                                    <button className="btn btn-primary w-100" onClick={devBuscar} disabled={devLoading || (!(Number(devFacturaNo)>0) && !devFrom && !devTo)}>{devLoading ? 'Buscando...' : 'Buscar'}</button>
+                                    <CustomButton
+                                        className="btn-primary"
+                                        onClick={devBuscar}
+                                        disabled={devLoading || (!(Number(devFacturaNo) > 0) && !devFrom && !devTo)}
+                                    >
+                                        <i className="bi bi-search me-2" aria-hidden="true" />
+                                        {devLoading ? 'Buscando...' : 'Buscar'}
+                                    </CustomButton>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {devError && <div className="alert alert-danger Devoluciones-alert">{devError}</div>}
-                    {devNotaCredito && <div className="alert alert-info Devoluciones-alert">{devNotaCredito}</div>}
-
-                    <div className="card Devoluciones-resultados">
-                        <div className="card-body">
-                            <div className="table-responsive" style={{ maxHeight: 360, overflowY: 'auto' }}>
-                                <table className="table table-sm align-middle">
-                                    <thead className="table-light" style={{ position:'sticky', top:0 }}>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Fecha</th>
-                                            <th>Cliente</th>
-                                            <th>Estado</th>
-                                            <th>Forma pago</th>
-                                            <th className="text-end">Total</th>
-                                            <th style={{ width: 140 }}></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {devVentas.map(v => (
-                                            <tr key={v.VentaID}>
-                                                <td>{v.VentaID}</td>
-                                                <td>{new Date(v.FechaVenta).toLocaleString()}</td>
-                                                <td>{v.ClienteID ?? '-'}</td>
-                                                <td>{v.Estado}</td>
-                                                <td>{v.FormaPago}</td>
-                                                <td className="text-end">{Number(v.Total||0).toFixed(2)}</td>
-                                                <td className="text-end">
-                                                    <div className="d-flex justify-content-end gap-2">
-                                                        <button className="btn btn-sm btn-outline-secondary" onClick={()=>devAbrirResumen(v)}>Ver resumen</button>
-                                                        <button className="btn btn-sm btn-outline-primary" disabled={!canProcessDevol} title={canProcessDevol?'':'No autorizado'} onClick={()=>devAbrirDetalle(v)}>Procesar</button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {devVentas.length===0 && <tr><td colSpan={7} className="text-center text-muted">Sin resultados</td></tr>}
-                                    </tbody>
-                                </table>
+                            <div className="mt-3 Devoluciones-resultados">
+                                <DataTable
+                                    columns={columnasDevoluciones}
+                                    data={devVentas}
+                                    dense
+                                    highlightOnHover
+                                    fixedHeader
+                                    fixedHeaderScrollHeight="360px"
+                                    customStyles={dataTableStyles}
+                                    noDataComponent={<div className="text-muted py-3">Sin resultados</div>}
+                                />
                             </div>
                         </div>
                     </div>
 
                     {devDetalle.open && (
-                        <div className="modal d-block" tabIndex="-1" role="dialog" style={{ background:'rgba(0,0,0,0.3)' }}>
-                            <div className="modal-dialog modal-lg modal-dialog-scrollable" role="document">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h5 className="modal-title">Devolucion Venta #{devDetalle.ventaId}</h5>
-                                        <button type="button" className="btn-close" onClick={()=>setDevDetalle({ open:false, ventaId:null, cab:null, items:[], err:'', msg:'' })}></button>
+                        <div className="inventory-modal-backdrop" onClick={()=>setDevDetalle({ open:false, ventaId:null, cab:null, items:[], err:'', msg:'' })}>
+                            <div
+                                className="inventory-modal resumen-modal"
+                                style={{ width: '72%', height: 'auto', maxHeight: '80vh' }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="inventory-modal-header">
+                                    <div className="inventory-modal-title-badge">
+                                        <i className="bi bi-arrow-counterclockwise"></i>
+                                        <span>Devolucion Venta #{devDetalle.ventaId}</span>
                                     </div>
-                                    <div className="modal-body" style={{ maxHeight:'65vh', overflowY:'auto' }}>
-                                        {devDetalle.err && <div className="alert alert-danger">{devDetalle.err}</div>}
-                                        {devDetalle.msg && <div className="alert alert-success">{devDetalle.msg}</div>}
-                                        <div className="table-responsive mb-2">
-                                            <table className="table table-sm">
-                                                <thead className="table-light">
-                                                    <tr>
-                                                        <th>Producto</th>
-                                                        <th>Lote</th>
-                                                        <th className="text-end" style={{ width:100 }}>Vend.</th>
-                                                        <th className="text-end" style={{ width:120 }}>Devolver</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {devDetalle.items.map((it, idx) => (
-                                                        <tr key={`dv-${idx}`}>
-                                                            <td>{it.nombre}<div className="text-muted small">{it.presentacion}</div></td>
-                                                            <td>{it.numeroLote || it.loteId}</td>
-                                                            <td className="text-end">{Number(it.cantidadVendida||0)}</td>
-                                                            <td className="text-end"><input type="number" min={0} max={Number(it.cantidadVendida||0)} className="form-control form-control-sm text-end" value={it.devolver} onChange={(e)=>{
-                                                                const v = Math.max(0, Math.min(Number(e.target.value||0), Number(it.cantidadVendida||0)));
-                                                                setDevDetalle((prev)=> ({ ...prev, items: prev.items.map((x,i)=> i===idx ? { ...x, devolver: v } : x) }));
-                                                            }} /></td>
-                                                        </tr>
-                                                    ))}
-                                                    {devDetalle.items.length===0 && <tr><td colSpan={4} className="text-center text-muted">Sin detalle</td></tr>}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                    <div className="modal-footer">
-                                        <button className="btn btn-secondary" onClick={()=>setDevDetalle({ open:false, ventaId:null, cab:null, items:[], err:'', msg:'' })}>Cerrar</button>
-                                        <button className="btn btn-primary" disabled={!canProcessDevol} onClick={devConfirmarDevolucion}>Aplicar Devolucion</button>
-                                    </div>
+                                    <button className="btn-close" onClick={()=>setDevDetalle({ open:false, ventaId:null, cab:null, items:[], err:'', msg:'' })}>
+                                        <i className="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                <div className="inventory-modal-body">
+                                    {devDetalle.err && <div className="alert alert-danger">{devDetalle.err}</div>}
+                                    <DataTable
+                                        columns={[
+                                            {
+                                                name: 'Producto',
+                                                grow: 2,
+                                                cell: (it) => (
+                                                    <div>
+                                                        <div className="fw-semibold">{it.nombre}</div>
+                                                        <div className="text-muted small">{it.presentacion}</div>
+                                                    </div>
+                                                )
+                                            },
+                                            { name: 'Lote', selector: it => it.numeroLote || it.loteId || '-', grow: 1 },
+                                            { name: 'Vend.', selector: it => Number(it.cantidadVendida || 0), right: true, width: '90px' },
+                                            {
+                                                name: 'Devolver',
+                                                width: '140px',
+                                                right: true,
+                                                cell: (it, idx) => (
+                                                    <input
+                                                        type="number"
+                                                        className="form-control form-control-sm text-end"
+                                                        min={0}
+                                                        max={Number(it.cantidadVendida || 0)}
+                                                        value={it.devolver}
+                                                        onChange={(e) => {
+                                                            const v = Math.max(0, Math.min(Number(e.target.value || 0), Number(it.cantidadVendida || 0)));
+                                                            setDevDetalle((prev) => ({
+                                                                ...prev,
+                                                                items: prev.items.map((x, i) => (i === idx ? { ...x, devolver: v } : x)),
+                                                            }));
+                                                        }}
+                                                    />
+                                                )
+                                            }
+                                        ]}
+                                        data={devDetalle.items || []}
+                                        dense
+                                        highlightOnHover
+                                        customStyles={resumenTableStyles}
+                                        noDataComponent={<div className="text-muted py-3">Sin detalle</div>}
+                                    />
+                                </div>
+                                <div className="inventory-modal-footer">
+                                    <ActionButton
+                                        variant="outline-danger"
+                                        icon="bi bi-x-circle"
+                                        text="Cancelar"
+                                        type="button"
+                                        onClick={()=>setDevDetalle({ open:false, ventaId:null, cab:null, items:[], err:'', msg:'' })}
+                                    />
+                                    <CustomButton
+                                        className="btn-primary"
+                                        disabled={!canProcessDevol}
+                                        onClick={devConfirmarDevolucion}
+                                    >
+                                        <i className="bi bi-check-circle me-1" aria-hidden="true" />
+                                        Aplicar Devolucion
+                                    </CustomButton>
                                 </div>
                             </div>
                         </div>
                     )}
 
                     {devResumen.open && (
-                        <div className="modal d-block" tabIndex="-1" role="dialog" style={{ background:'rgba(0,0,0,0.3)' }}>
-                            <div className="modal-dialog modal-lg modal-dialog-scrollable" role="document">
-                                <div className="modal-content">
-                                    <div className="modal-header">
-                                        <h5 className="modal-title w-100 text-center">Resumen factura #{devResumen.ventaId}</h5>
-                                        <button type="button" className="btn-close" onClick={()=>setDevResumen({ open:false, ventaId:null, cab:null, items:[], err:'' })}></button>
+                        <div className="inventory-modal-backdrop" onClick={()=>setDevResumen({ open:false, ventaId:null, cab:null, items:[], err:'' })}>
+                            <div
+                                className="inventory-modal resumen-modal"
+                                style={{ width: '72%', height: 'auto', maxHeight: '80vh' }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="inventory-modal-header">
+                                    <div className="inventory-modal-title-badge">
+                                        <i className="bi bi-receipt"></i>
+                                        <span>Resumen factura #{devResumen.ventaId}</span>
                                     </div>
-                                    <div className="modal-body" style={{ maxHeight:'65vh', overflowY:'auto' }}>
-                                        {devResumen.err && <div className="alert alert-danger">{devResumen.err}</div>}
-                                        {(() => { try { return !!localStorage.getItem(`DEV_FLAG_VENTA_${devResumen.ventaId}`); } catch { return false; } })() && (
-                                            <div className="alert alert-info py-2">Esta factura tiene una devolucion registrada.</div>
-                                        )}
-                                        <div className="mb-2"><strong>Fecha:</strong> {devResumen.cab ? new Date(devResumen.cab.FechaVenta).toLocaleString() : '-'}</div>
-                                        <div className="mb-2"><strong>Cliente:</strong> {devResumen.cab?.ClienteNombre || (devResumen.cab?.ClienteID ?? '-')}</div>
-                                        <div className="mb-2"><strong>Forma de pago:</strong> {devResumen.cab?.FormaPago ?? '-'}</div>
-                                        <div className="mb-2"><strong>Estado:</strong> {devResumen.cab?.Estado ?? '-'}</div>
-                                        {!!devResumen.cab?.Observaciones && <div className="mb-2"><strong>Observaciones:</strong> {devResumen.cab.Observaciones}</div>}
-
-                                        <div className="table-responsive">
-                                            <table className="table table-sm">
-                                                <thead className="table-light">
-                                                    <tr>
-                                                        <th>Producto</th>
-                                                        <th>Lote</th>
-                                                        <th style={{ width:120 }}>Modo</th>
-                                                        <th className="text-end" style={{ width:100 }}>Unid.</th>
-                                                        <th className="text-end" style={{ width:120 }}>P. Unit.</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {devResumen.items.map((it, idx) => (
-                                                        <tr key={`rs-${idx}`}>
-                                                            <td>{it.producto}<div className="text-muted small">{it.presentacion}</div></td>
-                                                            <td>{it.numeroLote || '-'}</td>
-                                                            <td>{it.cantEmp > 0 ? `Empaque x${it.cantEmp}` : `Detalle`}</td>
-                                                            <td className="text-end">{it.cantUni}</td>
-                                                            <td className="text-end">{it.precio.toFixed(2)}</td>
-                                                        </tr>
-                                                    ))}
-                                                    {devResumen.items.length===0 && <tr><td colSpan={4} className="text-center text-muted">Sin detalle</td></tr>}
-                                                </tbody>
-                                            </table>
+                                    <button className="btn-close" onClick={()=>setDevResumen({ open:false, ventaId:null, cab:null, items:[], err:'' })}>
+                                        <i className="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                <div className="inventory-modal-body">
+                                    {devResumen.err && <div className="alert alert-danger">{devResumen.err}</div>}
+                                    {(() => { try { return !!localStorage.getItem(`DEV_FLAG_VENTA_${devResumen.ventaId}`); } catch { return false; } })() && (
+                                        <div className="alert alert-info py-2">Esta factura tiene una devolucion registrada.</div>
+                                    )}
+                                    <div className="row g-2 mb-3">
+                                        <div className="col-12 col-md-6">
+                                            <div className="fw-semibold">Fecha:</div>
+                                            <div>{devResumen.cab ? new Date(devResumen.cab.FechaVenta).toLocaleString() : '-'}</div>
                                         </div>
-
-                                        <div className="d-flex justify-content-end">
-                                            <div style={{ minWidth: 260 }}>
-                                                <div className="d-flex justify-content-between"><div>Subtotal</div><div>{Number(devResumen.cab?.Subtotal||0).toFixed(2)}</div></div>
-                                                <div className="d-flex justify-content-between"><div>Descuento</div><div>{Number(devResumen.cab?.DescuentoTotal||0).toFixed(2)}</div></div>
-                                                <div className="d-flex justify-content-between"><div>Impuestos</div><div>{Number(devResumen.cab?.ImpuestoTotal||0).toFixed(2)}</div></div>
-                                                <div className="d-flex justify-content-between fw-bold fs-6"><div>Total</div><div>{Number(devResumen.cab?.Total||0).toFixed(2)}</div></div>
+                                        <div className="col-12 col-md-6">
+                                            <div className="fw-semibold">Cliente:</div>
+                                            <div>{devResumen.cab?.ClienteNombre || (devResumen.cab?.ClienteID ?? '-')}</div>
+                                        </div>
+                                        <div className="col-12 col-md-6">
+                                            <div className="fw-semibold">Forma de pago:</div>
+                                            <div>{devResumen.cab?.FormaPago ?? '-'}</div>
+                                        </div>
+                                        <div className="col-12 col-md-6">
+                                            <div className="fw-semibold">Estado:</div>
+                                            <div>{devResumen.cab?.Estado ?? '-'}</div>
+                                        </div>
+                                        {!!devResumen.cab?.Observaciones && (
+                                            <div className="col-12">
+                                                <div className="fw-semibold">Observaciones:</div>
+                                                <div>{devResumen.cab.Observaciones}</div>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
-                                    <div className="modal-footer">
-                                        <button className="btn btn-secondary" onClick={()=>setDevResumen({ open:false, ventaId:null, cab:null, items:[], err:'' })}>Cerrar</button>
+
+                                    <div className="table-responsive mb-3">
+                                        <DataTable
+                                            columns={columnasResumenFactura}
+                                            data={devResumen.items || []}
+                                            dense
+                                            highlightOnHover
+                                            customStyles={resumenTableStyles}
+                                            noDataComponent={<div className="text-muted py-3">Sin detalle</div>}
+                                        />
+                                    </div>
+
+                                    <div className="d-flex justify-content-end">
+                                        <div style={{ minWidth: 260 }}>
+                                            <div className="d-flex justify-content-between"><div>Subtotal</div><div>{Number(devResumen.cab?.Subtotal||0).toFixed(2)}</div></div>
+                                            <div className="d-flex justify-content-between"><div>Descuento</div><div>{Number(devResumen.cab?.DescuentoTotal||0).toFixed(2)}</div></div>
+                                            <div className="d-flex justify-content-between"><div>Impuestos</div><div>{Number(devResumen.cab?.ImpuestoTotal||0).toFixed(2)}</div></div>
+                                            <div className="d-flex justify-content-between fw-bold fs-6"><div>Total</div><div>{Number(devResumen.cab?.Total||0).toFixed(2)}</div></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1271,12 +1401,10 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
             )}
 
             {activeTab === 'otras' && (
-                <div className="card">
-                    <div className="card-body">
-                        <h5 className="mb-3">Otras opciones</h5>
+                <div className="otras-opciones-container">
                         <div className="row g-3">
                             <div className="col-12 col-lg-6">
-                                <div className="card h-100">
+                                <div className="card">
                                     <div className="card-body">
                                         <h6 className="mb-2">Reimprimir / Regenerar factura</h6>
                                         <div className="mb-2">
@@ -1291,24 +1419,38 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                             />
                                         </div>
                                         <div className="d-flex gap-2 mb-3">
-                                            <button className="btn btn-primary" onClick={reimpBuscar} disabled={reimpLoading}>
+                                            <CustomButton
+                                                className="btn-primary"
+                                                onClick={reimpBuscar}
+                                                disabled={reimpLoading}
+                                            >
+                                                <i className="bi bi-search me-1" aria-hidden="true" />
                                                 {reimpLoading ? 'Buscando...' : 'Buscar'}
-                                            </button>
-                                            <button className="btn btn-outline-secondary" onClick={reimpVerPdf} disabled={!reimpNo || reimpLoading}>
+                                            </CustomButton>
+                                            <CustomButton
+                                                className="btn-outline-secondary"
+                                                onClick={reimpVerPdf}
+                                                disabled={!reimpNo || reimpLoading}
+                                            >
+                                                <i className="bi bi-file-earmark-pdf me-1" aria-hidden="true" />
                                                 Ver PDF
-                                            </button>
-                                            <button className="btn btn-outline-primary" onClick={reimpVerPdf} disabled={!reimpNo || reimpLoading}>
+                                            </CustomButton>
+                                            <CustomButton
+                                                className="btn-outline-primary"
+                                                onClick={reimpVerPdf}
+                                                disabled={!reimpNo || reimpLoading}
+                                            >
+                                                <i className="bi bi-printer me-1" aria-hidden="true" />
                                                 Reimprimir
-                                            </button>
+                                            </CustomButton>
                                         </div>
-                                        {reimpError && <div className="alert alert-danger py-2">{reimpError}</div>}
                                         {reimpLoading && <div className="text-muted">Cargando...</div>}
                                         {reimpData && (
-                                            <div className="alert alert-info">
-                                                <div><strong>Factura:</strong> {reimpNo}</div>
+                                            <div className="alert alert-info reimpresion-alert">
+                                                <div><strong>No. Factura:</strong> {reimpNo}</div>
                                                 <div><strong>Fecha:</strong> {reimpData.cab?.FechaVenta ? new Date(reimpData.cab.FechaVenta).toLocaleString() : '-'}</div>
-                                                <div><strong>Cliente:</strong> {reimpData.cab?.ClienteID ?? '-'}</div>
-                                                <div><strong>Total:</strong> {Number(reimpData.cab?.Total || 0).toFixed(2)}</div>
+                                                <div><strong>Cliente:</strong> {reimpData.cab?.ClienteNombre || reimpData.cab?.ClienteID || '-'}</div>
+                                                <div><strong>Total:</strong> {formatMoney(Number(reimpData.cab?.Total || 0), currencySymbol)}</div>
                                                 <div><strong>Estado:</strong> {reimpData.cab?.Estado || '-'}</div>
                                             </div>
                                         )}
@@ -1316,11 +1458,11 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                 </div>
                             </div>
                             <div className="col-12 col-lg-6">
-                                <div className="card h-100">
+                                <div className="card">
                                     <div className="card-body">
                                         <div className="d-flex align-items-center justify-content-between mb-2">
                                             <h6 className="mb-0">Historial del dia</h6>
-                                            {histData?.fecha && <span className="badge bg-light text-dark">Fecha: {histData.fecha}</span>}
+
                                         </div>
                                         <div className="row g-2 align-items-end mb-3">
                                             <div className="col-12 col-sm-7">
@@ -1334,16 +1476,22 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                                 />
                                             </div>
                                             <div className="col-12 col-sm-5 d-flex gap-2">
-                                                <button className="btn btn-primary w-100" onClick={()=>histBuscar()} disabled={histLoading}>
-                                                    {histLoading ? 'Cargando...' : 'Buscar'}
-                                                </button>
-                                                <button
-                                                    className="btn btn-outline-secondary"
+                                            <CustomButton
+                                                className="btn-primary"
+                                                onClick={()=>histBuscar()}
+                                                disabled={histLoading}
+                                            >
+                                                <i className="bi bi-search me-1" aria-hidden="true" />
+                                                {histLoading ? 'Cargando...' : 'Buscar'}
+                                                </CustomButton>
+                                                <CustomButton
+                                                    className="btn-outline-secondary"
                                                     onClick={() => { const hoy = new Date().toISOString().slice(0, 10); setHistFecha(hoy); histBuscar(hoy); }}
                                                     disabled={histLoading}
                                                 >
+                                                    <i className="bi bi-calendar-day me-1" aria-hidden="true" />
                                                     Hoy
-                                                </button>
+                                                </CustomButton>
                                             </div>
                                         </div>
                                         {histError && <div className="alert alert-danger py-2">{histError}</div>}
@@ -1353,146 +1501,47 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                                 <div className="row g-3 mb-3">
                                                     <div className="col-12 col-sm-4">
                                                         <div className="info-label">Total vendido</div>
-                                                        <div className="chip-strong w-100 text-center">{formatMoney(histData.totalVentas || 0, currencySymbol)}</div>
+                                                        <div className="chip-count w-100 text-center">{formatMoney(histData.totalVentas || 0, currencySymbol)}</div>
                                                     </div>
                                                     <div className="col-12 col-sm-4">
                                                         <div className="info-label">Cantidad de ventas</div>
-                                                        <div className="chip-soft w-100 text-center">{histData.cantidadVentas || 0}</div>
+                                                        <div className="chip-count w-100 text-center">{histData.cantidadVentas || 0}</div>
                                                     </div>
-                                                    <div className="col-12 col-sm-4">
-                                                        <div className="info-label">Total en devoluciones</div>
-                                                        <div className="chip-soft w-100 text-center bg-warning-subtle text-warning fw-semibold">
-                                                            {formatMoney(histData.totalDevoluciones || 0, currencySymbol)}
-                                                        </div>
-                                                    </div>
+                                                <div className="col-12 col-sm-4">
+                                                    <div className="info-label">Total en devoluciones</div>
+                                                    <div className="chip-count w-100 text-center">{formatMoney(histData.totalDevoluciones || 0, currencySymbol)}</div>
                                                 </div>
-                                                <div className="mb-3">
-                                                    <div className="info-label mb-1">Resumen por metodo de pago</div>
-                                                    <div className="d-flex flex-wrap gap-2">
+                                            </div>
+                                            <div className="mb-3">
+                                                <div className="info-label mb-1">Resumen por metodo de pago</div>
+                                                <div className="d-flex flex-wrap gap-2">
                                                         {(histData.metodosPago || []).length === 0 && (
                                                             <span className="text-muted small">Sin movimientos en la fecha.</span>
                                                         )}
                                                         {(histData.metodosPago || []).map((m, idx) => (
-                                                            <span key={`${m.metodo || 'met'}-${idx}`} className="badge bg-light border text-dark px-3 py-2">
-                                                                <div className="small fw-semibold">{m.metodo || 'Otro'}</div>
-                                                                <div>{formatMoney(m.total || 0, currencySymbol)}</div>
+                                                            <span key={`${m.metodo || 'met'}-${idx}`} className="chip-count">
+                                                                <span className="chip-metodo-label">{m.metodo || 'Otro'}</span>
+                                                                <span className="chip-metodo-valor">{formatMoney(m.total || 0, currencySymbol)}</span>
                                                             </span>
                                                         ))}
                                                     </div>
                                                 </div>
-                                                <div className="table-responsive" style={{ maxHeight: 320 }}>
-                                                    <table className="table table-sm align-middle mb-0">
-                                                        <thead className="table-light">
-                                                            <tr>
-                                                                <th>No. factura</th>
-                                                                <th>Hora</th>
-                                                                <th>Cliente</th>
-                                                                <th className="text-end">Total</th>
-                                                                <th>Forma de pago</th>
-                                                                <th>Usuario</th>
-                                                                <th>Estado</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {(histData.ventas || []).map((v, idx) => (
-                                                                <tr key={`hv-${v.numeroFactura || idx}`}>
-                                                                    <td>{v.numeroFactura || '-'}</td>
-                                                                    <td>{v.hora || '-'}</td>
-                                                                    <td>{v.cliente || '-'}</td>
-                                                                    <td className="text-end">{formatMoney(v.total || 0, currencySymbol)}</td>
-                                                                    <td>{v.metodoPago || '-'}</td>
-                                                                    <td>{v.usuario || '-'}</td>
-                                                                    <td>{v.estado || '-'}</td>
-                                                                </tr>
-                                                            ))}
-                                                            {(histData.ventas || []).length === 0 && (
-                                                                <tr>
-                                                                    <td colSpan={7} className="text-center text-muted">Sin ventas registradas en esta fecha.</td>
-                                                                </tr>
-                                                            )}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
+                                                <DataTable
+                                                    columns={columnasHistorialDia}
+                                                    data={histData.ventas || []}
+                                                    dense
+                                                    highlightOnHover
+                                                    fixedHeader
+                                                    fixedHeaderScrollHeight="250px"
+                                                    customStyles={dataTableStyles}
+                                                    noDataComponent={<div className="text-muted py-3">Sin ventas registradas en esta fecha.</div>}
+                                                />
                                             </>
                                         )}
                                     </div>
                                 </div>
                             </div>
-                            <div className="col-12 col-lg-6">
-                                <div className="card h-100">
-                                    <div className="card-body">
-                                        <div className="d-flex align-items-center justify-content-between mb-2">
-                                            <h6 className="mb-0">Movimientos de inventario</h6>
-                                            <span className="badge bg-light text-dark">Últimos</span>
-                                        </div>
-                                        <div className="row g-2 align-items-end mb-3">
-                                            <div className="col-12 col-sm-7">
-                                                <label className="form-label mb-1">Producto</label>
-                                                <input
-                                                    type="text"
-                                                    className="form-control"
-                                                    placeholder="Nombre contiene..."
-                                                    value={movsFiltroProd}
-                                                    onChange={(e)=>setMovsFiltroProd(e.target.value)}
-                                                    onKeyDown={(e)=>{ if (e.key==='Enter') movsBuscar(); }}
-                                                />
-                                            </div>
-                                            <div className="col-6 col-sm-2">
-                                                <label className="form-label mb-1">Límite</label>
-                                                <input
-                                                    type="number"
-                                                    className="form-control"
-                                                    min={1}
-                                                    max={100}
-                                                    value={movsLimit}
-                                                    onChange={(e)=>setMovsLimit(e.target.value)}
-                                                    onKeyDown={(e)=>{ if (e.key==='Enter') movsBuscar(); }}
-                                                />
-                                            </div>
-                                            <div className="col-6 col-sm-3 d-flex">
-                                                <button className="btn btn-primary w-100" onClick={movsBuscar} disabled={movsLoading}>
-                                                    {movsLoading ? 'Cargando...' : 'Buscar'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                        {movsError && <div className="alert alert-danger py-2">{movsError}</div>}
-                                        {movsLoading && <div className="text-muted">Cargando...</div>}
-                                        {!movsLoading && !movsError && (
-                                            <div className="table-responsive" style={{ maxHeight: 320 }}>
-                                                <table className="table table-sm align-middle mb-0">
-                                                    <thead className="table-light">
-                                                        <tr>
-                                                            <th>Fecha ingreso</th>
-                                                            <th>Producto</th>
-                                                            <th>Lote</th>
-                                                            <th className="text-end">Cantidad</th>
-                                                            <th>Vence</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {movs.map((m, idx) => (
-                                                            <tr key={`mov-${m.loteId || idx}`}>
-                                                                <td>{m.fechaIngreso ? new Date(m.fechaIngreso).toLocaleDateString() : '-'}</td>
-                                                                <td>{m.producto || '-'}</td>
-                                                                <td>{m.numeroLote || m.loteId || '-'}</td>
-                                                                <td className="text-end">{Number(m.totalUnidades ?? m.cantidadUnidadesMinimas ?? m.cantidadEmpaques ?? 0)}</td>
-                                                                <td>{m.fechaVencimiento ? new Date(m.fechaVencimiento).toLocaleDateString() : '-'}</td>
-                                                            </tr>
-                                                        ))}
-                                                        {movs.length === 0 && (
-                                                            <tr>
-                                                                <td colSpan={5} className="text-center text-muted">Sin movimientos recientes.</td>
-                                                            </tr>
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
                         </div>
-                    </div>
                 </div>
             )}
 
@@ -1551,7 +1600,7 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
                                                 : Number(it.cantUnidadesMinimas || 0);
                                             const precioEmpaqueBase = Number(loteSel?.precioVenta || 0);
                                             const rawDesc = Number(loteSel?.descuento || loteSel?.porcentajeDescuentoEmpaque || 0);
-                                            const descPct = rawDesc > 1 ? rawDesc / 100 : rawDesc;
+                                            const descPct = rawDesc >= 1 ? rawDesc / 100 : rawDesc;
                                             const descEmp = it.modo === 'empaque' ? Math.min(1, Math.max(0, descPct)) : 0;
                                             const precioEmpaque = precioEmpaqueBase * (1 - descEmp);
                                             const precioUnidadAplicada = factor > 0
@@ -1633,12 +1682,3 @@ export default function PuntoVentaPage({ user, onNavigate, initialTab = 'venta' 
         </div>
     );
 }
-
-
-
-
-
-
-
-
-

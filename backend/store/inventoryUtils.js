@@ -1,5 +1,4 @@
 // backend/store/inventoryUtils.js
-// Utilidades compartidas para cA¡lculos de inventario y metadatos de la tabla Lotes.
 const sql = require('mssql');
 const poolPromise = require('../db');
 
@@ -80,10 +79,10 @@ function splitUnitsToCounts(totalUnits, factor = 1, meta = {}) {
     if (meta.hasTotalUnidades) res.totalUnidades = units;
     return res;
   }
-  const empaques = safeFactor > 0 ? Math.floor(units / safeFactor) : 0; // usar floor para no inflar empaques
+  const empaques = safeFactor > 0 ? Math.floor(units / safeFactor) : 0;
   const result = {
     empaques,
-    unidades: units % safeFactor, // unidades sobrantes fuera de empaques completos
+    unidades: units % safeFactor,
   };
   if (meta.hasTotalUnidades) result.totalUnidades = units;
   if (meta.hasCantidad) result.cantidad = units;

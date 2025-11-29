@@ -2,17 +2,12 @@
 const sql = require('mssql');
 const poolPromise = require('../db');
 
-// GET /unidadesmedida?tipo=empaque|minima
-// empaque -> TipoUnidad IN ('Empaque','Ambas')
-// minima  -> TipoUnidad IN ('Medida','Empaque','Ambas')
 async function getUnidadesMedida(req, res) {
   const tipo = String((req.query.tipo || '').toLowerCase());
   let whereTipo = '';
   if (tipo === 'empaque') {
-    // Empaque: 'Empaque' y 'Ambas'
     whereTipo = "AND (LOWER(LTRIM(RTRIM(TipoUnidad))) IN ('empaque','ambas'))";
   } else if (tipo === 'minima') {
-    // MA­nima: 'Medida' y 'Ambas'
     whereTipo = "AND (LOWER(LTRIM(RTRIM(TipoUnidad))) IN ('medida','ambas'))";
   }
   try {

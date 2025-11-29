@@ -6,7 +6,7 @@ body {
 
 :root {
   --cursor-seleccionables: url('../public/cursor-seleccionables.svg') 5 5, auto;
-  --menu-margin-left: 35px;
+  --menu-margin-left: 50px;
   --menu-border-radius: 16px;
   --menu-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   --menu-bg: #ffffff;
@@ -27,7 +27,6 @@ table.table-hover tbody tr:hover {
   cursor: pointer;
 }
 
-/* Grupo de acciones homogéneo en tablas */
 .table-action-group {
   display: inline-flex;
   border: 1px solid #d1d9ea;
@@ -199,6 +198,60 @@ table.table-hover tbody tr:hover {
     transform 0.5s ease !important;
 }
 
+.orientation-locked {
+  overflow: hidden;
+}
+
+.orientation-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: 
+              linear-gradient(135deg, #e8f2ff, #ffffff);
+  color: #0f2742 !important;
+  text-align: center;
+}
+
+.orientation-blocker__card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 38, 96, 0.173) !important;
+  border-radius: 18px;
+  padding: 2rem 2.6rem;
+  max-width: 520px;
+  box-shadow: 0 20px 60px rgba(13, 109, 253, 0.058);
+  backdrop-filter: blur(6px);
+}
+
+.orientation-blocker__icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1rem auto;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #0d89fd, #0D6EFD);
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: 1.8rem;
+  box-shadow: 0 12px 30px rgba(13, 110, 253, 0.25);
+}
+
+.orientation-blocker__card h2 {
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  color: #787878;
+}
+
+.orientation-blocker__card p {
+  margin: 0;
+  color: #787878;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
 .nav-menu-btn:hover {
   background: var(--menu-item-hover) !important;
   color: #0d6efd !important;
@@ -229,58 +282,6 @@ table.table-hover tbody tr:hover {
   gap: 1rem !important;
 }
 
-@media (max-width: 992px) {
-  .nav-top-container {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 1rem !important;
-  }
-
-  .nav-right-controls {
-    justify-content: flex-end !important;
-    width: 100% !important;
-  }
-
-  .nav-vertical-menu {
-    position: static !important;
-    transform: none !important;
-    left: auto !important;
-    top: auto !important;
-    margin: 0 auto 1.5rem !important;
-    width: 100% !important;
-    max-width: 200px !important;
-    border-radius: 12px !important;
-    padding: 1rem !important;
-  }
-
-  .nav-vertical-menu:hover {
-    width: 100% !important;
-    padding: 1rem !important;
-  }
-
-  .nav-menu-text {
-  overflow: hidden !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  max-width: 0 !important;
-  transition: 
-    opacity 0.3s ease,
-    visibility 0.3s ease,
-    max-width 0.3s ease !important;
-  white-space: nowrap !important;
-}
-
-.nav-vertical-menu:hover .nav-menu-text {
-  opacity: 1 !important;
-  visibility: visible !important;
-  max-width: 200px !important;
-}
-
-  .app-layout {
-    margin-left: 0 !important;
-  }
-}
-
 .role-nav-block {
   background-color: white !important;
   color: #0d6efd !important;
@@ -291,6 +292,26 @@ table.table-hover tbody tr:hover {
   font-weight: 900 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
+}
+.role-nav-block.role-nav-admin {
+  background-color: #fff3cd !important;
+  color: #946200 !important;
+  border-color: #ffe69c !important;
+}
+.role-nav-block.role-nav-cashier {
+  background-color: #e7f1ff !important;
+  color: #0d6efd !important;
+  border-color: #cfe2ff !important;
+}
+.role-nav-block.role-nav-pharma {
+  background-color: #eaf7f0 !important;
+  color: #0f5132 !important;
+  border-color: #c7eedc !important;
+}
+.role-nav-block.role-nav-inventory {
+  background-color: #e8f5ff !important;
+  color: #0b4c74 !important;
+  border-color: #c6e4ff !important;
 }
 /*? FIN MENU DE NAVEGACION */
 

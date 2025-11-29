@@ -40,17 +40,25 @@ const ROLE_PERMISSIONS = {
     'clientes:read','clientes:create','clientes:update','clientes:delete',
     'usuarios:manage',
     'productos:read','productos:create','productos:update','productos:delete',
-    'proveedores:read','proveedores:create','proveedores:update','proveedores:delete'
+    'proveedores:read','proveedores:create','proveedores:update','proveedores:delete',
+    'reportes:read',
+    'inventario:read','inventario:manage',
+    'ventas:read','ventas:create','ventas:anular','ventas:devolucion'
   ]),
   cajero: new Set([
     'clientes:read','clientes:create','clientes:update',
-    'productos:read','proveedores:read'
+    'productos:read',
+    'ventas:read','ventas:create','ventas:anular','ventas:devolucion',
+    'inventario:read'
   ]),
   farmaceutico: new Set([
-    'clientes:read','productos:read','proveedores:read'
+    'clientes:read','productos:read','proveedores:read',
+    'inventario:read'
   ]),
   inventario: new Set([
-    'clientes:read','productos:read','proveedores:read'
+    'productos:read','productos:create','productos:update','productos:delete',
+    'proveedores:read','proveedores:create','proveedores:update','proveedores:delete',
+    'inventario:read','inventario:manage'
   ])
 };
 

@@ -59,7 +59,6 @@ export async function getVentas(params = {}) {
     }
     return res.json();
   } catch (e) {
-    // Mejora del mensaje cuando hay fallo de red/CORS
     if (e?.message && e.message.toLowerCase().includes('failed to fetch')) {
       throw new Error('No se pudo conectar con el servidor. Verifique que el backend esté activo y la URL REACT_APP_API_URL sea correcta.');
     }

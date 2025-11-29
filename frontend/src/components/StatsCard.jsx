@@ -1,7 +1,7 @@
 // src/components/StatsCard.js
 import React from 'react';
 
-function StatsCard({ title, value, icon, color = "primary", subtitle, trend }) {
+function StatsCard({ title, value, icon, color = "primary", subtitle, trend, valueChip = false }) {
   const renderSubtitle = () => {
     if (!subtitle) return null;
     if (typeof subtitle === 'string') {
@@ -20,7 +20,16 @@ function StatsCard({ title, value, icon, color = "primary", subtitle, trend }) {
           <i className={`bi ${icon} fs-4`}></i>
         </div>
         <h6 className="card-title text-muted mb-1">{title}</h6>
-        <h3 className="mb-0">{value}</h3>
+        {valueChip ? (
+          <span className="stats-card-chip stats-card-chip-primary stats-card-chip-lg">
+            <i className="bi bi-piggy-bank-fill" aria-hidden="true"></i>
+            <span className="stats-card-chip-text">
+              <strong>C:</strong> {value}
+            </span>
+          </span>
+        ) : (
+          <h3 className="mb-0 stats-card-value">{value}</h3>
+        )}
         {subtitle && <div className="stats-card-subtitle mt-2">{renderSubtitle()}</div>}
         {trend && (
           <div className={`small ${trend.positive ? 'text-success' : 'text-danger'}`}>

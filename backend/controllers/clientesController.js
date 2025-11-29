@@ -21,7 +21,6 @@ const getClientes = async (req, res) => {
   }
 };
 
-// Obtener cliente por ID
 const getClienteById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -29,9 +28,7 @@ const getClienteById = async (req, res) => {
     const result = await pool
       .request()
       .input("ClienteID", sql.Int, id)
-      .query(
-        "SELECT * FROM Clientes WHERE ClienteID = @ClienteID"
-      );
+      .query("SELECT * FROM Clientes WHERE ClienteID = @ClienteID");
 
     if (result.recordset.length === 0) {
       return res.status(404).json({ message: "Cliente no encontrado" });
@@ -44,9 +41,15 @@ const getClienteById = async (req, res) => {
   }
 };
 
-// Crear un cliente
 const createCliente = async (req, res) => {
-  const { Nombres, Apellidos, TipoDocumentoID, Documento, Telefono, Direccion } = req.body;
+  const {
+    Nombres,
+    Apellidos,
+    TipoDocumentoID,
+    Documento,
+    Telefono,
+    Direccion,
+  } = req.body;
 
   if (!Nombres || !Apellidos || !TipoDocumentoID || !Documento) {
     return res.status(400).json({ message: "Faltan datos obligatorios" });
@@ -61,8 +64,7 @@ const createCliente = async (req, res) => {
       .input("TipoDocumentoID", sql.Int, TipoDocumentoID)
       .input("Documento", sql.NVarChar(20), Documento)
       .input("Telefono", sql.NVarChar(20), Telefono || null)
-      .input("Direccion", sql.NVarChar(200), Direccion || null)
-      .query(`
+      .input("Direccion", sql.NVarChar(200), Direccion || null).query(`
         INSERT INTO Clientes (Nombres, Apellidos, TipoDocumentoID, Documento, Telefono, Direccion)
         VALUES (@Nombres, @Apellidos, @TipoDocumentoID, @Documento, @Telefono, @Direccion)
       `);
@@ -70,7 +72,6 @@ const createCliente = async (req, res) => {
     res.status(201).json({ message: "Cliente creado con exito." });
   } catch (err) {
     if (err.number === 2627) {
-      // Clave unica duplicada
       return res
         .status(400)
         .json({ message: "Ya existe un cliente con ese documento" });
@@ -80,10 +81,17 @@ const createCliente = async (req, res) => {
   }
 };
 
-// Actualizar cliente
 const updateCliente = async (req, res) => {
   const { id } = req.params;
-  const { Nombres, Apellidos, Documento, TipoDocumentoID, Telefono, Direccion, Activo } = req.body || {};
+  const {
+    Nombres,
+    Apellidos,
+    Documento,
+    TipoDocumentoID,
+    Telefono,
+    Direccion,
+    Activo,
+  } = req.body || {};
 
   try {
     const pool = await poolPromise;
@@ -96,8 +104,11 @@ const updateCliente = async (req, res) => {
       .input("TipoDocumentoID", sql.Int, TipoDocumentoID)
       .input("Telefono", sql.NVarChar(20), Telefono || null)
       .input("Direccion", sql.NVarChar(200), Direccion || null)
-      .input("Activo", sql.Bit, typeof Activo === 'boolean' ? (Activo ? 1 : 0) : null)
-      .query(`
+      .input(
+        "Activo",
+        sql.Bit,
+        typeof Activo === "boolean" ? (Activo ? 1 : 0) : null
+      ).query(`
         UPDATE Clientes
         SET Nombres=COALESCE(@Nombres, Nombres),
             Apellidos=COALESCE(@Apellidos, Apellidos),
@@ -121,7 +132,6 @@ const updateCliente = async (req, res) => {
   }
 };
 
-// Eliminar cliente (soft delete)
 const deleteCliente = async (req, res) => {
   const { id } = req.params;
   try {
@@ -149,4 +159,3 @@ module.exports = {
   updateCliente,
   deleteCliente,
 };
-

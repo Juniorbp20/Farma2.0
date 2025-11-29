@@ -283,10 +283,3 @@
 .config-save-btn {
     cursor: var(--cursor-seleccionables) !important;
 }
-
-@media (max-width: 768px) {
-    .config-modal-content {
-        width: 95%;
-        height: 95%;
-    }
-}

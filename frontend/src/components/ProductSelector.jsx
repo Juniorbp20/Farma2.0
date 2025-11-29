@@ -65,7 +65,7 @@ function ProductSelector({ onSelect, placeholder = 'Buscar producto...' }) {
   };
 
   return (
-    <div className="position-relative" ref={containerRef}>
+    <div className="product-selector position-relative" ref={containerRef}>
       <input
         ref={inputRef}
         type="text"
@@ -77,7 +77,20 @@ function ProductSelector({ onSelect, placeholder = 'Buscar producto...' }) {
       />
 
       {showSuggestions && (query.trim() || suggestions.length > 0) && (
-        <div className="list-group position-absolute w-100 shadow-lg" style={{ zIndex: 1000, maxHeight: '300px', overflowY: 'auto' }}>
+        <div
+          className="product-suggestions list-group"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            right: 0,
+            zIndex: 1050,
+            maxHeight: '300px',
+            overflowY: 'auto',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.12)',
+            background: '#fff',
+          }}
+        >
           {loading && (
             <div className="list-group-item text-center">
               <div className="spinner-border spinner-border-sm me-2" role="status"></div>

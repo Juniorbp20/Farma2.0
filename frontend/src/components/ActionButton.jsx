@@ -2,8 +2,8 @@ import React from "react";
 import "./ActionButton.css";
 
 function ActionButton({
-  variant = "primary", // primary, outline-danger, outline-primary, danger
-  icon, // bootstrap icon class, e.g., "bi bi-x-circle"
+  variant = "primary",
+  icon,
   text,
   type = "button",
   onClick,
@@ -32,7 +32,13 @@ function ActionButton({
       disabled={disabled || loading}
       {...rest}
     >
-      {loading && <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />}
+      {loading && (
+        <span
+          className="spinner-border spinner-border-sm me-2"
+          role="status"
+          aria-hidden="true"
+        />
+      )}
       {!loading && icon && <i className={`${icon} me-2`}></i>}
       {content}
     </button>

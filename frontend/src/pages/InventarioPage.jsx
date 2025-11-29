@@ -6,19 +6,22 @@ import DataTable from 'react-data-table-component';
 import ActionButton from '../components/ActionButton';
 import TabBar from '../components/TabBar';
 import Toast from '../components/recursos/Toast';
+import ConfirmModal from '../components/ConfirmModal';
+import { getUser } from '../services/authService';
+import { buildPermissions } from '../utils/permissions';
 import {
   getInventarioResumen,
   getLotes,
   getLoteDetalle,
   updateLote,
   deactivateLote,
+  reactivateLote,
   getCompras,
   getCompra,
   createCompra,
   getMarcas,
 } from '../services/inventoryService';
 import { getProveedores } from '../services/proveedoresService';
-import { getUser } from '../services/authService';
 import { formatCurrency } from '../utils/formatters';
 
 const numberFormatter = new Intl.NumberFormat('es-DO');
@@ -80,6 +83,9 @@ function FieldError({ error }) {
 }
 
 export default function InventarioPage({ initialTab = 'resumen' }) {
+  const perms = useMemo(() => buildPermissions(getUser()), []);
+  const canReadInventory = perms.can('inventario:read');
+  const canManageInventory = perms.can('inventario:manage');
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const [dashboard, setDashboard] = useState(null);
@@ -99,6 +105,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
 
   const [loteModal, setLoteModal] = useState({ open: false, mode: 'view', loteId: null, loading: false, data: null, initialData: null, error: '' });
   const [deactivateModal, setDeactivateModal] = useState({ open: false, lote: null, loading: false, error: '', motivo: '' });
+  const [reactivateModal, setReactivateModal] = useState({ open: false, lote: null, loading: false, error: '' });
 
   const [compras, setCompras] = useState([]);
   const [comprasLoading, setComprasLoading] = useState(false);
@@ -124,7 +131,19 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
   const [purchaseFormErrors, setPurchaseFormErrors] = useState({ proveedor: '' });
   const [creatingCompra, setCreatingCompra] = useState(false);
   const [createCompraOk, setCreateCompraOk] = useState('');
-  // Modal de confirmacin de compra
+
+  const availableTabs = useMemo(() => {
+    if (canManageInventory) return tabOptions;
+    return tabOptions.filter((t) => t.value !== 'compras');
+  }, [canManageInventory]);
+
+  useEffect(() => {
+    if (!canReadInventory) return;
+    const allowed = availableTabs.some((t) => t.value === activeTab);
+    if (!allowed && availableTabs.length) {
+      setActiveTab(availableTabs[0].value);
+    }
+  }, [availableTabs, activeTab, canReadInventory]);
   const [confirmCompra, setConfirmCompra] = useState({ open: false, payload: null, proveedor: null, items: [] });
   const [toastMsg, setToastMsg] = useState('');
   const [toastType, setToastType] = useState('success');
@@ -174,7 +193,6 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       if (targetFilters.proximos) params.proximos = true;
       const data = await getLotes(params);
       setLotes(data);
-      // Reset paginacin al cargar un nuevo set de lotes
       setLotesPage(1);
       setLotesPaginationReset((prev) => !prev);
     } catch (err) {
@@ -342,7 +360,11 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
     loadMarcas,
   ]);
 
-  const handleChangeTab = (tab) => setActiveTab(tab);
+  const handleChangeTab = (tab) => {
+    const allowed = availableTabs.some((t) => t.value === tab);
+    if (!allowed) return;
+    setActiveTab(tab);
+  };
 
   const openCardModal = (type) => { setCardModalSearch(''); setCardModal({ type }); };
   const closeCardModal = () => setCardModal({ type: null });
@@ -430,6 +452,29 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
     } catch (err) {
       const message = err.message || 'No se pudo desactivar el lote.';
       setDeactivateModal((prev) => ({ ...prev, loading: false, error: message }));
+      triggerToast('error', message);
+    }
+  };
+
+  const openReactivateModal = (lote) => {
+    setReactivateModal({ open: true, lote, loading: false, error: '' });
+  };
+
+  const closeReactivateModal = () =>
+    setReactivateModal({ open: false, lote: null, loading: false, error: '' });
+
+  const confirmReactivate = async () => {
+    if (!reactivateModal.lote) return;
+    setReactivateModal((prev) => ({ ...prev, loading: true, error: '' }));
+    try {
+      await reactivateLote(reactivateModal.lote.loteId);
+      closeReactivateModal();
+      loadLotes();
+      if (activeTab === 'resumen') loadDashboard();
+      triggerToast('success', 'Lote reactivado correctamente.');
+    } catch (err) {
+      const message = err.message || 'No se pudo reactivar el lote.';
+      setReactivateModal((prev) => ({ ...prev, loading: false, error: message }));
       triggerToast('error', message);
     }
   };
@@ -530,7 +575,6 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
   const updateCompraItem = (id, updater) => {
     const patch = typeof updater === 'function' ? updater((purchaseItems.find((i) => i.id === id)) || {}) : updater;
     setPurchaseItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
-    // Limpia errores del/los campos actualizados
     if (patch && typeof patch === 'object') {
       setPurchaseItemErrors((prev) => {
         const current = { ...(prev[id] || {}) };
@@ -656,7 +700,6 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       return;
     }
 
-    // Preparar payload y vista previa para el modal de confirmacin
     const payload = {
       proveedorId: Number(selectedProveedor),
       items: itemsPayload,
@@ -812,11 +855,18 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                 });
                 if (cardModal.type === 'valor') {
                   columns.push({
-                    name: 'Valor',
+                    name: 'Valor costo',
                     right: true,
                     width: '140px',
                     selector: (r) => r.valorTotal,
                     sortable: true, cell: (r) => formatCurrency(r.valorTotal),
+                  });
+                  columns.push({
+                    name: 'Valor venta',
+                    right: true,
+                    width: '140px',
+                    selector: (r) => r.valorVenta,
+                    sortable: true, cell: (r) => formatCurrency(r.valorVenta),
                   });
                 }
                 const term = (cardModalSearch || '').toString().trim().toLowerCase();
@@ -1289,7 +1339,11 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                   disabled={deactivateModal.loading}
                 />
               </div>
-              {deactivateModal.error && <div className="alert alert-danger">{deactivateModal.error}</div>}
+              {deactivateModal.error && (
+                <div className="text-danger mt-1" style={{ fontSize: '0.9rem' }}>
+                  {deactivateModal.error}
+                </div>
+              )}
             </div>
             <div className="inventory-modal-footer">
               <ActionButton
@@ -1394,6 +1448,22 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
   };
 
   const resumenMetrics = dashboard?.metrics;
+  const inventoryTotals = useMemo(() => {
+    const detalle = dashboard?.lists?.inventoryValue || [];
+    const costTotal = resumenMetrics?.inventoryValue?.total != null
+      ? resumenMetrics.inventoryValue.total
+      : detalle.reduce((acc, it) => {
+        const qty = Number(it.cantidadEmpaques ?? it.CantidadEmpaques ?? 0);
+        const costo = Number(it.precioCosto ?? it.PrecioCosto ?? 0);
+        return acc + qty * costo;
+      }, 0);
+    const saleTotal = detalle.reduce((acc, it) => {
+      const qty = Number(it.cantidadEmpaques ?? it.CantidadEmpaques ?? 0);
+      const venta = Number(it.precioVenta ?? it.PrecioVenta ?? 0);
+      return acc + qty * venta;
+    }, 0);
+    return { costTotal, saleTotal };
+  }, [dashboard, resumenMetrics]);
   const filteredProducts = useMemo(() => {
     if (!dashboard?.products) return [];
     const term = productSearch.trim().toLowerCase();
@@ -1577,23 +1647,41 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
           <button className="btn btn-outline-secondary cursor-selectable" onClick={() => openLoteModal('view', row)} title="Ver detalle">
             <i className="bi bi-eye" />
           </button>
-          <button className="btn btn-outline-primary cursor-selectable" onClick={() => openLoteModal('edit', row)} title="Editar lote">
-            <i className="bi bi-pencil" />
-          </button>
-          <button className="btn btn-outline-danger cursor-selectable" onClick={() => openDeactivateModal(row)} disabled={!row.activo} title="Desactivar lote">
-            <i className="bi bi-dash-circle" />
-          </button>
+          {canManageInventory && (
+            <>
+              <button className="btn btn-outline-primary cursor-selectable" onClick={() => openLoteModal('edit', row)} title="Editar lote">
+                <i className="bi bi-pencil" />
+              </button>
+              {row.activo ? (
+                <button className="btn btn-outline-danger cursor-selectable" onClick={() => openDeactivateModal(row)} title="Desactivar lote">
+                  <i className="bi bi-dash-circle" />
+                </button>
+              ) : (
+                <button className="btn btn-outline-success cursor-selectable" onClick={() => openReactivateModal(row)} title="Reactivar lote">
+                  <i className="bi bi-check-circle" />
+                </button>
+              )}
+            </>
+          )}
         </div>
       ),
     },
-  ], [openLoteModal, openDeactivateModal]);
+  ], [openLoteModal, openDeactivateModal, openReactivateModal]);
+
+  if (!canReadInventory) {
+    return (
+      <div className="container py-4">
+        <div className="alert alert-warning mb-0">No tienes acceso a Inventario.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="inventario-page container-fluid container py-3">
       <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
         <h3 className="visually-hidden"><i className="bi bi-box-seam me-2" />Inventario</h3>
         <TabBar
-          tabs={tabOptions}
+          tabs={availableTabs}
           active={activeTab}
           onSelect={handleChangeTab}
           className="ms-auto"
@@ -1613,9 +1701,18 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
                     <button className="inventory-card-button w-100 h-100 cursor-selectable" onClick={() => openCardModal('valor')}>
                       <StatsCard
                         title="Valor inventario"
-                        value={formatCurrency(resumenMetrics?.inventoryValue?.total || 0)}
+                        value={formatCurrency(inventoryTotals.costTotal || 0)}
                         icon="bi-cash-stack"
                         color="primary"
+                        valueChip
+                        subtitle={
+                          <span className="stats-card-chip stats-card-chip-info stats-card-chip-lg">
+                            <i className="bi bi-wallet-fill" aria-hidden="true"></i>
+                            <span className="stats-card-chip-text">
+                              <strong>V:</strong> {formatCurrency(inventoryTotals.saleTotal || 0)}
+                            </span>
+                          </span>
+                        }
                       />
                     </button>
                   </div>
@@ -1781,14 +1878,20 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
               persistTableHead
               fixedHeader
               fixedHeaderScrollHeight="50vh"
-              progressPending={lotesLoading}
-              progressComponent={<div className="py-3 text-center mb-0">Cargando lotes...</div>}
-              noDataComponent="No hay lotes que coincidan con los filtros."
-              customStyles={lotesTableStyles}
-            />
-          </div>
+            progressPending={lotesLoading}
+            progressComponent={<div className="py-3 text-center mb-0">Cargando lotes...</div>}
+            noDataComponent="No hay lotes que coincidan con los filtros."
+            conditionalRowStyles={[
+              {
+                when: (row) => !row.activo,
+                style: { opacity: 0.5 },
+              },
+            ]}
+            customStyles={lotesTableStyles}
+          />
         </div>
-      )}
+      </div>
+    )}
 
       {activeTab === 'compras' && (
         <div className="row g-3">
@@ -1797,7 +1900,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
             <div className="card shadow-sm compras-form-card mx-auto">
               <div className="card-body compras-form-panel">
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h5 className="mb-0">Registrar compra</h5>
+                  <h5 className="mb-0 text-muted fw-semibold">Registrar compra</h5>
                   <div className="registrado-chip" title={user ? `${user.username}` : ''}>
                     <i className="bi bi-person-check-fill" />
                     <span>
@@ -2082,7 +2185,7 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
             <div className="card compras-panel shadow-sm">
               <div className="card-body">
                 <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                  <h5 className="mb-0">Historial de compras</h5>
+                  <h5 className="mb-0 text-muted fw-semibold">Historial de compras</h5>
                 </div>
                 <div className="d-flex align-items-center justify-content-end flex-wrap gap-2 mb-3">
                   <div className="inventory-search-wrapper">
@@ -2133,6 +2236,26 @@ export default function InventarioPage({ initialTab = 'resumen' }) {
       {renderLoteModal()}
       {renderDeactivateModal()}
       {renderCompraModal()}
+      <ConfirmModal
+        isOpen={reactivateModal.open}
+        title="Confirmar reactivación"
+        message={
+          <>
+            ¿Desea reactivar el lote <strong>{reactivateModal.lote?.numeroLote}</strong> del producto{' '}
+            <strong>{reactivateModal.lote?.producto}</strong>?
+            {reactivateModal.error && (
+              <div className="text-danger mt-2" style={{ fontSize: '0.95rem' }}>
+                {reactivateModal.error}
+              </div>
+            )}
+          </>
+        }
+        onCancel={closeReactivateModal}
+        onConfirm={confirmReactivate}
+        cancelText="Cancelar"
+        confirmText="Reactivar"
+        isLoading={reactivateModal.loading}
+      />
       <Toast key={toastKey} message={toastMsg} type={toastType} />
     </div>
   );

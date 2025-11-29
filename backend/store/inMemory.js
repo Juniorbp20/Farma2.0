@@ -1,6 +1,4 @@
 // backend/store/inMemory.js
-// Fuente de datos en memoria para demo/desarrollo
-
 const store = {
   productos: [
     { ProductoID: 1, CodigoBarra: '7501001234567', Nombre: 'Paracetamol 500mg x10', Precio: 12.5, Stock: 50, StockMinimo: 10 },
@@ -10,7 +8,6 @@ const store = {
     { ProductoID: 5, CodigoBarra: '7845123698745', Nombre: 'Vitamina C 1g x10', Precio: 14.5, Stock: 60, StockMinimo: 10 },
   ],
   lotes: [
-    // Ejemplo: { LoteID, ProductoID, Lote, Vencimiento(YYYY-MM-DD), Cantidad }
     { LoteID: 1, ProductoID: 1, Lote: 'L-PARA-001', Vencimiento: '2026-01-15', Cantidad: 20 },
     { LoteID: 2, ProductoID: 1, Lote: 'L-PARA-002', Vencimiento: '2026-06-30', Cantidad: 30 },
     { LoteID: 3, ProductoID: 2, Lote: 'L-IBU-001',  Vencimiento: '2025-12-31', Cantidad: 40 },

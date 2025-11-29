@@ -6,6 +6,8 @@ import ConfirmModal from "../components/ConfirmModal";
 import TabBar from "../components/TabBar";
 import Toast from "../components/recursos/Toast";
 import ActionButton from "../components/ActionButton";
+import { getUser } from "../services/authService";
+import { buildPermissions } from "../utils/permissions";
 import {
   getProductos,
   createProducto,
@@ -50,6 +52,7 @@ export default function ProductosPage() {
   ];
 
   useEffect(() => {
+    const u = getUser();
     cargarDatos();
   }, []);
 
@@ -85,6 +88,26 @@ export default function ProductosPage() {
       setMensaje("No se pudo refrescar la lista");
       setTipoMensaje("error");
     }
+  };
+
+  const perms = useMemo(() => buildPermissions(getUser()), []);
+  const canManageProductos = perms.hasAny(['productos:create', 'productos:update', 'productos:delete']);
+  const canViewProductos = perms.can('productos:read');
+
+  useEffect(() => {
+    if (!canManageProductos && vistaActual === "gestionar") {
+      setVistaActual("ver");
+    }
+  }, [canManageProductos, vistaActual]);
+
+  const visibleTabs = useMemo(
+    () => (canManageProductos ? productsTabOptions : productsTabOptions.filter((t) => t.value === "ver")),
+    [canManageProductos]
+  );
+
+  const handleSelectTab = (tab) => {
+    if (tab === "gestionar" && !canManageProductos) return;
+    setVistaActual(tab);
   };
 
   function onEdit(prod) {
@@ -271,58 +294,65 @@ export default function ProductosPage() {
     setProductoPorActivar(null);
   };
 
-  const columnas = [
-    { name: "ID", selector: (r) => r.ProductoID, sortable: true, width: "80px" },
-    { name: "Nombre", selector: (r) => r.Nombre, sortable: true, width: "160px", wrap: true },
-    { name: "Presentacion", selector: (r) => r.Presentacion || "", sortable: true, width: "160px", wrap: true },
-    { name: "UM Empaque", selector: (r) => r.UnidadMedidaEmpaque || "", sortable: true, width: "140px" },
-    { name: "UM Minima", selector: (r) => r.UnidadMedidaMinima || "", sortable: true, width: "140px" },
-    { name: "Stock", selector: (r) => r.Stock, sortable: true, width: "100px" },
-    { name: "Stock Min.", selector: (r) => r.StockMinimo, sortable: true, width: "120px" },
-    {
-      name: "Imp. %",
-      selector: (r) => Number(r.Impuesto ?? 0),
-      sortable: true,
-      width: "100px",
-      right: true,
-      cell: (r) => (
-        <span className="fw-semibold">{Number(r.Impuesto ?? 0).toFixed(2)}%</span>
-      ),
-    },
-    { name: "Activo", selector: (r) => (r.Activo ? "Si" : "No"), sortable: true, width: "100px" },
-    {
-      name: "Acciones",
-      width: "120px",
-      cell: (row) => (
-        <div className="table-action-group btn-group btn-group-sm">
-          <button
-            className="btn btn-outline-primary"
-            onClick={() => onEdit(row)}
-            title="Editar"
-          >
-            <i className="bi bi-pencil"></i>
-          </button>
-          {row.Activo ? (
+  const columnas = useMemo(() => {
+    const base = [
+      { name: "ID", selector: (r) => r.ProductoID, sortable: true, width: "80px" },
+      { name: "Nombre", selector: (r) => r.Nombre, sortable: true, width: "160px", wrap: true },
+      { name: "Presentacion", selector: (r) => r.Presentacion || "", sortable: true, width: "160px", wrap: true },
+      { name: "UM Empaque", selector: (r) => r.UnidadMedidaEmpaque || "", sortable: true, width: "140px" },
+      { name: "UM Minima", selector: (r) => r.UnidadMedidaMinima || "", sortable: true, width: "140px" },
+      { name: "Stock", selector: (r) => r.Stock, sortable: true, width: "100px" },
+      { name: "Stock Min.", selector: (r) => r.StockMinimo, sortable: true, width: "120px" },
+      {
+        name: "Imp. %",
+        selector: (r) => Number(r.Impuesto ?? 0),
+        sortable: true,
+        width: "100px",
+        right: true,
+        cell: (r) => (
+          <span className="fw-semibold">{Number(r.Impuesto ?? 0).toFixed(2)}%</span>
+        ),
+      },
+      { name: "Activo", selector: (r) => (r.Activo ? "Si" : "No"), sortable: true, width: "100px" },
+    ];
+
+    if (canManageProductos) {
+      base.push({
+        name: "Acciones",
+        width: "120px",
+        cell: (row) => (
+          <div className="table-action-group btn-group btn-group-sm">
             <button
-              className="btn btn-outline-danger"
-              onClick={() => abrirModalEliminar(row)}
-              title="Desactivar"
+              className="btn btn-outline-primary"
+              onClick={() => onEdit(row)}
+              title="Editar"
             >
-              <i className="bi bi-trash3"></i>
+              <i className="bi bi-pencil"></i>
             </button>
-          ) : (
-            <button
-              className="btn btn-outline-success"
-              onClick={() => abrirModalActivar(row)}
-              title="Activar"
-            >
-              <i className="bi bi-check-circle-fill"></i>
-            </button>
-          )}
-        </div>
-      ),
-    },
-  ];
+            {row.Activo ? (
+              <button
+                className="btn btn-outline-danger"
+                onClick={() => abrirModalEliminar(row)}
+                title="Desactivar"
+              >
+                <i className="bi bi-trash3"></i>
+              </button>
+            ) : (
+              <button
+                className="btn btn-outline-success"
+                onClick={() => abrirModalActivar(row)}
+                title="Activar"
+              >
+                <i className="bi bi-check-circle"></i>
+              </button>
+            )}
+          </div>
+        ),
+      });
+    }
+
+    return base;
+  }, [canManageProductos]);
 
   const itemsFiltrados = useMemo(() => {
     const q = (busqueda || "").toLowerCase();
@@ -361,11 +391,14 @@ export default function ProductosPage() {
 
   return (
     <div className="container productos-page-container py-3">
+      {!canViewProductos && (
+        <div className="alert alert-warning">No tienes acceso a Productos.</div>
+      )}
       <div className="d-flex justify-content-end pb-2 mb-3 productos-menu">
         <TabBar
-          tabs={productsTabOptions}
+          tabs={visibleTabs}
           active={vistaActual}
-          onSelect={setVistaActual}
+          onSelect={handleSelectTab}
           ariaLabel="Secciones de productos"
         />
       </div>

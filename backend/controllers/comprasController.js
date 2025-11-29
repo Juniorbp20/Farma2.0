@@ -12,18 +12,15 @@ const {
 let ExcelJS = null;
 let hasExcelJs = false;
 try {
-  // eslint-disable-next-line import/no-extraneous-dependencies, global-require
   ExcelJS = require('exceljs');
   hasExcelJs = true;
 } catch (err) {
   console.warn('exceljs no disponible para exportar compras:', err?.message);
 }
 
-// Soporte PDF para exportaciA³n (ademA¡s de Excel)
 let PDFDocument = null;
 let hasPdfKit = false;
 try {
-  // eslint-disable-next-line import/no-extraneous-dependencies, global-require
   PDFDocument = require('pdfkit');
   hasPdfKit = true;
 } catch (err) {
@@ -243,9 +240,7 @@ async function exportarCompras(req, res) {
         currentY += isHeader ? 18 : 16;
       };
 
-      // Header
       drawRow(columns.map((c) => c.header), true);
-      // Rows
       if (compras.length) {
         compras.forEach((c) => {
           drawRow([

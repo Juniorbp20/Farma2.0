@@ -1,5 +1,4 @@
 // controllers/inventarioController.js
-// GestiA³n de inventario: resumen, lotes y operaciones auxiliares
 const sql = require('mssql');
 const poolPromise = require('../db');
 const {
@@ -145,6 +144,10 @@ async function getResumen(req, res) {
       (acc, lote) => acc + lote.cantidadEmpaques * lote.precioCosto,
       0
     );
+    const valorTotalVenta = lotes.reduce(
+      (acc, lote) => acc + lote.cantidadEmpaques * lote.precioVenta,
+      0
+    );
 
     const proximosAVencer = lotes
       .filter(
@@ -204,7 +207,9 @@ async function getResumen(req, res) {
       cantidadUnidadesMinimas: lote.cantidadUnidadesMinimas,
       cantidadTotalMinima: lote.cantidadTotalMinima,
       precioCosto: lote.precioCosto,
+      precioVenta: lote.precioVenta,
       valorTotal: parseDecimal(lote.cantidadEmpaques * lote.precioCosto),
+      valorVenta: parseDecimal(lote.cantidadEmpaques * lote.precioVenta),
     }));
 
     const detalleLotesPorVencer = proximosAVencer.map((lote) => ({
@@ -234,6 +239,7 @@ async function getResumen(req, res) {
       metrics: {
         inventoryValue: {
           total: parseDecimal(valorTotalInventario),
+          totalVenta: parseDecimal(valorTotalVenta),
         },
         expiringLots: {
           total: proximosAVencer.length,
@@ -964,6 +970,92 @@ async function desactivarLote(req, res) {
   }
 }
 
+async function reactivarLote(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'LoteID requerido' });
+
+    const pool = await poolPromise;
+    const meta = await getLotesColumnInfo();
+
+    const detalle = await pool
+      .request()
+      .input('id', sql.Int, Number(id))
+      .query(`
+        SELECT
+          l.LoteID,
+          l.ProductoID,
+          COALESCE(l.Activo,1) AS Activo,
+          ${meta.hasCantidadEmpaques ? 'COALESCE(l.CantidadEmpaques,0) AS CantidadEmpaques,' : '0 AS CantidadEmpaques,'}
+          ${meta.hasCantidadUnidades ? 'COALESCE(l.CantidadUnidadesMinimas,0) AS CantidadUnidadesMinimas,' : '0 AS CantidadUnidadesMinimas,'}
+          ${meta.hasCantidad ? 'COALESCE(l.Cantidad,0) AS Cantidad' : '0 AS Cantidad'}
+        FROM dbo.Lotes l
+        INNER JOIN dbo.Productos p ON p.ProductoID = l.ProductoID
+        WHERE l.LoteID = @id
+      `);
+
+    if (!detalle.recordset.length) {
+      return res.status(404).json({ message: 'Lote no encontrado' });
+    }
+    const lote = detalle.recordset[0];
+    if (lote.Activo) {
+      return res.status(200).json({ message: 'El lote ya esta activo' });
+    }
+
+    const factor = ensurePositiveNumber(lote.CantidadUnidadesMinimas, 1) || 1;
+    const totalUnidades = computeUnitsFromCounts(
+      {
+        empaques: lote.CantidadEmpaques,
+        unidades: lote.CantidadUnidadesMinimas,
+        cantidad: lote.Cantidad,
+      },
+      factor,
+      meta
+    );
+
+    const tx = new sql.Transaction(await poolPromise);
+    await tx.begin();
+    try {
+      const updateParts = ['Activo = 1'];
+      const reqTx = new sql.Request(tx).input('LoteID', sql.Int, Number(id));
+      if (meta.hasMotivoInactivacion) {
+        updateParts.push('MotivoInactivacion = NULL');
+      }
+      await reqTx.query(`UPDATE dbo.Lotes SET ${updateParts.join(', ')} WHERE LoteID = @LoteID;`);
+
+      await new sql.Request(tx)
+        .input('ProductoID', sql.Int, Number(lote.ProductoID))
+        .input('Cantidad', sql.Int, Math.round(totalUnidades))
+        .query(`
+          UPDATE dbo.Productos
+          SET StockActual = COALESCE(StockActual,0) + @Cantidad,
+              FechaModificacion = GETDATE()
+          WHERE ProductoID = @ProductoID;
+        `);
+
+      await ensureHistorialTable(pool);
+      await new sql.Request(tx)
+        .input('LoteID', sql.Int, Number(id))
+        .input('UsuarioID', sql.Int, req.user?.sub ? Number(req.user.sub) : null)
+        .input('Accion', sql.NVarChar(50), 'reactivacion')
+        .input('Detalle', sql.NVarChar(4000), 'Reactivado manualmente.')
+        .query(`
+          INSERT INTO dbo.InventarioLoteHistorial (LoteID, UsuarioID, Accion, Detalle)
+          VALUES (@LoteID, @UsuarioID, @Accion, @Detalle);
+        `);
+
+      await tx.commit();
+      res.json({ message: 'Lote reactivado' });
+    } catch (innerErr) {
+      await tx.rollback();
+      throw innerErr;
+    }
+  } catch (err) {
+    console.error('reactivarLote error:', err);
+    res.status(500).json({ message: 'Error al reactivar lote' });
+  }
+}
+
 async function getMarcasActivas(req, res) {
   try {
     const incluirInactivas =
@@ -1214,7 +1306,6 @@ async function ajustarStock(req, res) {
   }
 }
 
-// Movimientos recientes de inventario (lotes)
 async function getMovimientosRecientes(req, res) {
   try {
     const pool = await poolPromise;
@@ -1274,6 +1365,7 @@ module.exports = {
   addLote,
   updateLote,
   desactivarLote,
+  reactivarLote,
   ajustarStock,
   consumirDesdeLotes,
   getMarcasActivas,

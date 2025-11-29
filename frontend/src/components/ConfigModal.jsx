@@ -93,7 +93,6 @@ const ConfigModal = ({ isOpen, onClose, user, onUpdated }) => {
       }
       return;
     }
-    // rutas relativas se aceptan tal cual
     setError('');
   };
 

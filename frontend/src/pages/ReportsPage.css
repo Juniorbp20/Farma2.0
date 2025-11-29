@@ -2,28 +2,52 @@
   max-width: 1200px;
 }
 
-.report-chip {
+.reports-header .tab-bar {
+  flex-wrap: wrap;
+}
+
+.reports-tabbar .btn {
+  min-width: 140px;
+}
+
+.report-stat-card {
+  border: 1px solid #e7ecf5;
   border-radius: 14px;
-  padding: 16px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+  padding: 0 !important;
 }
 
-.report-chip .label {
-  font-size: 0.9rem;
-  opacity: 0.85;
+.report-stat-icon {
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  flex-shrink: 0;
 }
 
-.report-chip .value {
-  font-size: 1.5rem;
-  font-weight: 700;
+.report-stat-title {
+  font-size: 0.95rem;
+}
+
+.report-stat-value {
+  font-size: 1.6rem;
+  margin-top: 2px;
+  color: #5c6770;
+}
+
+.report-stat-sub {
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 .mini-card {
   border: 1px solid #e7ecf5;
   border-radius: 12px;
-  padding: 10px 14px;
+  padding: 5px 14px;
   background: #f9fbff;
-  min-width: 120px;
+  width: 100%;
 }
 
 .mini-card .mini-label {
@@ -34,4 +58,70 @@
 .mini-card .mini-value {
   font-size: 1.1rem;
   font-weight: 700;
+  color: #6c757d;
+}
+
+.advanced-placeholder {
+  border: 1px dashed #d9e2f3;
+  border-radius: 16px;
+  padding: 48px 16px;
+  background: linear-gradient(135deg, #f8fbff 0%, #f2f6ff 100%);
+  color: #5c6770;
+}
+
+.report-card-ventas, .report-card-inventario{
+ padding: 0;
+}
+
+.report-card-ventas .card-body,
+.report-card-inventario .card-body {
+  padding: 10px 20px;
+}
+
+.report-table-wrapper {
+  overflow: visible;
+}
+
+.advanced-placeholder .placeholder-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 12px;
+  border-radius: 16px;
+  background: #0d6efd11;
+  display: grid;
+  place-items: center;
+  color: #0d6efd;
+  font-size: 32px;
+}
+
+.section-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  background: #ebf2ff;
+  border: 1px solid #c7dfff;
+  color: #5c6770;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.inv-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  gap: 6px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  border: 1px solid #ADCDFF;
+  background: #E2EDFF;
+  color: #0D6EFD;
+}
+
+.inv-status-chip.inv-status-chip-inactive {
+  border-color: #d6d9de;
+  background: #f1f2f5;
+  color: #5f6368;
 }

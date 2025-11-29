@@ -6,10 +6,11 @@ function CustomButton({
   icon = "bi-arrow-left-square",
   className = "",
   type = "button",
+  disabled = false,
   children,
 }) {
   return (
-    <button type={type} className={`btn-personalizado ${className}`} onClick={onClick}>
+    <button type={type} className={`btn-personalizado ${className}`} onClick={onClick} disabled={disabled}>
       {children ? children : (<><i className={`bi ${icon}`}></i> {text}</>)}
     </button>
   );

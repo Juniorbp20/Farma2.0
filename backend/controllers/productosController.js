@@ -1,5 +1,4 @@
 ﻿// controllers/productosController.js
-// ImplementaciA³n contra SQL Server (tabla Productos)
 const sql = require('mssql');
 const poolPromise = require('../db');
 const { getLotesColumnInfo, getCantidadExpressions, ensurePositiveNumber } = require('../store/inventoryUtils');
@@ -13,10 +12,8 @@ function mapProductoRow(r) {
     Stock: Number(r.StockActual || 0),
     StockMinimo: Number(r.StockMinimo || 0),
     Impuesto: Number(r.Impuesto ?? 0),
-    // Nombres desde JOIN de UnidadesMedida
     UnidadMedidaEmpaque: r.UnidadMedidaEmpaqueNombre || '',
     UnidadMedidaMinima: r.UnidadMedidaMinimaNombre || '',
-    // IDs para formularios
     UnidadMedidaEmpaqueID: r.UnidadMedidaEmpaqueID || null,
     UnidadMedidaMinimaID: r.UnidadMedidaMinimaID || null,
     Activo: r.Activo,
@@ -87,12 +84,10 @@ const buscarProductos = async (req, res) => {
   }
 };
 
-// No hay columna de codigo de barras en el esquema proporcionado
 const getProductoByBarcode = async (req, res) => {
   return res.status(404).json({ message: 'Busqueda por codigo de barras no disponible' });
 };
 
-// Consulta de precio / existencia
 const consultarProductoInventario = async (req, res) => {
   try {
     const term = (req.query.busqueda || '').toString().trim();
@@ -167,7 +162,6 @@ const createProducto = async (req, res) => {
     if (!Number.isFinite(impuestoVal) || impuestoVal < 0 || impuestoVal > 100) {
       return res.status(400).json({ message: 'Impuesto debe estar entre 0 y 100' });
     }
-    // Permitir compatibilidad: si no vienen IDs pero sA­ nombres, resolver IDs por nombre
     const pool = await poolPromise;
     if (UnidadMedidaEmpaqueID == null && UnidadMedidaEmpaque) {
       try {
@@ -185,14 +179,13 @@ const createProducto = async (req, res) => {
     if (UnidadMedidaMinimaID == null) return res.status(400).json({ message: 'Falta UnidadMedidaMinimaID' });
     const stockMin = Number(StockMinimo || 0);
     if (!Number.isFinite(stockMin) || stockMin < 1) return res.status(400).json({ message: 'StockMinimo debe ser al menos 1' });
-    // pool ya disponible como conexiA³n
     let categoria = CategoriaID != null ? Number(CategoriaID) : null;
     if (categoria == null) {
       try {
         const cat = await pool.request().query('SELECT TOP 1 CategoriaID FROM CategoriasProductos ORDER BY CategoriaID');
         if (cat.recordset.length) categoria = Number(cat.recordset[0].CategoriaID);
       } catch {}
-      if (categoria == null) categoria = 1; // fallback
+      if (categoria == null) categoria = 1;
     }
 
     const r = await pool
@@ -244,7 +237,6 @@ const updateProducto = async (req, res) => {
       }
     }
     const pool = await poolPromise;
-    // Compat: si vienen nombres y no IDs, resolver por nombre
     if (UnidadMedidaEmpaqueID == null && UnidadMedidaEmpaque) {
       try {
         const r = await pool.request().input('n', sql.NVarChar(50), UnidadMedidaEmpaque).query("SELECT TOP 1 UnidadMedidaID FROM UnidadesMedida WHERE Activo = 1 AND LOWER(LTRIM(RTRIM(Nombre))) = LOWER(LTRIM(RTRIM(@n)))");
@@ -305,8 +297,6 @@ const deleteProducto = async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
-    // Si hay lotes con stock > 0, impedir desactivaciA³n.
-    // Adaptado al esquema: existen columnas CantidadEmpaques y/o CantidadUnidadesMinimas
     const lot = await pool
       .request()
       .input('id', sql.Int, Number(id))

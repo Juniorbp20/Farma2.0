@@ -134,11 +134,8 @@ function ClientesList({
   const paginacionOpciones = {
     rowsPerPageText: "Filas:",
     rangeSeparatorText: "de",
-    // selectAllRowsItem: true,
-    // selectAllRowsItemText: "Todo",
   };
 
-  // Filtrar clientes según búsqueda
   const clientesFiltrados = clientes.filter((cliente) =>
     Object.values(cliente).some((valor) =>
       String(valor ?? "").toLowerCase().includes(busqueda.toLowerCase())

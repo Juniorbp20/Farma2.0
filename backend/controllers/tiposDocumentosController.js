@@ -2,7 +2,6 @@
 const sql = require("mssql");
 const poolPromise = require("../db");
 
-// Obtener todos los tipos de documentos activos
 const getTiposDocumentos = async (req, res) => {
     try {
         const pool = await poolPromise;

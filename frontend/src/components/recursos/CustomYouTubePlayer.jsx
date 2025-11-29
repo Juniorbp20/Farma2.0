@@ -57,8 +57,6 @@ export default function CustomYouTubePlayer({ videoId }) {
   const scheduleHide = (delay = 3000) => {
     clearHideTimer();
     hideTimerRef.current = setTimeout(() => {
-      // Si está reproduciendo, ocultar siempre tras el delay
-      // Si está pausado, ocultar solo cuando no hay hover
       if (playingRef.current) setShowControls(false);
       else if (!hoveredRef.current) setShowControls(false);
     }, delay);
@@ -110,7 +108,6 @@ export default function CustomYouTubePlayer({ videoId }) {
                   try {
                     const d = player.getDuration() || 0;
                     const t = player.getCurrentTime() || 0;
-                    // Evitar pantalla de recomendaciones: pausar y volver al inicio
                     if (d && t >= d - 0.35) {
                       try {
                         player.pauseVideo();
@@ -126,7 +123,6 @@ export default function CustomYouTubePlayer({ videoId }) {
                       return;
                     }
                     setCurrent(t);
-                    // Refrescar duración si cambia en runtime
                     if (d && d !== durationRef.current) {
                       durationRef.current = d;
                       setDuration(d);
@@ -147,7 +143,6 @@ export default function CustomYouTubePlayer({ videoId }) {
             } else {
               setPlaying(false);
               playingRef.current = false;
-              // En pausa o buffer/ended: mostrar controles si el puntero está encima, en otro caso ocultar tras 3s
               if (hoveredRef.current) setShowControls(true);
               else scheduleHideLocal();
               if (intervalRef.current) {
@@ -168,8 +163,6 @@ export default function CustomYouTubePlayer({ videoId }) {
     };
   }, [videoId]);
 
-  // Detectar movimiento del mouse sobre el área del reproductor, incluso en fullscreen,
-  // usando una capa transparente superpuesta en lugar de depender de eventos sobre el iframe.
   const onHoverMove = () => {
     hoveredRef.current = true;
     setHovered(true);
@@ -209,7 +202,7 @@ export default function CustomYouTubePlayer({ videoId }) {
   };
 
   const onFullscreen = () => {
-    const el = wrapperRef.current; // wrapper que contiene video y controles
+    const el = wrapperRef.current;
     if (!el) return;
     const doc = document;
     const isFs = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement;
@@ -230,7 +223,6 @@ export default function CustomYouTubePlayer({ videoId }) {
     }
   };
 
-  // Al entrar/salir de fullscreen, mostrar controles inicialmente
   useEffect(() => {
     const onFs = () => {
       setShowControls(true);
@@ -253,7 +245,6 @@ export default function CustomYouTubePlayer({ videoId }) {
   return (
     <div ref={wrapperRef} className="d-flex flex-column w-100 h-100">
       <div className="cyp-player" ref={containerRef} />
-      {/* Superficie transparente para capturar movimiento del mouse (incluye fullscreen) */}
       <div
         className="cyp-hover-surface"
         onMouseMove={onHoverMove}
@@ -302,5 +293,3 @@ export default function CustomYouTubePlayer({ videoId }) {
     </div>
   );
 }
-
-

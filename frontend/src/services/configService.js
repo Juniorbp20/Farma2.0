@@ -10,7 +10,6 @@ async function handleResponse(res, defaultMsg) {
     const body = await res.json();
     message = body?.message || defaultMsg;
   } catch (err) {
-    // ignore
   }
   throw new Error(message);
 }

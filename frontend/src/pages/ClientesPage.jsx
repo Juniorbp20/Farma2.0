@@ -1,5 +1,5 @@
 // src/pages/ClientesPage.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import "./ClientesPage.css";
 import ConfirmModal from "../components/ConfirmModal";
 import ClienteForm from "../components/ClienteForm";
@@ -7,6 +7,7 @@ import ClientesList from "../components/ClientesList";
 import Toast from "../components/recursos/Toast";
 import TabBar from "../components/TabBar";
 import { extractErrorMessage } from "../utils/Utils";
+import { buildPermissions } from "../utils/permissions";
 import {
   getClientes,
   getTiposDocumentos,
@@ -16,6 +17,12 @@ import {
 } from "../services/clientesService";
 
 function ClientesPage({ user }) {
+  const perms = useMemo(() => buildPermissions(user), [user]);
+  const canView = perms.can('clientes:read');
+  const canManageBasic = perms.hasAny(['clientes:create', 'clientes:update']);
+  const canDelete = perms.can('clientes:delete');
+  const canActivate = canDelete;
+
   const [clientes, setClientes] = useState([]);
   const [tiposDocumentos, setTiposDocumentos] = useState([]);
   const [clienteEditando, setClienteEditando] = useState(null);
@@ -27,12 +34,12 @@ function ClientesPage({ user }) {
   const [showModalEditar, setShowModalEditar] = useState(false);
   const [showModalActivar, setShowModalActivar] = useState(false);
 
-  const [vistaActual, setVistaActual] = useState("ver"); // 'ver' | 'agregar'
+  const [vistaActual, setVistaActual] = useState("ver");
   const [toastKey, setToastKey] = useState(Date.now());
 
   useEffect(() => {
-    cargarDatos();
-  }, []);
+    if (canView) cargarDatos();
+  }, [canView]);
 
   const cargarDatos = async () => {
     setClientes(await getClientes());
@@ -40,6 +47,7 @@ function ClientesPage({ user }) {
   };
 
   const handleSubmit = async (cliente) => {
+    if (!canManageBasic) return false;
     try {
       if (clienteEditando) {
         await updateCliente(clienteEditando.ClienteID, cliente);
@@ -64,11 +72,13 @@ function ClientesPage({ user }) {
   };
 
   const handleEdit = (cliente) => {
+    if (!canManageBasic) return;
     setClienteEditando(cliente);
     setShowModalEditar(true);
   };
 
   const abrirModalEliminar = (cliente) => {
+    if (!canDelete) return;
     setClienteSeleccionado(cliente);
     setShowModalEliminar(true);
   };
@@ -102,6 +112,7 @@ function ClientesPage({ user }) {
   };
 
   const abrirModalActivar = (cliente) => {
+    if (!canActivate) return;
     setClienteSeleccionado(cliente);
     setShowModalActivar(true);
   };
@@ -128,12 +139,22 @@ function ClientesPage({ user }) {
     setClienteSeleccionado(null);
   };
 
+  useEffect(() => {
+    if (!canManageBasic && vistaActual === "agregar") setVistaActual("ver");
+  }, [canManageBasic, vistaActual]);
+
   const menuOptions = [
     { value: "ver", label: "Ver Clientes", icon: "bi bi-people" },
-    ...(user?.rol === "admin"
-      ? [{ value: "agregar", label: "Agregar Cliente", icon: "bi bi-person-plus" }]
-      : []),
+    ...(canManageBasic ? [{ value: "agregar", label: "Agregar Cliente", icon: "bi bi-person-plus" }] : []),
   ];
+
+  if (!canView) {
+    return (
+      <div className="container py-4">
+        <div className="alert alert-warning mb-0">No tienes acceso a Clientes.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="clientes-page-container container py-3">
@@ -162,11 +183,11 @@ function ClientesPage({ user }) {
         <div className="clientes-list-wrapper">
           <ClientesList
             clientes={clientes}
-            onEdit={user?.rol === "admin" ? handleEdit : undefined}
-            onDelete={user?.rol === "admin" ? abrirModalEliminar : undefined}
-            onActivate={user?.rol === "admin" ? abrirModalActivar : undefined}
-            canEdit={user?.rol === "admin"}
-            canDelete={user?.rol === "admin"}
+            onEdit={canManageBasic ? handleEdit : undefined}
+            onDelete={canDelete ? abrirModalEliminar : undefined}
+            onActivate={canActivate ? abrirModalActivar : undefined}
+            canEdit={canManageBasic}
+            canDelete={canDelete}
           />
         </div>
       )}

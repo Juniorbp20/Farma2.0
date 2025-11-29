@@ -63,10 +63,8 @@
     color: rgba(107, 114, 128, 0.7);
 }
 
-/* Modal (copiado del estilo de Clientes) */
 .obligatorio { color: red; font-weight: 700; }
 
-/* Bot?n cancelar (alineado con UsersPage) */
 .btn.btn-cancelar {
     display: block;
     margin: 0;
@@ -87,7 +85,6 @@
     border-color: #dc3545 !important;
 }
 
-/* Grupo de botones centrados (igual que usuarios) */
 .grupo-botones {
     display: flex;
     justify-content: center;

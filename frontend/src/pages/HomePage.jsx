@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import './HomePage.css';
 import { getParametrosSistema } from '../services/configService';
+import { buildPermissions } from '../utils/permissions';
 
 function Card({ icon, title, desc, action, disabled }) {
   const cardClass = `card card-menu-home shadow-sm h-100 card-grid-item ${disabled ? 'card-disabled' : ''}`;
@@ -23,7 +24,18 @@ function Card({ icon, title, desc, action, disabled }) {
 function HomePage({ user, onNavigate }) {
   const [parametros, setParametros] = useState({ nombreEmpresa: '' });
   const [loadingNombre, setLoadingNombre] = useState(false);
-  const isAdmin = user?.rol === 'admin' || String(user?.rolId) === '1';
+  const perms = useMemo(() => buildPermissions(user), [user]);
+  const isAdmin = perms.roleKey === 'admin';
+  const canClientes = perms.can('clientes:read');
+  const canUsuarios = perms.can('usuarios:manage');
+  const canVentas = perms.can('ventas:read');
+  const canInventario = perms.can('inventario:read');
+  const canInventarioManage = perms.can('inventario:manage');
+  const canProductos = perms.can('productos:read');
+  const canProveedores = perms.can('proveedores:read');
+  const canReportes = perms.can('reportes:read');
+  const roleId = Number(user?.rolId ?? user?.rolID ?? user?.rol ?? 0) || 0;
+  const isInventory = roleId === 4;
 
   const displayName = [user?.nombres, user?.apellidos].filter(Boolean).join(' ') || user?.username;
   const systemName = (parametros?.nombreEmpresa || 'FManager').toUpperCase();
@@ -81,53 +93,67 @@ function HomePage({ user, onNavigate }) {
             {user?.rol} - {user?.username}
           </div>
         </div>
-        <p className="text-muted mt-2 opacity-75 text-center">Panel principal del sistema farmaceutico.</p>
+        <p className="text-muted mt-2 opacity-75 text-center">Panel principal del sistema farmacéutico.</p>
       </div>
 
       <div className="home-cards-grid">
-        <Card
-          icon="bi-cart"
-          title="Facturacion"
-          desc="Registrar ventas y emitir comprobantes."
-          action={() => onNavigate('pos')}
-        />
-        <Card
-          icon="bi-box-seam"
-          title="Inventario / Lotes"
-          desc="Control de lotes, vencimientos y existencias."
-          action={() => onNavigate('inventario')}
-        />
-        <Card
-          icon="bi-bag-check"
-          title="Compras"
-          desc="Ordenes de compra y recepcion de productos."
-          action={() => onNavigate({ view: 'inventario', tab: 'compras' })}
-        />
-        <Card
-          icon="bi-capsule"
-          title="Productos"
-          desc="Catalogo de medicamentos, precios y stock minimo."
-          action={() => onNavigate('productos')}
-        />
-        <Card
-          icon="bi-graph-up"
-          title="Reportes"
-          desc="Reportes de ventas, stock, vencimientos y mas."
-          action={() => onNavigate('reportes')}
-        />
-        <Card
-          icon="bi-truck"
-          title="Proveedores"
-          desc="Alta de proveedores y condiciones comerciales."
-          action={() => onNavigate('proveedores')}
-        />
-        <Card
-          icon="bi-people"
-          title="Clientes"
-          desc="Gestione clientes: crear, actualizar y desactivar."
-          action={() => onNavigate('clientes')}
-        />
-        {isAdmin && (
+        {canVentas && (
+          <Card
+            icon="bi-cart"
+            title="Facturacion"
+            desc="Registrar ventas y emitir comprobantes."
+            action={() => onNavigate('pos')}
+          />
+        )}
+        {canInventario && (
+          <Card
+            icon="bi-box-seam"
+            title="Inventario / Lotes"
+            desc="Control de lotes, vencimientos y existencias."
+            action={() => onNavigate('inventario')}
+          />
+        )}
+        {canInventarioManage && (
+          <Card
+            icon="bi-bag-check"
+            title="Compras"
+            desc="Ordenes de compra y recepcion de productos."
+            action={() => onNavigate({ view: 'inventario', tab: 'compras' })}
+          />
+        )}
+        {canProductos && (
+          <Card
+            icon="bi-capsule"
+            title="Productos"
+            desc="Catalogo de medicamentos, precios y stock minimo."
+            action={() => onNavigate('productos')}
+          />
+        )}
+        {canReportes && (
+          <Card
+            icon="bi-graph-up"
+            title="Reportes"
+            desc="Reportes de ventas, stock, vencimientos y mas."
+            action={() => onNavigate('reportes')}
+          />
+        )}
+        {canProveedores && (
+          <Card
+            icon="bi-truck"
+            title="Proveedores"
+            desc="Alta de proveedores y condiciones comerciales."
+            action={() => onNavigate('proveedores')}
+          />
+        )}
+        {canClientes && !isInventory && (
+          <Card
+            icon="bi-people"
+            title="Clientes"
+            desc="Gestione clientes: crear, actualizar y desactivar."
+            action={() => onNavigate('clientes')}
+          />
+        )}
+        {canUsuarios && (
           <Card
             icon="bi-person-gear"
             title="Usuarios y Roles"
