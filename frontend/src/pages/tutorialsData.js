@@ -7,37 +7,75 @@
 export const tutorials = [
   {
     id: 101,
-    title: "Bienvenida: recorrido inicial y navegacion",
-    section: "Resumen",
+    title: "Bienvenida y Navegación del sistema (Resumido y directo)",
+    section: "El sistema",
     roleAccess: [1, 2, 3, 4],
     contentType: "video",
-    videoId: "dQw4w9WgXcQ",
+    videoId: "31iOjHF2FiU",
   },
   {
     id: 201,
-    title: "Inventario: ingresos, ajustes y vencimientos",
-    section: "Inventario",
-    roleAccess: [1, 3, 4],
-    contentType: "video",
-    videoId: "wWoQ7PFSYlk",
-  },
-  {
-    id: 302,
-    title: "Facturación: anulaciones y devoluciones",
-    section: "Facturación",
-    roleAccess: [1, 2],
-    contentType: "video",
-    videoId: "ESOjt2_yJrU",
-  },
-  {
-    id: 401,
-    title: "Usuarios y roles: altas, permisos y bloqueos",
+    title: "Gestión de usuarios (CRUD COMPLETO)",
     section: "Usuarios",
     roleAccess: [1],
     contentType: "video",
-    videoId: "foE1mO2yM04",
+    videoId: "yCxc88E8ckc",
+  },
+  {
+    id: 302,
+    title: "Gestión de reportes (Creación de los mismos e informaciones mostradas)",
+    section: "Reportes",
+    roleAccess: [1],
+    contentType: "video",
+    videoId: "0q5ak6VggM0",
+  },
+  {
+    id: 401,
+    title: "Configuración del sistema",
+    section: "Configuración",
+    roleAccess: [1],
+    contentType: "video",
+    videoId: "mbH5WwRBz-k",
   },
 
+  {
+    id: 403,
+    title: "Gestión de productos (CRUD COMPLETO)",
+    section: "Productos",
+    roleAccess: [1,2,3,4],
+    contentType: "video",
+    videoId: "1zhmcPQeHFA",
+  },
+
+    {
+    id: 404,
+    title: "Manejo de Inventario & Gestión de proveedores (CRUD COMPLETO Y PANEO)",
+    section: "Inventario",
+    roleAccess: [1,2,3,4],
+    contentType: "video",
+    videoId: "wbH-AAWhw3E",
+  },
+
+      {
+    id: 405,
+    title: "Gestión de clientes (CRUD COMPLETO)",
+    section: "Clientes",
+    roleAccess: [1,2,3],
+    contentType: "video",
+    videoId: "nWos-Q-8tGI",
+  },
+
+  
+      {
+    id: 406,
+    title: "Facturación: Creación de ventas + Devoluciones + Otras opciones",
+    section: "Facturación",
+    roleAccess: [1,2],
+    contentType: "video",
+    videoId: "KBYK1h5KrPE",
+  },
+
+  
 // Datos para los tutoriales en el acordeon
   {
     id: 501,
